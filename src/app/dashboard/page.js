@@ -548,29 +548,24 @@
 //   );
 // }
 
-
 "use client";
 
 import {
-  Users,
   Phone,
-  UserPlus,
-  BarChart3,
   Menu,
   X,
   Loader2,
   AlertTriangle,
   Clock,
-  Calendar,
-  ChevronDown,
   PhoneIncoming,
   PhoneOff,
   TrendingUp,
   TrendingDown,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
+import DashboardTopBar from "@/components/DashboardTopBar";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -578,82 +573,6 @@ export default function DashboardPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-
-  // Helper Function for Consistent Date/Time Formatting
-  const formatDateTime = (dateObj) => {
-    const day = dateObj.toLocaleDateString("en-US", { weekday: "long" });
-    const date = dateObj.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-    const time = dateObj.toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    });
-
-    return {
-      day,
-      date,
-      time,
-      fullString: `${day}, ${date} at ${time}`,
-    };
-  };
-
-  // State initialized with Current Date/Time immediately
-  const [loginDetails, setLoginDetails] = useState(() =>
-    formatDateTime(new Date())
-  );
-  // Dynamic User State
-const [currentUser, setCurrentUser] = useState({
-  name: "User",
-  email: "Loading...",
-  role: "Agent",
-  avatar: null,
-});
-
-// LocalStorage se user fetch karein
-useEffect(() => {
-  try {
-    const storedUser = localStorage.getItem("crm_user");
-    if (storedUser) {
-      const parsedUser = JSON.parse(storedUser);
-      setCurrentUser({
-        name: parsedUser.name || parsedUser.fullName || "User",
-        email: parsedUser.email || "",
-        role: parsedUser.role || "Agent",
-        avatar: parsedUser.avatar || null, // Agar photo hai toh
-      });
-    }
-  } catch (error) {
-    console.error("Error loading user profile:", error);
-  }
-}, []);
-
-// Dynamic Avatar Initial (First Letter)
-const userInitial = currentUser.name
-  ? currentUser.name.charAt(0).toUpperCase()
-  : currentUser.email
-  ? currentUser.email.charAt(0).toUpperCase()
-  : "U";
-
-  useEffect(() => {
-    try {
-      let savedLoginTime = localStorage.getItem("crm_login_time");
-
-      if (!savedLoginTime) {
-        const now = new Date();
-        savedLoginTime = now.toISOString();
-        localStorage.setItem("crm_login_time", savedLoginTime);
-      }
-
-      const loginDateObj = new Date(savedLoginTime);
-      setLoginDetails(formatDateTime(loginDateObj));
-    } catch (e) {
-      console.error("Storage access error:", e);
-    }
-  }, []);
 
   // Stats Data matching UI Image Layout
   const stats = [
@@ -790,68 +709,8 @@ const userInitial = currentUser.name
       {/* MAIN CONTENT */}
       <main className="lg:ml-64 min-h-screen p-4 sm:p-6 lg:p-8 space-y-6">
         
-        {/* TOP BAR WITH LOGIN TIME, DAY & DATE + USER PROFILE */}
-    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white border border-slate-200/80 p-4 rounded-2xl shadow-sm">
-  <div>
-    <h1 className="text-xl font-extrabold text-slate-900">Dashboard</h1>
-    <p className="text-xs text-slate-500 mt-0.5">Call Activity & Performance Analytics</p>
-  </div>
-
-  <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-4">
-    {/* LOGIN DAY, DATE & TIME BADGE */}
-    <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-blue-50 border border-blue-100 text-xs text-blue-700 font-medium shadow-sm">
-      <Calendar size={14} className="text-blue-600 shrink-0" />
-      <span>
-        Logged in: <strong>{loginDetails.day}</strong>, {loginDetails.date} at {loginDetails.time}
-      </span>
-    </div>
-
-    {/* DYNAMIC LOGGED IN USER PROFILE */}
-    <div className="flex items-center gap-3 shrink-0">
-      {/* AVATAR IMAGE OR INITIAL */}
-      <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-sm shadow-md overflow-hidden">
-        {currentUser.avatar ? (
-          <img
-            src={currentUser.avatar}
-            alt={currentUser.name}
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <span className="bg-gradient-to-tr from-amber-500 to-rose-500 w-full h-full rounded-full flex items-center justify-center uppercase">
-            {userInitial}
-          </span>
-        )}
-      </div>
-
-      <div className="text-left hidden md:block">
-        <div className="flex items-center gap-2">
-          {/* DYNAMIC USER NAME */}
-          <p className="text-xs sm:text-sm font-bold text-slate-900 leading-none capitalize">
-            {currentUser.name}
-          </p>
-
-          {/* DYNAMIC ROLE BADGE */}
-          <span
-            className={`px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider rounded-md border ${
-              currentUser.role?.toLowerCase() === "admin"
-                ? "bg-purple-50 text-purple-700 border-purple-200"
-                : "bg-emerald-50 text-emerald-700 border-emerald-200"
-            }`}
-          >
-            {currentUser.role}
-          </span>
-
-          <ChevronDown size={13} className="text-slate-400" />
-        </div>
-
-        {/* DYNAMIC LOGGED IN EMAIL */}
-        <p className="text-[11px] text-slate-400 font-medium mt-1">
-          {currentUser.email}
-        </p>
-      </div>
-    </div>
-  </div>
-</div>
+        {/* DYNAMIC TOP BAR WITH LOGIN TIME & USER PROFILE */}
+        <DashboardTopBar />
 
         {/* 4 TOP STATS CARDS */}
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
