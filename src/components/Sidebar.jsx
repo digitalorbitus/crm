@@ -295,7 +295,7 @@ export default function Sidebar({
       name: "Dashboard",
       icon: LayoutDashboard,
       href: "/dashboard",
-      roles: ["admin", "user", "agent"],
+      roles: ["admin", "user","staff", "agent"],
     },
     {
       name: "Users",
@@ -320,6 +320,13 @@ export default function Sidebar({
         { name: "Recordings", href: "/calls/recordings" },
       ],
     },
+        {
+      name: "Daily staff task",
+      icon: Users,
+      href: "/staff/task",
+      roles: ["admin", "staff",  "agent"],
+    },
+    
     {
       name: "Leads",
       icon: UserPlus,
@@ -332,28 +339,28 @@ export default function Sidebar({
       ],
     },
     {
-      name: "Daily Tasks",
+      name: "Daily Tasks assign",
       icon: Link2,
       href: "/daily-tasks",
-      roles: ["admin", "user", "agent"],
+      roles: ["admin", ],
     },
     {
       name: "Customers",
       icon: Users,
       href: "/customers",
-      roles: ["admin", "user", "agent"],
+      roles: ["admin", "user","staff",  "agent"],
     },
     {
       name: "Messages",
       icon: MessageSquare,
       href: "/messages",
-      roles: ["admin", "user", "agent"],
+      roles: ["admin", "user","staff", "agent"],
     },
     {
       name: "Reports",
       icon: BarChart3,
       href: "/reports",
-      roles: ["admin", "user", "agent"],
+      roles: ["admin", "user","staff", "agent"],
     },
     {
       name: "Settings",
@@ -366,7 +373,7 @@ export default function Sidebar({
       name: "Agents",
       icon: Link2,
       href: "/agents",
-      roles: ["admin", "user", "agent"],
+      roles: ["admin", "user", "staff", "agent"],
     },
     {
       name: "Plan & Billing",

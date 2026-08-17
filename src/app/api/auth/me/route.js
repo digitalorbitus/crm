@@ -72,8 +72,47 @@
 
 
 
+// import { NextResponse } from "next/server";
+// import jwt from "jsonwebtoken";
+
+// export async function GET(request) {
+//   try {
+//     const token = request.cookies.get("token")?.value;
+
+//     if (!token) {
+//       return NextResponse.json(
+//         { success: false, message: "No token found" },
+//         { status: 401 }
+//       );
+//     }
+
+//     // Direct Token Decode (No Mongoose needed)
+//     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+//     return NextResponse.json({
+//       success: true,
+//       user: {
+//         id: decoded.id || decoded._id || decoded.userId,
+//         name: decoded.name || decoded.username || "User",
+//         email: decoded.email || "",
+//         role: decoded.role ? decoded.role.toLowerCase() : "user",
+//       },
+//       role: decoded.role ? decoded.role.toLowerCase() : "user",
+//     });
+//   } catch (error) {
+//     console.error("Auth Me API Error:", error);
+//     return NextResponse.json(
+//       { success: false, message: "Invalid token" },
+//       { status: 401 }
+//     );
+//   }
+// }
+
 import { NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
+
+// Ensure Node.js runtime for 'jsonwebtoken' library compatibility
+export const runtime = "nodejs";
 
 export async function GET(request) {
   try {
@@ -86,24 +125,34 @@ export async function GET(request) {
       );
     }
 
-    // Direct Token Decode (No Mongoose needed)
+    // Verify token using secret key
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    return NextResponse.json({
-      success: true,
-      user: {
-        id: decoded.id || decoded._id || decoded.userId,
-        name: decoded.name || decoded.username || "User",
-        email: decoded.email || "",
-        role: decoded.role ? decoded.role.toLowerCase() : "user",
-      },
-      role: decoded.role ? decoded.role.toLowerCase() : "user",
-    });
-  } catch (error) {
-    console.error("Auth Me API Error:", error);
+    const role = decoded.role ? decoded.role.toLowerCase() : "user";
+
     return NextResponse.json(
-      { success: false, message: "Invalid token" },
+      {
+        success: true,
+        user: {
+          id: decoded.id || decoded._id || decoded.userId || null,
+          name: decoded.name || decoded.username || "User",
+          email: decoded.email || "",
+          role,
+        },
+        role,
+      },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error("Auth Me API Error:", error.message);
+
+    // Optional: Clear invalid or expired cookie
+    const response = NextResponse.json(
+      { success: false, message: "Invalid or expired token" },
       { status: 401 }
     );
+
+    response.cookies.delete("token");
+    return response;
   }
 }
