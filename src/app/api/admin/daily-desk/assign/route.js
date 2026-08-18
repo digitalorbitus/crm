@@ -1,107 +1,57 @@
+
+
 // import { NextResponse } from "next/server";
-// import db from "../../../../lib/db";
+// import pool from "../../../../lib/db";
 
 // export async function POST(request) {
-//   let connection;
+//   const connection = await pool.getConnection();
 
 //   try {
 //     const body = await request.json();
 
 //     const {
-//       numbers,
-//       selectedStaff,
+//       numbers = [],
+//       selectedStaff = [],
 //       distribution = "equal",
 //       sourceFile = null,
 //     } = body;
 
-//     // ==========================================
-//     // VALIDATION
-//     // ==========================================
-
-//     if (!Array.isArray(numbers) || numbers.length === 0) {
+//     // Validation
+//     if (!numbers.length) {
 //       return NextResponse.json(
 //         {
 //           success: false,
-//           message: "No phone numbers found.",
+//           message: "Numbers nahi mile.",
 //         },
 //         { status: 400 }
 //       );
 //     }
 
-//     if (!Array.isArray(selectedStaff) || selectedStaff.length === 0) {
+//     if (!selectedStaff.length) {
 //       return NextResponse.json(
 //         {
 //           success: false,
-//           message: "Please select at least one staff member.",
+//           message: "Staff select nahi kiya gaya.",
 //         },
 //         { status: 400 }
 //       );
 //     }
-
-//     // ==========================================
-//     // DATABASE CONNECTION
-//     // ==========================================
-
-//     connection = await db.getConnection();
 
 //     await connection.beginTransaction();
 
-//     // ==========================================
-//     // CHECK STAFF
-//     // ==========================================
-
-//     const placeholders = selectedStaff.map(() => "?").join(",");
-
-//     const [staffRows] = await connection.execute(
-//       `
-//       SELECT id, name, email, role, status
-//       FROM users
-//       WHERE id IN (${placeholders})
-//       `,
-//       selectedStaff
-//     );
-
-//     if (staffRows.length !== selectedStaff.length) {
-//       await connection.rollback();
-
-//       return NextResponse.json(
-//         {
-//           success: false,
-//           message: "One or more selected staff members do not exist.",
-//         },
-//         { status: 400 }
-//       );
-//     }
-
-//     // ==========================================
-//     // TODAY DATE
-//     // ==========================================
-
-//     const today = new Date().toISOString().slice(0, 10);
-
-//     let savedTasks = 0;
-//     let savedAssignments = 0;
-
-//     // ==========================================
-//     // SAVE EVERY EXCEL RECORD
-//     // ==========================================
+//     let tasksSaved = 0;
+//     let assignmentsSaved = 0;
 
 //     for (let index = 0; index < numbers.length; index++) {
 //       const item = numbers[index];
 
-//       const phone = String(item.phone || "").trim();
+//       // Staff distribution
+//       const staffId =
+//         selectedStaff[index % selectedStaff.length];
 
-//       if (!phone) {
-//         continue;
-//       }
-
-//       const taskId =
-//         String(item.taskId || "").trim() ||
-//         `TSK-${Date.now()}-${index}`;
-
-//       // ========================================
-//       // SAVE TASK
-//       // ========================================
+//       // ==========================================
+//       // 1. SAVE TASK
+//       // ==========================================
 
 //       const [taskResult] = await connection.execute(
 //         `
@@ -112,40 +62,22 @@
 //           source_file,
 //           task_date
 //         )
-//         VALUES (?, ?, ?, ?)
+//         VALUES (?, ?, ?, CURDATE())
 //         `,
 //         [
-//           taskId,
-//           phone,
+//           item.taskId,
+//           item.phone,
 //           sourceFile,
-//           today,
 //         ]
 //       );
 
 //       const taskDatabaseId = taskResult.insertId;
 
-//       savedTasks++;
+//       tasksSaved++;
 
-//       // ========================================
-//       // STAFF DISTRIBUTION
-//       // ========================================
-
-//       let staffIndex;
-
-//       if (distribution === "round") {
-//         // Round Robin
-//         staffIndex = index % selectedStaff.length;
-//       } else {
-//         // Equal distribution
-//         // Sequential distribution is also balanced
-//         staffIndex = index % selectedStaff.length;
-//       }
-
-//       const staffId = selectedStaff[staffIndex];
-
-//       // ========================================
-//       // SAVE ASSIGNMENT
-//       // ========================================
+//       // ==========================================
+//       // 2. SAVE ASSIGNMENT
+//       // ==========================================
 
 //       await connection.execute(
 //         `
@@ -156,63 +88,120 @@
 //           assigned_date,
 //           status
 //         )
-//         VALUES (?, ?, ?, 'Pending')
+//         VALUES (?, ?, CURDATE(), 'Pending')
 //         `,
 //         [
 //           taskDatabaseId,
 //           staffId,
-//           today,
 //         ]
 //       );
 
-//       savedAssignments++;
+//       assignmentsSaved++;
 //     }
-
-//     // ==========================================
-//     // COMMIT
-//     // ==========================================
 
 //     await connection.commit();
 
 //     return NextResponse.json({
 //       success: true,
-//       message: "Daily Desk tasks assigned successfully.",
+//       message: "Daily Desk tasks successfully saved.",
 //       data: {
-//         tasksSaved: savedTasks,
-//         assignmentsSaved: savedAssignments,
+//         tasksSaved,
+//         assignmentsSaved,
 //         staffCount: selectedStaff.length,
-//         date: today,
+//         distribution,
 //       },
 //     });
 
 //   } catch (error) {
-//     console.error("DAILY DESK ASSIGN ERROR:", error);
+//     await connection.rollback();
 
-//     if (connection) {
-//       try {
-//         await connection.rollback();
-//       } catch (rollbackError) {
-//         console.error("ROLLBACK ERROR:", rollbackError);
-//       }
-//     }
+//     console.error(
+//       "DAILY DESK DATABASE ERROR:",
+//       error
+//     );
 
 //     return NextResponse.json(
 //       {
 //         success: false,
-//         message: error.message || "Failed to assign Daily Desk tasks.",
+//         message:
+//           error.message ||
+//           "Database mein data save nahi ho saka.",
 //       },
 //       { status: 500 }
 //     );
+
 //   } finally {
-//     if (connection) {
-//       connection.release();
-//     }
+//     connection.release();
 //   }
 // }
 
 import { NextResponse } from "next/server";
 import pool from "../../../../lib/db";
 
+// =====================================================
+// 1. GET API (Date Wise Data Fetching)
+// =====================================================
+export async function GET(request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const dateParam = searchParams.get("date"); // Target Date e.g. '2026-08-18'
+
+    if (!dateParam) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          message: "Date parameter required hai (e.g. ?date=YYYY-MM-DD)." 
+        },
+        { status: 400 }
+      );
+    }
+
+    const [rows] = await pool.execute(
+      `
+      SELECT 
+        dda.id AS assignment_id,
+        ddt.task_id AS taskId,
+        ddt.phone,
+        ddt.source_file AS sourceFile,
+        u.id AS staffId,
+        u.name AS staffName,
+        u.email AS staffEmail,
+        dda.assigned_date AS assignedDate,
+        dda.assigned_at AS assignedAt,
+        dda.completed_at AS completedAt,
+        dda.status
+      FROM daily_desk_assignments dda
+      INNER JOIN daily_desk_tasks ddt 
+        ON dda.task_id = ddt.id
+      INNER JOIN users u 
+        ON dda.staff_id = u.id
+      WHERE dda.assigned_date = ?
+      ORDER BY dda.assigned_at DESC
+      `,
+      [dateParam]
+    );
+
+    return NextResponse.json({
+      success: true,
+      count: rows.length,
+      data: rows,
+    });
+
+  } catch (error) {
+    console.error("DAILY DESK HISTORY FETCH ERROR:", error);
+    return NextResponse.json(
+      {
+        success: false,
+        message: error.message || "Database se data fetch nahi ho saka.",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+// =====================================================
+// 2. POST API (Aapka Existing Assign/Save Tasks Code)
+// =====================================================
 export async function POST(request) {
   const connection = await pool.getConnection();
 
