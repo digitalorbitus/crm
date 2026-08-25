@@ -550,18 +550,29 @@
 
 "use client";
 
+// import {
+//   Phone,
+//   Menu,
+//   X,
+//   Loader2,
+//   AlertTriangle,
+//   Clock,
+//   PhoneIncoming,
+//   PhoneOff,
+//   TrendingUp,
+//   TrendingDown,
+// } from "lucide-react";
 import {
   Phone,
   Menu,
   X,
-  Loader2,
-  AlertTriangle,
   Clock,
   PhoneIncoming,
   PhoneOff,
   TrendingUp,
   TrendingDown,
 } from "lucide-react";
+import LogoutModal from "@/components/LogoutModal";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
@@ -963,7 +974,7 @@ export default function DashboardPage() {
       </main>
 
       {/* LOGOUT CONFIRMATION MODAL */}
-      {showLogoutModal && (
+      {/* {showLogoutModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn">
           <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-slate-100 space-y-4">
             <div className="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto">
@@ -1005,7 +1016,13 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
-      )}
+      )} */}
+      <LogoutModal
+  show={showLogoutModal}
+  loggingOut={loggingOut}
+  onCancel={() => setShowLogoutModal(false)}
+  onConfirm={handleConfirmLogout}
+/>
     </div>
   );
 }

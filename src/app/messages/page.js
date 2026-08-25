@@ -4134,11 +4134,16 @@ import {
   Info,
   Loader2,
 } from "lucide-react";
-
+import LogoutModal from "@/components/LogoutModal";
+import Sidebar from "@/components/Sidebar";
 export default function MessagesDashboard() {
   /* ==================================================
      CONVERSATIONS
   ================================================== */
+
+    const [sidebarOpen, setSidebarOpen] = useState(false);
+      const [showLogoutModal, setShowLogoutModal] = useState(false);
+        const [loggingOut, setLoggingOut] = useState(false);
 
   const [conversations, setConversations] =
     useState([]);
@@ -5259,186 +5264,340 @@ senderId:
      CREATE GROUP
   ================================================== */
 
-  const handleCreateGroup =
-    async (e) => {
-      e.preventDefault();
+const handleCreateGroup = async (e) => {
+  e.preventDefault();
 
-      if (
-        !groupName.trim()
-      ) {
-        alert(
-          "Group name is required"
-        );
-        return;
-      }
+  if (!groupName.trim()) {
+    alert("Group name is required");
+    return;
+  }
 
-      /*
-      Only existing DB users can be
-      inserted into conversation_members.
+  /*
+  ==================================================
+  GET REAL DATABASE USER IDS
+  ==================================================
+  */
 
-      Custom phone contacts do not have
-      user_id, so they are not sent to
-      the current API.
-      */
+  const existingMemberIds = [
+    ...new Set(
+      selectedMembers
+        .map((member) => {
+          /*
+          selectedMembers mein user object ho sakta hai:
+          {
+            id: 2,
+            user_id: 2,
+            name: "M Aftab"
+          }
 
-      const existingMemberIds =
-        selectedMembers
-          .map(
-            (member) =>
-              member.user_id ||
-              member.id
-          )
-          .filter(
-            (id) =>
-              Number.isInteger(
-                Number(id)
-              ) &&
-              Number(id) > 0
-          )
-          .map((id) =>
-            Number(id)
-          );
+          Ya:
+          {
+            id: 3,
+            name: "Ali Ahmed"
+          }
+          */
 
-      try {
-        setSendingMessage(true);
+          const rawId =
+            member?.user_id ??
+            member?.id;
 
-        const response =
-          await fetch(
-            "/api/conversations",
-            {
-              method: "POST",
-              credentials:
-                "include",
-              headers: {
-                "Content-Type":
-                  "application/json",
-              },
-              body: JSON.stringify(
-                {
-                  type: "group",
+          const numericId =
+            Number(rawId);
 
-                  name:
-                    groupName.trim(),
+          /*
+          Sirf valid positive integer IDs
+          */
 
-                  members:
-                    existingMemberIds,
-                }
-              ),
-            }
-          );
+          if (
+            Number.isInteger(numericId) &&
+            numericId > 0
+          ) {
+            return numericId;
+          }
 
-        const data =
-          await response.json();
+          return null;
+        })
+        .filter(
+          (id) => id !== null
+        )
+    ),
+  ];
 
-        if (
-          !response.ok ||
-          !data.success
-        ) {
-          throw new Error(
-            data.message ||
-              "Group creation failed"
-          );
-        }
+  /*
+  ==================================================
+  DEBUG
+  ==================================================
+  */
 
-        /*
-        Reload from database
-        */
+  console.log(
+    "SELECTED MEMBERS:",
+    selectedMembers
+  );
 
-        await loadConversations();
+  console.log(
+    "GROUP MEMBER IDS:",
+    existingMemberIds
+  );
 
-        /*
-        Find created group
-        */
+  /*
+  ==================================================
+  IMPORTANT
+  ==================================================
 
-        const createdGroupId =
-          data.conversationId;
+  Database users:
 
-        const refreshedGroup =
-          conversations.find(
-            (chat) =>
-              Number(chat.id) ===
-              Number(
-                createdGroupId
-              )
-          );
+  Admin     = 1
+  M Aftab   = 2
+  Ali Ahmed = 3
+  Imran     = 4
+  */
 
-        if (
-          refreshedGroup
-        ) {
-          setSelectedChat(
-            refreshedGroup
-          );
-        } else {
-          setSelectedChat({
-            id:
-              createdGroupId,
+  /*
+  At least one real user required.
+  Creator will automatically be added
+  by /api/conversations.
+  */
 
+  if (
+    existingMemberIds.length === 0
+  ) {
+    alert(
+      "Please select at least one existing user."
+    );
+
+    return;
+  }
+
+  try {
+    setSendingMessage(true);
+
+    /*
+    ==================================================
+    CREATE GROUP
+    ==================================================
+    */
+
+    const response =
+      await fetch(
+        "/api/conversations",
+        {
+          method: "POST",
+
+          credentials: "include",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+
+          body: JSON.stringify({
             type: "group",
 
             name:
               groupName.trim(),
 
-            initials:
-              groupName
-                .trim()
-                .slice(0, 2)
-                .toUpperCase(),
-
-            avatarBg:
-              "bg-rose-100 text-rose-600",
-
-            avatar_bg:
-              "bg-rose-100 text-rose-600",
-
-            members: [],
-
-            messages: [],
-          });
+            members:
+              existingMemberIds,
+          }),
         }
+      );
 
-        setShowMobileChat(
-          true
-        );
+    const data =
+      await response.json();
 
-        /*
-        Load messages
-        */
+    console.log(
+      "CREATE GROUP RESPONSE:",
+      data
+    );
 
-        await loadMessages(
-          createdGroupId
-        );
+    /*
+    ==================================================
+    ERROR
+    ==================================================
+    */
 
-        /*
-        Reset modal
-        */
+    if (
+      !response.ok ||
+      !data.success
+    ) {
+      /*
+      Show invalid IDs if API returns them
+      */
 
-        setGroupName("");
-        setSelectedMembers(
-          []
+      if (
+        data.invalidUsers?.length
+      ) {
+        throw new Error(
+          `Invalid user IDs: ${data.invalidUsers.join(
+            ", "
+          )}. Database mein ye users exist nahi karte.`
         );
-        setCustomMembersList(
-          []
-        );
-        setCustomName("");
-        setCustomPhone("");
-        setIsGroupModalOpen(
-          false
-        );
-      } catch (error) {
-        console.error(
-          "Create Group Error:",
-          error
-        );
-
-        alert(
-          error.message ||
-            "Group creation failed"
-        );
-      } finally {
-        setSendingMessage(false);
       }
-    };
 
+      throw new Error(
+        data.message ||
+          "Group creation failed"
+      );
+    }
+
+    /*
+    ==================================================
+    CREATED GROUP ID
+    ==================================================
+    */
+
+    const createdGroupId =
+      Number(
+        data.conversationId
+      );
+
+    if (
+      !Number.isInteger(
+        createdGroupId
+      ) ||
+      createdGroupId <= 0
+    ) {
+      throw new Error(
+        "Invalid conversation ID returned by server"
+      );
+    }
+
+    /*
+    ==================================================
+    RELOAD CONVERSATIONS
+    ==================================================
+    */
+
+    await loadConversations();
+
+    /*
+    ==================================================
+    FIND CREATED GROUP
+    ==================================================
+    */
+
+    /*
+    NOTE:
+
+    loadConversations() ke baad
+    state immediately update nahi hota,
+    isliye purane `conversations` state par
+    depend karna unreliable ho sakta hai.
+    */
+
+    const refreshedGroup =
+      conversations.find(
+        (chat) =>
+          Number(chat.id) ===
+          createdGroupId
+      );
+
+    if (refreshedGroup) {
+      setSelectedChat(
+        refreshedGroup
+      );
+    } else {
+      /*
+      Temporary group object
+      */
+
+      setSelectedChat({
+        id:
+          createdGroupId,
+
+        type:
+          "group",
+
+        name:
+          groupName.trim(),
+
+        initials:
+          groupName
+            .trim()
+            .slice(0, 2)
+            .toUpperCase(),
+
+        avatarBg:
+          "bg-rose-100 text-rose-600",
+
+        avatar_bg:
+          "bg-rose-100 text-rose-600",
+
+        members:
+          data.conversation
+            ?.members || [],
+
+        messages: [],
+
+        unread_count: 0,
+
+        lastMsg:
+          "No messages yet",
+
+        last_msg:
+          "No messages yet",
+      });
+    }
+
+    /*
+    ==================================================
+    SHOW MOBILE CHAT
+    ==================================================
+    */
+
+    setShowMobileChat(
+      true
+    );
+
+    /*
+    ==================================================
+    LOAD GROUP MESSAGES
+    ==================================================
+    */
+
+    await loadMessages(
+      createdGroupId
+    );
+
+    /*
+    ==================================================
+    RESET GROUP MODAL
+    ==================================================
+    */
+
+    setGroupName("");
+
+    setSelectedMembers(
+      []
+    );
+
+    setCustomMembersList(
+      []
+    );
+
+    setCustomName("");
+
+    setCustomPhone("");
+
+    setIsGroupModalOpen(
+      false
+    );
+  } catch (error) {
+    console.error(
+      "Create Group Error:",
+      error
+    );
+
+    alert(
+      error.message ||
+        "Group creation failed"
+    );
+  } finally {
+    setSendingMessage(
+      false
+    );
+  }
+};
   /* ==================================================
      FILTER CONVERSATIONS
   ================================================== */
@@ -5505,8 +5664,36 @@ console.log(
      RENDER
   ================================================== */
 
+  const handleConfirmLogout = async () => {
+  setLoggingOut(true);
+
+  try {
+    localStorage.removeItem("crm_login_time");
+
+    const response = await fetch("/api/logout", {
+      method: "POST",
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      alert(data.message || "Logout failed");
+      setLoggingOut(false);
+      setShowLogoutModal(false);
+      return;
+    }
+
+    router.push("/login");
+  } catch (error) {
+    console.error("Logout error:", error);
+    alert("Something went wrong during logout.");
+    setLoggingOut(false);
+    setShowLogoutModal(false);
+  }
+};
+
   return (
-    <div className="flex flex-col h-screen w-full bg-slate-50 text-slate-800 font-sans overflow-hidden">
+    <div className="flex flex-col   h-screen w-full bg-slate-50 text-slate-800 font-sans overflow-hidden">
 
       {/* ==================================================
           FILE INPUT
@@ -5717,6 +5904,7 @@ console.log(
           key={`admin-user-${user.id}`}
           className="p-3 flex items-center gap-3 hover:bg-slate-50 border-t border-slate-100"
         >
+       
 
           {/* AVATAR */}
 
@@ -7201,6 +7389,19 @@ console.log(
         </div>
 
       )}
+      {/* EXACT MATCH SIDEBAR COMPONENT */}
+                <Sidebar
+                  sidebarOpen={sidebarOpen}
+                  setSidebarOpen={setSidebarOpen}
+                  setShowLogoutModal={setShowLogoutModal}
+                />
+
+      <LogoutModal
+  show={showLogoutModal}
+  loggingOut={loggingOut}
+  onCancel={() => setShowLogoutModal(false)}
+  onConfirm={handleConfirmLogout}
+/>
 
     </div>
   );

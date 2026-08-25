@@ -1928,6 +1928,7 @@ import {
   Search,
   RefreshCw,
 } from "lucide-react";
+import LogoutModal from "@/components/LogoutModal";
 
 export default function AdminDailyDeskPage() {
   const [file, setFile] = useState(null);
@@ -2574,37 +2575,12 @@ export default function AdminDailyDeskPage() {
       </div>
 
       {/* LOGOUT MODAL */}
-      {showLogoutModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white border border-slate-100 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
-            <div className="w-12 h-12 rounded-full bg-red-50 text-red-500 flex items-center justify-center mx-auto mb-4">
-              <LogOut size={22} />
-            </div>
-
-            <h3 className="text-base font-bold text-slate-900 text-center">Confirm Logout</h3>
-            <p className="text-xs text-slate-500 text-center mt-1">
-              Kya aap sach me account se log out karna chahte hain?
-            </p>
-
-            <div className="mt-6 flex items-center gap-3">
-              <button
-                onClick={() => setShowLogoutModal(false)}
-                disabled={loggingOut}
-                className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleConfirmLogout}
-                disabled={loggingOut}
-                className="flex-1 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-xs font-bold text-white flex items-center justify-center gap-2 transition shadow-md shadow-red-500/20"
-              >
-                {loggingOut ? <Loader2 size={15} className="animate-spin" /> : "Logout"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+    <LogoutModal
+  show={showLogoutModal}
+  loggingOut={loggingOut}
+  onCancel={() => setShowLogoutModal(false)}
+  onConfirm={handleConfirmLogout}
+/>
     </div>
   );
 }

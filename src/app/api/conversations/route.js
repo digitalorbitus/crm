@@ -1,5 +1,12 @@
 
 
+
+
+
+
+
+
+
 // import { NextResponse } from "next/server";
 // import jwt from "jsonwebtoken";
 // import db from "../../lib/db";
@@ -48,13 +55,15 @@
 //       email:
 //         decoded.email || "",
 
-//       role:
-//         String(
-//           decoded.role || "user"
-//         ).toLowerCase(),
+//       role: String(
+//         decoded.role || "user"
+//       ).toLowerCase(),
 //     };
 //   } catch (error) {
-//     console.error("JWT Error:", error);
+//     console.error(
+//       "JWT Error:",
+//       error
+//     );
 
 //     return null;
 //   }
@@ -65,7 +74,10 @@
 // GET INITIALS
 // ==================================================
 // */
-// function getInitials(name, email = "") {
+// function getInitials(
+//   name,
+//   email = ""
+// ) {
 //   const value =
 //     String(name || "").trim() ||
 //     String(email || "").trim();
@@ -86,7 +98,10 @@
 //   }
 
 //   return value
-//     .replace(/[^a-zA-Z0-9]/g, "")
+//     .replace(
+//       /[^a-zA-Z0-9]/g,
+//       ""
+//     )
 //     .slice(0, 2)
 //     .toUpperCase();
 // }
@@ -96,19 +111,27 @@
 // FORMAT LAST MESSAGE
 // ==================================================
 // */
-// function formatLastMessage(message) {
+// function formatLastMessage(
+//   message
+// ) {
 //   if (!message) {
 //     return "No messages yet";
 //   }
 
-//   if (message.msg_type === "image") {
+//   if (
+//     message.msg_type ===
+//     "image"
+//   ) {
 //     return (
 //       message.text ||
 //       "📷 Image"
 //     );
 //   }
 
-//   if (message.msg_type === "file") {
+//   if (
+//     message.msg_type ===
+//     "file"
+//   ) {
 //     return (
 //       message.text ||
 //       `📎 ${
@@ -123,55 +146,156 @@
 
 // /*
 // ==================================================
+// GET MEMBERS OF CONVERSATION
+// ==================================================
+// */
+// async function getConversationMembers(
+//   conversationId
+// ) {
+//   const [rows] =
+//     await db.query(
+//       `
+//       SELECT
+//         cm.id AS member_id,
+//         cm.user_id,
+//         cm.role AS member_role,
+
+//         u.name,
+//         u.email,
+//         u.phone,
+//         u.role,
+//         u.team,
+//         u.status,
+//         u.avatar
+
+//       FROM conversation_members cm
+
+//       INNER JOIN users u
+//         ON u.id = cm.user_id
+
+//       WHERE
+//         cm.conversation_id = ?
+
+//       ORDER BY cm.id ASC
+//       `,
+//       [conversationId]
+//     );
+
+//   return rows.map(
+//     (member) => ({
+//       member_id:
+//         Number(
+//           member.member_id
+//         ),
+
+//       id:
+//         Number(
+//           member.user_id
+//         ),
+
+//       user_id:
+//         Number(
+//           member.user_id
+//         ),
+
+//       name:
+//         member.name ||
+//         member.email ||
+//         "",
+
+//       email:
+//         member.email ||
+//         "",
+
+//       phone:
+//         member.phone ||
+//         "",
+
+//       role:
+//         member.role ||
+//         "user",
+
+//       member_role:
+//         member.member_role ||
+//         "member",
+
+//       team:
+//         member.team ||
+//         "",
+
+//       status:
+//         member.status ||
+//         "",
+
+//       avatar:
+//         member.avatar ||
+//         null,
+
+//       initials:
+//         getInitials(
+//           member.name,
+//           member.email
+//         ),
+//     })
+//   );
+// }
+
+// /*
+// ==================================================
 // GET LAST MESSAGE
 // ==================================================
 // */
-// async function getLastMessage(conversationId) {
-//   const [rows] = await db.query(
-//     `
-//     SELECT
-//       m.id,
-//       m.conversation_id,
-//       m.sender_id,
-//       m.sender_type,
-//       m.text,
-//       m.msg_type,
-//       m.file_name,
-//       m.file_size,
-//       m.file_url,
-//       m.is_read,
-//       m.created_at,
+// async function getLastMessage(
+//   conversationId
+// ) {
+//   const [rows] =
+//     await db.query(
+//       `
+//       SELECT
+//         m.id,
+//         m.sender_id,
+//         m.sender_type,
+//         m.text,
+//         m.msg_type,
+//         m.file_name,
+//         m.file_size,
+//         m.file_url,
+//         m.is_read,
+//         m.created_at,
 
-//       COALESCE(
-//         NULLIF(TRIM(u.name), ''),
-//         NULLIF(TRIM(u.email), ''),
-//         ''
-//       ) AS sender_name,
+//         COALESCE(
+//           NULLIF(
+//             TRIM(u.name),
+//             ''
+//           ),
+//           NULLIF(
+//             TRIM(u.email),
+//             ''
+//           ),
+//           ''
+//         ) AS sender_name,
 
-//       COALESCE(
-//         u.email,
-//         ''
-//       ) AS sender_email,
+//         COALESCE(
+//           u.email,
+//           ''
+//         ) AS sender_email
 
-//       u.role AS sender_role,
-//       u.avatar AS sender_avatar
+//       FROM messages m
 
-//     FROM messages m
+//       LEFT JOIN users u
+//         ON u.id = m.sender_id
 
-//     LEFT JOIN users u
-//       ON u.id = m.sender_id
+//       WHERE
+//         m.conversation_id = ?
 
-//     WHERE
-//       m.conversation_id = ?
+//       ORDER BY
+//         m.created_at DESC,
+//         m.id DESC
 
-//     ORDER BY
-//       m.created_at DESC,
-//       m.id DESC
-
-//     LIMIT 1
-//     `,
-//     [conversationId]
-//   );
+//       LIMIT 1
+//       `,
+//       [conversationId]
+//     );
 
 //   return rows[0] || null;
 // }
@@ -183,177 +307,43 @@
 // */
 // async function getUnreadCount(
 //   conversationId,
-//   currentUserId
+//   userId
 // ) {
-//   const [rows] = await db.query(
-//     `
-//     SELECT
-//       COUNT(*) AS unread_count
+//   const [rows] =
+//     await db.query(
+//       `
+//       SELECT
+//         COUNT(*) AS unread_count
 
-//     FROM messages
+//       FROM messages
 
-//     WHERE
-//       conversation_id = ?
+//       WHERE
+//         conversation_id = ?
 
-//       AND sender_id != ?
+//         AND sender_id != ?
 
-//       AND is_read = 0
-//     `,
-//     [
-//       conversationId,
-//       currentUserId,
-//     ]
-//   );
+//         AND is_read = 0
+//       `,
+//       [
+//         conversationId,
+//         userId,
+//       ]
+//     );
 
 //   return Number(
-//     rows[0]?.unread_count || 0
+//     rows[0]?.unread_count ||
+//       0
 //   );
 // }
 
 // /*
 // ==================================================
-// GET CONVERSATION MEMBERS
+// GET ALL CONVERSATIONS
 // ==================================================
 // */
-// async function getConversationMembers(
-//   conversationId
+// export async function GET(
+//   request
 // ) {
-//   const [rows] = await db.query(
-//     `
-//     SELECT
-//       cm.id AS member_id,
-//       cm.user_id,
-//       cm.role AS member_role,
-
-//       u.name,
-//       u.email,
-//       u.phone,
-//       u.role,
-//       u.team,
-//       u.status,
-//       u.avatar
-
-//     FROM conversation_members cm
-
-//     INNER JOIN users u
-//       ON u.id = cm.user_id
-
-//     WHERE
-//       cm.conversation_id = ?
-
-//     ORDER BY
-//       cm.id ASC
-//     `,
-//     [conversationId]
-//   );
-
-//   return rows.map((member) => {
-//     const name =
-//       member.name ||
-//       member.email ||
-//       "";
-
-//     return {
-//       id: Number(member.user_id),
-
-//       user_id:
-//         Number(member.user_id),
-
-//       member_id:
-//         Number(member.member_id),
-
-//       name,
-
-//       email:
-//         member.email || "",
-
-//       phone:
-//         member.phone || "",
-
-//       role:
-//         member.role || "user",
-
-//       member_role:
-//         member.member_role || "member",
-
-//       team:
-//         member.team || "",
-
-//       status:
-//         member.status || "",
-
-//       avatar:
-//         member.avatar || null,
-
-//       initials:
-//         getInitials(
-//           name,
-//           member.email
-//         ),
-//     };
-//   });
-// }
-
-// /*
-// ==================================================
-// FIND DIRECT CONVERSATION
-// ==================================================
-
-// Must contain exactly:
-
-// CURRENT USER
-// +
-// TARGET USER
-
-// No third user.
-// ==================================================
-// */
-// async function findDirectConversation(
-//   currentUserId,
-//   targetUserId
-// ) {
-//   const [rows] = await db.query(
-//     `
-//     SELECT
-//       c.id
-
-//     FROM conversations c
-
-//     INNER JOIN conversation_members cm
-//       ON cm.conversation_id = c.id
-
-//     WHERE
-//       c.type = 'direct'
-
-//       AND cm.user_id IN (?, ?)
-
-//     GROUP BY
-//       c.id
-
-//     HAVING
-//       COUNT(DISTINCT cm.user_id) = 2
-
-//       AND COUNT(*) = 2
-
-//     LIMIT 1
-//     `,
-//     [
-//       currentUserId,
-//       targetUserId,
-//     ]
-//   );
-
-//   return rows.length
-//     ? Number(rows[0].id)
-//     : null;
-// }
-
-// /*
-// ==================================================
-// GET ALL CONVERSATIONS + ALL USERS
-// ==================================================
-// */
-// export async function GET(request) {
 //   try {
 //     const currentUser =
 //       getCurrentUser(request);
@@ -362,178 +352,231 @@
 //       return NextResponse.json(
 //         {
 //           success: false,
-//           message: "Unauthorized",
+//           message:
+//             "Unauthorized",
 //         },
-//         { status: 401 }
+//         {
+//           status: 401,
+//         }
 //       );
 //     }
 
+//     const isAdmin =
+//       currentUser.role ===
+//         "admin" ||
+//       currentUser.role ===
+//         "administrator";
+
 //     /*
 //     ==================================================
-//     1. GET ALL USERS
+//     1. GET USERS
 //     ==================================================
+
+//     ADMIN:
+//     Show ALL users.
+
+//     NORMAL USER:
+//     Also return all other users so frontend can
+//     start a new chat.
 //     */
 
 //     const [userRows] =
 //       await db.query(
 //         `
 //         SELECT
-//           id,
-//           name,
-//           email,
-//           phone,
-//           role,
-//           team,
-//           status,
-//           avatar,
-//           last_login,
-//           login_time,
-//           logout_time,
-//           created_at,
-//           updated_at
+//           u.id,
+//           u.name,
+//           u.email,
+//           u.phone,
+//           u.role,
+//           u.team,
+//           u.status,
+//           u.avatar,
+//           u.last_login,
+//           u.login_time,
+//           u.logout_time,
+//           u.created_at,
+//           u.updated_at
 
-//         FROM users
+//         FROM users u
 
-//         WHERE id != ?
+//         WHERE u.id != ?
 
 //         ORDER BY
-//           id ASC
+//           u.id ASC
 //         `,
 //         [currentUser.id]
 //       );
 
-//     /*
-//     ==================================================
-//     2. FORMAT ALL USERS
-//     ==================================================
-//     */
-
 //     const users =
-//       userRows.map((user) => {
-//         const name =
-//           user.name ||
-//           user.email ||
-//           "";
+//       userRows.map(
+//         (user) => ({
+//           ...user,
 
-//         return {
-//           id: Number(user.id),
+//           id:
+//             Number(user.id),
 
-//           name,
+//           name:
+//             user.name ||
+//             user.email ||
+//             "",
 
 //           email:
-//             user.email || "",
-
-//           phone:
-//             user.phone || "",
-
-//           role:
-//             user.role || "user",
-
-//           team:
-//             user.team || "",
-
-//           status:
-//             user.status || "",
-
-//           avatar:
-//             user.avatar || null,
-
-//           last_login:
-//             user.last_login || null,
-
-//           login_time:
-//             user.login_time || null,
-
-//           logout_time:
-//             user.logout_time || null,
-
-//           created_at:
-//             user.created_at || null,
-
-//           updated_at:
-//             user.updated_at || null,
+//             user.email ||
+//             "",
 
 //           initials:
 //             getInitials(
-//               name,
+//               user.name,
 //               user.email
 //             ),
-//         };
-//       });
+
+//           avatar:
+//             user.avatar ||
+//             null,
+//         })
+//       );
 
 //     /*
 //     ==================================================
-//     3. GET EXISTING CONVERSATIONS
+//     2. GET CONVERSATIONS
 //     ==================================================
+
+//     NORMAL USER:
+//     Only conversations where user is member.
+
+//     ADMIN:
+//     ALL conversations from database.
+
+//     THIS IS THE MAIN OPTION B FIX.
 //     */
 
-//     const [
-//       conversationRows,
-//     ] = await db.query(
-//       `
-//       SELECT
-//         c.id,
-//         c.type,
-//         c.name,
-//         c.created_by,
-//         c.created_at,
-//         c.updated_at,
-//         c.last_msg,
-//         c.last_msg_time
+//     let conversationRows;
 
-//       FROM conversations c
+//     if (isAdmin) {
+//       const [rows] =
+//         await db.query(
+//           `
+//           SELECT
+//             c.id,
+//             c.type,
+//             c.name,
+//             c.created_by,
+//             c.created_at,
+//             c.updated_at
 
-//       INNER JOIN conversation_members cm
-//         ON cm.conversation_id = c.id
+//           FROM conversations c
 
-//       WHERE
-//         cm.user_id = ?
+//           ORDER BY
+//             COALESCE(
+//               c.last_msg_time,
+//               c.updated_at,
+//               c.created_at
+//             ) DESC,
 
-//       ORDER BY
-//         COALESCE(
-//           c.last_msg_time,
-//           c.updated_at,
-//           c.created_at
-//         ) DESC,
+//             c.id DESC
+//           `
+//         );
 
-//         c.id DESC
-//       `,
-//       [currentUser.id]
-//     );
+//       conversationRows =
+//         rows;
+//     } else {
+//       const [rows] =
+//         await db.query(
+//           `
+//           SELECT
+//             c.id,
+//             c.type,
+//             c.name,
+//             c.created_by,
+//             c.created_at,
+//             c.updated_at
+
+//           FROM conversations c
+
+//           INNER JOIN conversation_members cm
+//             ON cm.conversation_id =
+//               c.id
+
+//           WHERE
+//             cm.user_id = ?
+
+//           ORDER BY
+//             COALESCE(
+//               c.last_msg_time,
+//               c.updated_at,
+//               c.created_at
+//             ) DESC,
+
+//             c.id DESC
+//           `,
+//           [currentUser.id]
+//         );
+
+//       conversationRows =
+//         rows;
+//     }
 
 //     /*
 //     ==================================================
-//     4. CREATE MAP
+//     3. BUILD CONVERSATIONS
 //     ==================================================
 //     */
 
-//     const conversationMap =
-//       new Map();
-
-//     /*
-//     ==================================================
-//     5. BUILD EXISTING CONVERSATIONS
-//     ==================================================
-//     */
+//     const conversations = [];
 
 //     for (
-//       const conversation
-//         of conversationRows
+//       const conversation of
+//         conversationRows
 //     ) {
 //       const conversationId =
 //         Number(
 //           conversation.id
 //         );
 
+//       /*
+//       GET MEMBERS
+//       */
+
 //       const members =
 //         await getConversationMembers(
 //           conversationId
 //         );
 
+//       /*
+//       ==================================================
+//       INVALID DIRECT CHAT CHECK
+//       ==================================================
+//       */
+
+//       if (
+//         conversation.type ===
+//           "direct" &&
+//         members.length !== 2
+//       ) {
+//         console.warn(
+//           `Invalid direct conversation ${conversationId}. Members: ${members.length}`
+//         );
+
+//         continue;
+//       }
+
+//       /*
+//       ==================================================
+//       LAST MESSAGE
+//       ==================================================
+//       */
+
 //       const lastMessage =
 //         await getLastMessage(
 //           conversationId
 //         );
+
+//       /*
+//       ==================================================
+//       UNREAD COUNT
+//       ==================================================
+//       */
 
 //       const unreadCount =
 //         await getUnreadCount(
@@ -542,464 +585,263 @@
 //         );
 
 //       /*
-//       ------------------------------------------
-//       GROUP
-//       ------------------------------------------
+//       ==================================================
+//       DIRECT CHAT
+//       ==================================================
 //       */
+
+//       let chatName = "";
+//       let chatEmail = "";
+//       let chatAvatar = null;
+//       let initials = "";
 
 //       if (
 //         conversation.type ===
 //         "group"
 //       ) {
-//         const groupName =
+//         /*
+//         GROUP
+//         */
+
+//         chatName =
 //           conversation.name ||
 //           "Unnamed Group";
 
-//         conversationMap.set(
-//           `group-${conversationId}`,
-//           {
-//             id: conversationId,
+//         initials =
+//           getInitials(
+//             chatName
+//           );
+//       } else {
+//         /*
+//         DIRECT CHAT
+//         */
 
-//             type: "group",
+//         if (isAdmin) {
+//           /*
+//           ==============================================
+//           ADMIN MODE
 
-//             name: groupName,
+//           Admin may NOT be a member.
 
-//             email: "",
+//           Therefore we cannot use:
 
-//             initials:
-//               getInitials(
-//                 groupName
-//               ),
+//           members.find(user !== admin)
 
-//             avatar: null,
+//           because admin may not exist in members.
 
-//             avatar_bg:
-//               "bg-rose-100 text-rose-600",
+//           Instead we show both users.
+//           ==============================================
+//           */
 
-//             avatarBg:
-//               "bg-rose-100 text-rose-600",
+//           const participantNames =
+//             members
+//               .map(
+//                 (member) =>
+//                   member.name ||
+//                   member.email
+//               )
+//               .filter(Boolean);
 
-//             members,
+//           const participantEmails =
+//             members
+//               .map(
+//                 (member) =>
+//                   member.email
+//               )
+//               .filter(Boolean);
 
-//             member_count:
-//               members.length,
+//           chatName =
+//             participantNames.join(
+//               " & "
+//             ) ||
+//             "Direct Chat";
 
-//             memberRole:
-//               members.find(
-//                 (m) =>
+//           chatEmail =
+//             participantEmails.join(
+//               ", "
+//             );
+
+//           /*
+//           Avatar of first participant
+//           */
+
+//           chatAvatar =
+//             members[0]?.avatar ||
+//             null;
+
+//           initials =
+//             getInitials(
+//               members[0]?.name,
+//               members[0]?.email
+//             );
+//         } else {
+//           /*
+//           ==============================================
+//           NORMAL USER MODE
+//           ==============================================
+//           */
+
+//           const otherUser =
+//             members.find(
+//               (member) =>
+//                 Number(
+//                   member.user_id
+//                 ) !==
+//                 Number(
+//                   currentUser.id
+//                 )
+//             );
+
+//           chatName =
+//             otherUser?.name ||
+//             otherUser?.email ||
+//             "";
+
+//           chatEmail =
+//             otherUser?.email ||
+//             "";
+
+//           chatAvatar =
+//             otherUser?.avatar ||
+//             null;
+
+//           initials =
+//             getInitials(
+//               chatName,
+//               chatEmail
+//             );
+//         }
+//       }
+
+//       /*
+//       ==================================================
+//       LAST MESSAGE TEXT
+//       ==================================================
+//       */
+
+//       const lastMsg =
+//         formatLastMessage(
+//           lastMessage
+//         );
+
+//       /*
+//       ==================================================
+//       FORMAT CONVERSATION
+//       ==================================================
+//       */
+
+//       conversations.push({
+//         id:
+//           conversationId,
+
+//         type:
+//           conversation.type ||
+//           "direct",
+
+//         name:
+//           chatName,
+
+//         email:
+//           chatEmail,
+
+//         initials,
+
+//         avatar:
+//           chatAvatar,
+
+//         avatar_bg:
+//           conversation.type ===
+//           "group"
+//             ? "bg-rose-100 text-rose-600"
+//             : "bg-emerald-100 text-emerald-600",
+
+//         avatarBg:
+//           conversation.type ===
+//           "group"
+//             ? "bg-rose-100 text-rose-600"
+//             : "bg-emerald-100 text-emerald-600",
+
+//         /*
+//         ALL PARTICIPANTS
+//         */
+
+//         members,
+
+//         member_count:
+//           members.length,
+
+//         /*
+//         ADMIN CAN VIEW
+//         */
+
+//         can_view:
+//           true,
+
+//         can_send:
+//           isAdmin
+//             ? true
+//             : members.some(
+//                 (member) =>
 //                   Number(
-//                     m.user_id
+//                     member.user_id
 //                   ) ===
 //                   Number(
 //                     currentUser.id
 //                   )
-//               )?.member_role ||
-//               "member",
-
-//             created_by:
-//               Number(
-//                 conversation.created_by
 //               ),
 
-//             created_at:
-//               conversation.created_at,
+//         is_admin:
+//           isAdmin,
 
-//             updated_at:
-//               conversation.updated_at,
+//         created_by:
+//           Number(
+//             conversation.created_by
+//           ),
 
-//             messages: [],
+//         created_at:
+//           conversation.created_at,
 
-//             lastMsg:
-//               formatLastMessage(
-//                 lastMessage
-//               ),
+//         updated_at:
+//           conversation.updated_at,
 
-//             last_msg:
-//               formatLastMessage(
-//                 lastMessage
-//               ),
+//         messages: [],
 
-//             last_msg_time:
-//               lastMessage?.created_at ||
-//               null,
+//         lastMsg,
 
-//             time:
-//               lastMessage?.created_at
-//                 ? new Date(
-//                     lastMessage.created_at
-//                   ).toLocaleTimeString(
-//                     [],
-//                     {
-//                       hour: "2-digit",
-//                       minute: "2-digit",
-//                     }
-//                   )
-//                 : "",
+//         last_msg:
+//           lastMsg,
 
-//             unread_count:
-//               unreadCount,
+//         last_msg_time:
+//           lastMessage?.created_at ||
+//           null,
 
-//             last_message:
-//               lastMessage,
-//           }
-//         );
+//         unread_count:
+//           unreadCount,
 
-//         continue;
-//       }
+//         last_message:
+//           lastMessage || null,
 
-//       /*
-//       ------------------------------------------
-//       DIRECT CHAT
-//       ------------------------------------------
-//       */
+//         time:
+//           lastMessage?.created_at
+//             ? new Date(
+//                 lastMessage.created_at
+//               ).toLocaleTimeString(
+//                 [],
+//                 {
+//                   hour:
+//                     "2-digit",
 
-//       const otherUser =
-//         members.find(
-//           (member) =>
-//             Number(
-//               member.user_id
-//             ) !==
-//             Number(
-//               currentUser.id
-//             )
-//         );
-
-//       if (!otherUser) {
-//         continue;
-//       }
-
-//       const chatName =
-//         otherUser.name ||
-//         otherUser.email ||
-//         "";
-
-//       const chatEmail =
-//         otherUser.email ||
-//         "";
-
-//       conversationMap.set(
-//         `user-${Number(
-//           otherUser.user_id
-//         )}`,
-//         {
-//           id: conversationId,
-
-//           type: "direct",
-
-//           name: chatName,
-
-//           email: chatEmail,
-
-//           user_id:
-//             Number(
-//               otherUser.user_id
-//             ),
-
-//           targetUserId:
-//             Number(
-//               otherUser.user_id
-//             ),
-
-//           initials:
-//             getInitials(
-//               chatName,
-//               chatEmail
-//             ),
-
-//           avatar:
-//             otherUser.avatar ||
-//             null,
-
-//           avatar_bg:
-//             "bg-emerald-100 text-emerald-600",
-
-//           avatarBg:
-//             "bg-emerald-100 text-emerald-600",
-
-//           members,
-
-//           member_count:
-//             members.length,
-
-//           memberRole:
-//             otherUser.member_role ||
-//             "member",
-
-//           created_by:
-//             Number(
-//               conversation.created_by
-//             ),
-
-//           created_at:
-//             conversation.created_at,
-
-//           updated_at:
-//             conversation.updated_at,
-
-//           messages: [],
-
-//           lastMsg:
-//             formatLastMessage(
-//               lastMessage
-//             ),
-
-//           last_msg:
-//             formatLastMessage(
-//               lastMessage
-//             ),
-
-//           last_msg_time:
-//             lastMessage?.created_at ||
-//             null,
-
-//           time:
-//             lastMessage?.created_at
-//               ? new Date(
-//                   lastMessage.created_at
-//                 ).toLocaleTimeString(
-//                   [],
-//                   {
-//                     hour: "2-digit",
-//                     minute: "2-digit",
-//                   }
-//                 )
-//               : "",
-
-//           unread_count:
-//             unreadCount,
-
-//           last_message:
-//             lastMessage,
-//         }
-//       );
+//                   minute:
+//                     "2-digit",
+//                 }
+//               )
+//             : "",
+//       });
 //     }
 
 //     /*
 //     ==================================================
-//     6. IMPORTANT:
-//     ADD USERS WHO DON'T HAVE CHAT YET
-//     ==================================================
-//     */
-
-//     for (
-//       const targetUser of users
-//     ) {
-//       const userId =
-//         Number(
-//           targetUser.id
-//         );
-
-//       /*
-//       Already has conversation?
-//       Don't create duplicate UI row.
-//       */
-
-//       if (
-//         conversationMap.has(
-//           `user-${userId}`
-//         )
-//       ) {
-//         continue;
-//       }
-
-//       /*
-//       No conversation yet.
-//       Still show the user.
-//       */
-
-//       conversationMap.set(
-//         `user-${userId}`,
-//         {
-//           id: null,
-
-//           conversationId: null,
-
-//           type: "direct",
-
-//           name:
-//             targetUser.name ||
-//             targetUser.email ||
-//             "",
-
-//           email:
-//             targetUser.email ||
-//             "",
-
-//           user_id: userId,
-
-//           targetUserId: userId,
-
-//           initials:
-//             targetUser.initials,
-
-//           avatar:
-//             targetUser.avatar ||
-//             null,
-
-//           avatar_bg:
-//             "bg-emerald-100 text-emerald-600",
-
-//           avatarBg:
-//             "bg-emerald-100 text-emerald-600",
-
-//           members: [
-//             {
-//               id: userId,
-
-//               user_id: userId,
-
-//               member_id: null,
-
-//               name:
-//                 targetUser.name ||
-//                 targetUser.email ||
-//                 "",
-
-//               email:
-//                 targetUser.email ||
-//                 "",
-
-//               phone:
-//                 targetUser.phone ||
-//                 "",
-
-//               role:
-//                 targetUser.role ||
-//                 "user",
-
-//               member_role:
-//                 "member",
-
-//               team:
-//                 targetUser.team ||
-//                 "",
-
-//               status:
-//                 targetUser.status ||
-//                 "",
-
-//               avatar:
-//                 targetUser.avatar ||
-//                 null,
-
-//               initials:
-//                 targetUser.initials,
-//             },
-//           ],
-
-//           member_count: 1,
-
-//           memberRole: "member",
-
-//           created_by: null,
-
-//           created_at: null,
-
-//           updated_at: null,
-
-//           messages: [],
-
-//           lastMsg:
-//             "No messages yet",
-
-//           last_msg:
-//             "No messages yet",
-
-//           last_msg_time: null,
-
-//           time: "",
-
-//           unread_count: 0,
-
-//           last_message: null,
-
-//           /*
-//           VERY IMPORTANT
-//           */
-
-//           hasConversation: false,
-//         }
-//       );
-//     }
-
-//     /*
-//     ==================================================
-//     7. CONVERT MAP TO ARRAY
-//     ==================================================
-//     */
-
-//     const conversations =
-//       Array.from(
-//         conversationMap.values()
-//       );
-
-//     /*
-//     ==================================================
-//     8. SORT
-//     ==================================================
-
-//     Chats having messages first.
-//     Then users without messages.
-//     ==================================================
-//     */
-
-//     conversations.sort(
-//       (a, b) => {
-//         const timeA =
-//           a.last_msg_time
-//             ? new Date(
-//                 a.last_msg_time
-//               ).getTime()
-//             : 0;
-
-//         const timeB =
-//           b.last_msg_time
-//             ? new Date(
-//                 b.last_msg_time
-//               ).getTime()
-//             : 0;
-
-//         if (
-//           timeA !== timeB
-//         ) {
-//           return (
-//             timeB - timeA
-//           );
-//         }
-
-//         /*
-//         Existing conversations
-//         before empty users
-//         */
-
-//         if (
-//           a.hasConversation ===
-//           false &&
-//           b.hasConversation !==
-//             false
-//         ) {
-//           return 1;
-//         }
-
-//         if (
-//           a.hasConversation !==
-//             false &&
-//           b.hasConversation ===
-//             false
-//         ) {
-//           return -1;
-//         }
-
-//         return (
-//           Number(a.id || 0) -
-//           Number(b.id || 0)
-//         );
-//       }
-//     );
-
-//     /*
-//     ==================================================
-//     9. RETURN
+//     RETURN RESPONSE
 //     ==================================================
 //     */
 
@@ -1008,9 +850,7 @@
 
 //       currentUser: {
 //         id:
-//           Number(
-//             currentUser.id
-//           ),
+//           currentUser.id,
 
 //         name:
 //           currentUser.name,
@@ -1020,6 +860,8 @@
 
 //         role:
 //           currentUser.role,
+
+//         isAdmin,
 //       },
 
 //       /*
@@ -1029,10 +871,21 @@
 //       users,
 
 //       /*
-//       ALL EXISTING + EMPTY DIRECT CHATS
+//       ADMIN:
+//       ALL CHATS
+
+//       USER:
+//       OWN CHATS
 //       */
 
 //       conversations,
+
+//       /*
+//       EXTRA FLAG FOR FRONTEND
+//       */
+
+//       adminCanViewAllChats:
+//         isAdmin,
 //     });
 //   } catch (error) {
 //     console.error(
@@ -1047,14 +900,10 @@
 //         message:
 //           error.message ||
 //           "Failed to load conversations",
-
-//         error:
-//           process.env.NODE_ENV ===
-//           "development"
-//             ? error.stack
-//             : undefined,
 //       },
-//       { status: 500 }
+//       {
+//         status: 500,
+//       }
 //     );
 //   }
 // }
@@ -1064,7 +913,9 @@
 // CREATE NEW GROUP
 // ==================================================
 // */
-// export async function POST(request) {
+// export async function POST(
+//   request
+// ) {
 //   let connection = null;
 
 //   try {
@@ -1075,9 +926,12 @@
 //       return NextResponse.json(
 //         {
 //           success: false,
-//           message: "Unauthorized",
+//           message:
+//             "Unauthorized",
 //         },
-//         { status: 401 }
+//         {
+//           status: 401,
+//         }
 //       );
 //     }
 
@@ -1104,7 +958,9 @@
 //           message:
 //             "Only group conversations can be created here",
 //         },
-//         { status: 400 }
+//         {
+//           status: 400,
+//         }
 //       );
 //     }
 
@@ -1116,7 +972,9 @@
 //           message:
 //             "Group name is required",
 //         },
-//         { status: 400 }
+//         {
+//           status: 400,
+//         }
 //       );
 //     }
 
@@ -1154,9 +1012,7 @@
 //     }
 
 //     /*
-//     ==================================================
 //     REMOVE DUPLICATES
-//     ==================================================
 //     */
 
 //     const uniqueMemberIds =
@@ -1167,9 +1023,7 @@
 //       ];
 
 //     /*
-//     ==================================================
-//     ADD CREATOR
-//     ==================================================
+//     ALWAYS ADD CREATOR
 //     */
 
 //     const creatorId =
@@ -1189,61 +1043,75 @@
 
 //     /*
 //     ==================================================
-//     CHECK USERS EXIST
+//     VERIFY USERS EXIST
 //     ==================================================
 //     */
 
 //     if (
-//       uniqueMemberIds.length >
+//       uniqueMemberIds.length ===
 //       0
 //     ) {
-//       const placeholders =
-//         uniqueMemberIds
-//           .map(() => "?")
-//           .join(",");
+//       return NextResponse.json(
+//         {
+//           success: false,
+//           message:
+//             "At least one member is required",
+//         },
+//         {
+//           status: 400,
+//         }
+//       );
+//     }
 
-//       const [
-//         existingUsers,
-//       ] = await db.query(
-//         `
-//         SELECT id
-//         FROM users
-//         WHERE id IN (${placeholders})
-//         `,
-//         uniqueMemberIds
+//     const placeholders =
+//       uniqueMemberIds
+//         .map(() => "?")
+//         .join(",");
+
+//     const [
+//       validUsers,
+//     ] = await db.query(
+//       `
+//       SELECT id
+//       FROM users
+//       WHERE id IN (${placeholders})
+//       `,
+//       uniqueMemberIds
+//     );
+
+//     const validUserIds =
+//       validUsers.map(
+//         (user) =>
+//           Number(user.id)
 //       );
 
-//       const existingIds =
-//         existingUsers.map(
-//           (row) =>
-//             Number(row.id)
-//         );
-
-//       for (
-//         const userId of
-//           uniqueMemberIds
-//       ) {
-//         if (
-//           !existingIds.includes(
-//             Number(userId)
+//     const invalidUsers =
+//       uniqueMemberIds.filter(
+//         (id) =>
+//           !validUserIds.includes(
+//             Number(id)
 //           )
-//         ) {
-//           return NextResponse.json(
-//             {
-//               success: false,
+//       );
 
-//               message:
-//                 `User ${userId} not found`,
-//             },
-//             { status: 400 }
-//           );
+//     if (
+//       invalidUsers.length > 0
+//     ) {
+//       return NextResponse.json(
+//         {
+//           success: false,
+//           message:
+//             "One or more selected users do not exist",
+//           invalidUsers,
+//         },
+//         {
+//           status: 400,
 //         }
-//       }
+//       );
 //     }
 
 //     /*
 //     ==================================================
-//     DATABASE CONNECTION
+//     DATABASE
 //     ==================================================
 //     */
 
@@ -1253,9 +1121,7 @@
 //     await connection.beginTransaction();
 
 //     /*
-//     ==================================================
 //     CREATE GROUP
-//     ==================================================
 //     */
 
 //     const [
@@ -1293,9 +1159,7 @@
 //       );
 
 //     /*
-//     ==================================================
 //     ADD MEMBERS
-//     ==================================================
 //     */
 
 //     for (
@@ -1333,17 +1197,13 @@
 //     }
 
 //     /*
-//     ==================================================
 //     COMMIT
-//     ==================================================
 //     */
 
 //     await connection.commit();
 
 //     /*
-//     ==================================================
-//     RETURN
-//     ==================================================
+//     RETURN GROUP
 //     */
 
 //     return NextResponse.json(
@@ -1359,7 +1219,8 @@
 //           id:
 //             conversationId,
 
-//           type: "group",
+//           type:
+//             "group",
 
 //           name:
 //             name.trim(),
@@ -1385,36 +1246,17 @@
 //             ),
 
 //           messages: [],
-
-//           lastMsg:
-//             "No messages yet",
-
-//           last_msg:
-//             "No messages yet",
-
-//           unread_count: 0,
 //         },
 //       },
-//       { status: 201 }
+//       {
+//         status: 201,
+//       }
 //     );
 //   } catch (error) {
-//     /*
-//     ==================================================
-//     ROLLBACK
-//     ==================================================
-//     */
-
 //     if (connection) {
 //       try {
 //         await connection.rollback();
-//       } catch (
-//         rollbackError
-//       ) {
-//         console.error(
-//           "Rollback Error:",
-//           rollbackError
-//         );
-//       }
+//       } catch {}
 //     }
 
 //     console.error(
@@ -1429,14 +1271,10 @@
 //         message:
 //           error.message ||
 //           "Group creation failed",
-
-//         error:
-//           process.env.NODE_ENV ===
-//           "development"
-//             ? error.stack
-//             : undefined,
 //       },
-//       { status: 500 }
+//       {
+//         status: 500,
+//       }
 //     );
 //   } finally {
 //     if (connection) {
@@ -1444,6 +1282,9 @@
 //     }
 //   }
 // }
+
+
+
 
 import { NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
@@ -1584,7 +1425,7 @@ function formatLastMessage(
 
 /*
 ==================================================
-GET MEMBERS OF CONVERSATION
+GET MEMBERS
 ==================================================
 */
 async function getConversationMembers(
@@ -1807,15 +1648,8 @@ export async function GET(
 
     /*
     ==================================================
-    1. GET USERS
+    GET USERS
     ==================================================
-
-    ADMIN:
-    Show ALL users.
-
-    NORMAL USER:
-    Also return all other users so frontend can
-    start a new chat.
     */
 
     const [userRows] =
@@ -1840,8 +1674,7 @@ export async function GET(
 
         WHERE u.id != ?
 
-        ORDER BY
-          u.id ASC
+        ORDER BY u.id ASC
         `,
         [currentUser.id]
       );
@@ -1877,16 +1710,8 @@ export async function GET(
 
     /*
     ==================================================
-    2. GET CONVERSATIONS
+    GET CONVERSATIONS
     ==================================================
-
-    NORMAL USER:
-    Only conversations where user is member.
-
-    ADMIN:
-    ALL conversations from database.
-
-    THIS IS THE MAIN OPTION B FIX.
     */
 
     let conversationRows;
@@ -1933,8 +1758,7 @@ export async function GET(
           FROM conversations c
 
           INNER JOIN conversation_members cm
-            ON cm.conversation_id =
-              c.id
+            ON cm.conversation_id = c.id
 
           WHERE
             cm.user_id = ?
@@ -1957,7 +1781,7 @@ export async function GET(
 
     /*
     ==================================================
-    3. BUILD CONVERSATIONS
+    BUILD CONVERSATIONS
     ==================================================
     */
 
@@ -1972,19 +1796,13 @@ export async function GET(
           conversation.id
         );
 
-      /*
-      GET MEMBERS
-      */
-
       const members =
         await getConversationMembers(
           conversationId
         );
 
       /*
-      ==================================================
-      INVALID DIRECT CHAT CHECK
-      ==================================================
+      INVALID DIRECT CHAT
       */
 
       if (
@@ -1999,22 +1817,10 @@ export async function GET(
         continue;
       }
 
-      /*
-      ==================================================
-      LAST MESSAGE
-      ==================================================
-      */
-
       const lastMessage =
         await getLastMessage(
           conversationId
         );
-
-      /*
-      ==================================================
-      UNREAD COUNT
-      ==================================================
-      */
 
       const unreadCount =
         await getUnreadCount(
@@ -2022,25 +1828,19 @@ export async function GET(
           currentUser.id
         );
 
-      /*
-      ==================================================
-      DIRECT CHAT
-      ==================================================
-      */
-
       let chatName = "";
       let chatEmail = "";
       let chatAvatar = null;
       let initials = "";
 
+      /*
+      GROUP
+      */
+
       if (
         conversation.type ===
         "group"
       ) {
-        /*
-        GROUP
-        */
-
         chatName =
           conversation.name ||
           "Unnamed Group";
@@ -2049,28 +1849,14 @@ export async function GET(
           getInitials(
             chatName
           );
-      } else {
-        /*
-        DIRECT CHAT
-        */
+      }
 
+      /*
+      DIRECT
+      */
+
+      else {
         if (isAdmin) {
-          /*
-          ==============================================
-          ADMIN MODE
-
-          Admin may NOT be a member.
-
-          Therefore we cannot use:
-
-          members.find(user !== admin)
-
-          because admin may not exist in members.
-
-          Instead we show both users.
-          ==============================================
-          */
-
           const participantNames =
             members
               .map(
@@ -2099,10 +1885,6 @@ export async function GET(
               ", "
             );
 
-          /*
-          Avatar of first participant
-          */
-
           chatAvatar =
             members[0]?.avatar ||
             null;
@@ -2113,12 +1895,6 @@ export async function GET(
               members[0]?.email
             );
         } else {
-          /*
-          ==============================================
-          NORMAL USER MODE
-          ==============================================
-          */
-
           const otherUser =
             members.find(
               (member) =>
@@ -2151,22 +1927,10 @@ export async function GET(
         }
       }
 
-      /*
-      ==================================================
-      LAST MESSAGE TEXT
-      ==================================================
-      */
-
       const lastMsg =
         formatLastMessage(
           lastMessage
         );
-
-      /*
-      ==================================================
-      FORMAT CONVERSATION
-      ==================================================
-      */
 
       conversations.push({
         id:
@@ -2199,18 +1963,10 @@ export async function GET(
             ? "bg-rose-100 text-rose-600"
             : "bg-emerald-100 text-emerald-600",
 
-        /*
-        ALL PARTICIPANTS
-        */
-
         members,
 
         member_count:
           members.length,
-
-        /*
-        ADMIN CAN VIEW
-        */
 
         can_view:
           true,
@@ -2277,12 +2033,6 @@ export async function GET(
       });
     }
 
-    /*
-    ==================================================
-    RETURN RESPONSE
-    ==================================================
-    */
-
     return NextResponse.json({
       success: true,
 
@@ -2302,25 +2052,9 @@ export async function GET(
         isAdmin,
       },
 
-      /*
-      ALL USERS
-      */
-
       users,
 
-      /*
-      ADMIN:
-      ALL CHATS
-
-      USER:
-      OWN CHATS
-      */
-
       conversations,
-
-      /*
-      EXTRA FLAG FOR FRONTEND
-      */
 
       adminCanViewAllChats:
         isAdmin,
@@ -2348,7 +2082,7 @@ export async function GET(
 
 /*
 ==================================================
-CREATE NEW GROUP
+CREATE GROUP
 ==================================================
 */
 export async function POST(
@@ -2357,6 +2091,12 @@ export async function POST(
   let connection = null;
 
   try {
+    /*
+    ==================================================
+    CURRENT USER
+    ==================================================
+    */
+
     const currentUser =
       getCurrentUser(request);
 
@@ -2373,22 +2113,92 @@ export async function POST(
       );
     }
 
-    const body =
-      await request.json();
-
-    const {
-      type,
-      name,
-      members = [],
-    } = body;
-
     /*
     ==================================================
-    VALIDATION
+    READ BODY
     ==================================================
     */
 
-    if (type !== "group") {
+    const body =
+      await request.json();
+
+    console.log(
+      "CREATE GROUP BODY:",
+      JSON.stringify(
+        body,
+        null,
+        2
+      )
+    );
+
+    const type =
+      body?.type;
+
+    const name =
+      body?.name;
+
+    /*
+    ==================================================
+    ACCEPT MULTIPLE MEMBER FIELD NAMES
+    ==================================================
+
+    Supports:
+
+    members
+    userIds
+    selectedUsers
+    selectedUserIds
+    */
+
+    let rawMembers =
+      body?.members;
+
+    if (
+      !Array.isArray(
+        rawMembers
+      )
+    ) {
+      rawMembers =
+        body?.userIds;
+    }
+
+    if (
+      !Array.isArray(
+        rawMembers
+      )
+    ) {
+      rawMembers =
+        body?.selectedUsers;
+    }
+
+    if (
+      !Array.isArray(
+        rawMembers
+      )
+    ) {
+      rawMembers =
+        body?.selectedUserIds;
+    }
+
+    if (
+      !Array.isArray(
+        rawMembers
+      )
+    ) {
+      rawMembers = [];
+    }
+
+    /*
+    ==================================================
+    VALIDATE TYPE
+    ==================================================
+    */
+
+    if (
+      String(type)
+        .toLowerCase() !==
+      "group"
+    ) {
       return NextResponse.json(
         {
           success: false,
@@ -2402,7 +2212,17 @@ export async function POST(
       );
     }
 
-    if (!name?.trim()) {
+    /*
+    ==================================================
+    VALIDATE NAME
+    ==================================================
+    */
+
+    if (
+      typeof name !==
+        "string" ||
+      !name.trim()
+    ) {
       return NextResponse.json(
         {
           success: false,
@@ -2418,21 +2238,69 @@ export async function POST(
 
     /*
     ==================================================
-    NORMALIZE MEMBERS
+    EXTRACT USER IDS
     ==================================================
     */
 
     const memberIds = [];
 
     for (
-      const member of members
+      const member of
+        rawMembers
     ) {
-      const id =
+      let id = null;
+
+      /*
+      NUMBER
+      */
+
+      if (
         typeof member ===
-        "object"
-          ? member.user_id ||
-            member.id
-          : member;
+        "number"
+      ) {
+        id = member;
+      }
+
+      /*
+      STRING
+      */
+
+      else if (
+        typeof member ===
+        "string"
+      ) {
+        /*
+        If frontend sends:
+        "5"
+
+        or JSON-like:
+        "5"
+        */
+
+        id =
+          member.trim();
+      }
+
+      /*
+      OBJECT
+      */
+
+      else if (
+        member &&
+        typeof member ===
+          "object"
+      ) {
+        id =
+          member.user_id ??
+          member.userId ??
+          member.id ??
+          member.value ??
+          member.uid;
+      }
+
+      /*
+      CONVERT ID
+      */
 
       const numericId =
         Number(id);
@@ -2450,18 +2318,21 @@ export async function POST(
     }
 
     /*
+    ==================================================
     REMOVE DUPLICATES
+    ==================================================
     */
 
-    const uniqueMemberIds =
-      [
-        ...new Set(
-          memberIds
-        ),
-      ];
+    const uniqueMemberIds = [
+      ...new Set(
+        memberIds
+      ),
+    ];
 
     /*
-    ALWAYS ADD CREATOR
+    ==================================================
+    ADD CREATOR
+    ==================================================
     */
 
     const creatorId =
@@ -2481,7 +2352,7 @@ export async function POST(
 
     /*
     ==================================================
-    VERIFY USERS EXIST
+    AT LEAST CREATOR
     ==================================================
     */
 
@@ -2492,6 +2363,7 @@ export async function POST(
       return NextResponse.json(
         {
           success: false,
+
           message:
             "At least one member is required",
         },
@@ -2501,17 +2373,30 @@ export async function POST(
       );
     }
 
+    /*
+    ==================================================
+    VERIFY USERS
+    ==================================================
+    */
+
     const placeholders =
       uniqueMemberIds
-        .map(() => "?")
+        .map(
+          () => "?"
+        )
         .join(",");
 
     const [
       validUsers,
     ] = await db.query(
       `
-      SELECT id
+      SELECT
+        id,
+        name,
+        email
+
       FROM users
+
       WHERE id IN (${placeholders})
       `,
       uniqueMemberIds
@@ -2520,8 +2405,14 @@ export async function POST(
     const validUserIds =
       validUsers.map(
         (user) =>
-          Number(user.id)
+          Number(
+            user.id
+          )
       );
+
+    /*
+    INVALID IDS
+    */
 
     const invalidUsers =
       uniqueMemberIds.filter(
@@ -2534,12 +2425,46 @@ export async function POST(
     if (
       invalidUsers.length > 0
     ) {
+      console.error(
+        "INVALID GROUP USER IDS:",
+        invalidUsers
+      );
+
+      console.error(
+        "REQUESTED IDS:",
+        uniqueMemberIds
+      );
+
+      console.error(
+        "VALID IDS:",
+        validUserIds
+      );
+
       return NextResponse.json(
         {
           success: false,
+
           message:
             "One or more selected users do not exist",
+
           invalidUsers,
+
+          requestedUserIds:
+            uniqueMemberIds,
+
+          validUserIds,
+
+          /*
+          Helpful debugging
+          */
+
+          debug: {
+            currentUserId:
+              creatorId,
+
+            receivedMembers:
+              rawMembers,
+          },
         },
         {
           status: 400,
@@ -2549,7 +2474,7 @@ export async function POST(
 
     /*
     ==================================================
-    DATABASE
+    DATABASE TRANSACTION
     ==================================================
     */
 
@@ -2559,7 +2484,9 @@ export async function POST(
     await connection.beginTransaction();
 
     /*
+    ==================================================
     CREATE GROUP
+    ==================================================
     */
 
     const [
@@ -2597,14 +2524,16 @@ export async function POST(
       );
 
     /*
+    ==================================================
     ADD MEMBERS
+    ==================================================
     */
 
     for (
       const userId of
         uniqueMemberIds
     ) {
-      const role =
+      const memberRole =
         Number(userId) ===
         creatorId
           ? "admin"
@@ -2629,19 +2558,117 @@ export async function POST(
         [
           conversationId,
           userId,
-          role,
+          memberRole,
         ]
       );
     }
 
     /*
+    ==================================================
     COMMIT
+    ==================================================
     */
 
     await connection.commit();
 
     /*
-    RETURN GROUP
+    ==================================================
+    GET CREATED MEMBERS
+    ==================================================
+    */
+
+    const [createdMembers] =
+      await connection.query(
+        `
+        SELECT
+          cm.id AS member_id,
+          cm.user_id,
+          cm.role AS member_role,
+
+          u.name,
+          u.email,
+          u.phone,
+          u.role,
+          u.team,
+          u.status,
+          u.avatar
+
+        FROM conversation_members cm
+
+        INNER JOIN users u
+          ON u.id = cm.user_id
+
+        WHERE
+          cm.conversation_id = ?
+
+        ORDER BY cm.id ASC
+        `,
+        [conversationId]
+      );
+
+    const formattedMembers =
+      createdMembers.map(
+        (member) => ({
+          member_id:
+            Number(
+              member.member_id
+            ),
+
+          id:
+            Number(
+              member.user_id
+            ),
+
+          user_id:
+            Number(
+              member.user_id
+            ),
+
+          name:
+            member.name ||
+            member.email ||
+            "",
+
+          email:
+            member.email ||
+            "",
+
+          phone:
+            member.phone ||
+            "",
+
+          role:
+            member.role ||
+            "user",
+
+          member_role:
+            member.member_role ||
+            "member",
+
+          team:
+            member.team ||
+            "",
+
+          status:
+            member.status ||
+            "",
+
+          avatar:
+            member.avatar ||
+            null,
+
+          initials:
+            getInitials(
+              member.name,
+              member.email
+            ),
+        })
+      );
+
+    /*
+    ==================================================
+    SUCCESS
+    ==================================================
     */
 
     return NextResponse.json(
@@ -2666,24 +2693,22 @@ export async function POST(
           created_by:
             creatorId,
 
+          member_count:
+            formattedMembers.length,
+
           members:
-            uniqueMemberIds.map(
-              (userId) => ({
-                id:
-                  Number(userId),
-
-                user_id:
-                  Number(userId),
-
-                role:
-                  Number(userId) ===
-                  creatorId
-                    ? "admin"
-                    : "member",
-              })
-            ),
+            formattedMembers,
 
           messages: [],
+
+          lastMsg:
+            "No messages yet",
+
+          last_msg:
+            "No messages yet",
+
+          unread_count:
+            0,
         },
       },
       {
@@ -2691,10 +2716,23 @@ export async function POST(
       }
     );
   } catch (error) {
+    /*
+    ==================================================
+    ROLLBACK
+    ==================================================
+    */
+
     if (connection) {
       try {
         await connection.rollback();
-      } catch {}
+      } catch (
+        rollbackError
+      ) {
+        console.error(
+          "Rollback Error:",
+          rollbackError
+        );
+      }
     }
 
     console.error(
@@ -2709,12 +2747,24 @@ export async function POST(
         message:
           error.message ||
           "Group creation failed",
+
+        error:
+          process.env.NODE_ENV ===
+          "development"
+            ? error.message
+            : undefined,
       },
       {
         status: 500,
       }
     );
   } finally {
+    /*
+    ==================================================
+    RELEASE CONNECTION
+    ==================================================
+    */
+
     if (connection) {
       connection.release();
     }
