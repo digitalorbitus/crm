@@ -366,15 +366,15 @@ export default function Sidebar({
       name: "Settings",
       icon: Settings,
       href: "/settings",
-      roles: ["admin", "user", "agent"],
+      roles: ["admin", ],
     },
     { name: "Integrations", icon: Link2, href: "/integrations", roles: ["admin"] },
-    {
-      name: "Agents",
-      icon: Link2,
-      href: "/agents",
-      roles: ["admin", "user", "staff", "agent"],
-    },
+    // {
+    //   name: "Agents",
+    //   icon: Link2,
+    //   href: "/agents",
+    //   roles: ["admin", "user", "staff", "agent"],
+    // },
     {
       name: "Plan & Billing",
       icon: CreditCard,

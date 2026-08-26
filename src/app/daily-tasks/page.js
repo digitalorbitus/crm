@@ -1912,6 +1912,7 @@
 
 import { useEffect, useState, useMemo, useCallback } from "react";
 import Sidebar from "@/components/Sidebar";
+import { useRouter } from "next/navigation";
 import {
   Upload,
   Users,
@@ -1931,6 +1932,7 @@ import {
 import LogoutModal from "@/components/LogoutModal";
 
 export default function AdminDailyDeskPage() {
+    const router = useRouter();
   const [file, setFile] = useState(null);
   const [staff, setStaff] = useState([]);
   const [selectedStaff, setSelectedStaff] = useState([]);
@@ -2145,13 +2147,31 @@ export default function AdminDailyDeskPage() {
     return assignments;
   };
 
-  const handleConfirmLogout = async () => {
+ const handleConfirmLogout = async () => {
     setLoggingOut(true);
+
     try {
-      window.location.href = "/login";
-    } catch (err) {
-      console.error("Logout failed:", err);
+      localStorage.removeItem("crm_login_time");
+
+      const response = await fetch("/api/logout", {
+        method: "POST",
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(data.message || "Logout failed");
+        setLoggingOut(false);
+        setShowLogoutModal(false);
+        return;
+      }
+
+      router.push("/login");
+    } catch (error) {
+      console.error("Logout error:", error);
+      alert("Something went wrong during logout.");
       setLoggingOut(false);
+      setShowLogoutModal(false);
     }
   };
 
