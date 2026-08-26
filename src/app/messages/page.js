@@ -4104,7 +4104,7 @@
 
 
 "use client";
-
+import { useRouter } from "next/navigation";
 import React, {
   useState,
   useEffect,
@@ -4137,6 +4137,7 @@ import {
 import LogoutModal from "@/components/LogoutModal";
 import Sidebar from "@/components/Sidebar";
 export default function MessagesDashboard() {
+  const router = useRouter();
   /* ==================================================
      CONVERSATIONS
   ================================================== */
@@ -4248,6 +4249,35 @@ const [currentUser, setCurrentUser] = useState(null);
       }
     );
   };
+
+
+    const handleConfirmLogout = async () => {
+  setLoggingOut(true);
+
+  try {
+    localStorage.removeItem("crm_login_time");
+
+    const response = await fetch("/api/logout", {
+      method: "POST",
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      alert(data.message || "Logout failed");
+      setLoggingOut(false);
+      setShowLogoutModal(false);
+      return;
+    }
+
+    router.push("/login");
+  } catch (error) {
+    console.error("Logout error:", error);
+    alert("Something went wrong during logout.");
+    setLoggingOut(false);
+    setShowLogoutModal(false);
+  }
+};
 /* ==================================================
    MESSAGE DATE HELPERS
 ================================================== */
@@ -4288,87 +4318,137 @@ const loadConversations = async () => {
   try {
     setLoadingConversations(true);
 
-    const response = await fetch(
-      "/api/conversations",
-      {
-        method: "GET",
-        credentials: "include",
-        cache: "no-store",
-      }
-    );
+    // ==================================================
+    // CURRENT USER + GROUP CONVERSATIONS
+    // ==================================================
+
+    const response = await fetch("/api/conversations", {
+      method: "GET",
+      credentials: "include",
+      cache: "no-store",
+    });
 
     const data = await response.json();
 
     if (!response.ok || !data.success) {
       throw new Error(
-        data.message ||
-          "Failed to load conversations"
+        data.message || "Failed to load conversations"
       );
     }
-
-    /*
-    ==========================================
-    ADMIN / CURRENT USER
-    ==========================================
-    */
 
     setIsAdmin(Boolean(data.isAdmin));
     setCurrentUser(data.currentUser || null);
 
-    /*
-    ==========================================
-    ALL USERS
-    ==========================================
-    */
+    // ==================================================
+    // ALL USERS
+    // ==================================================
 
-    const allUsers = Array.isArray(data.users)
-      ? data.users
+    const usersResponse = await fetch("/api/new-users", {
+      method: "GET",
+      credentials: "include",
+      cache: "no-store",
+    });
+
+    const usersData = await usersResponse.json();
+
+    if (!usersResponse.ok || !usersData.success) {
+      throw new Error(
+        usersData.message || "Failed to load users"
+      );
+    }
+
+    const allUsers = Array.isArray(usersData.users)
+      ? usersData.users
       : [];
 
     setUsers(allUsers);
 
-    /*
-    ==========================================
-    ALL CONVERSATIONS
-    ==========================================
-    */
+    console.log("CURRENT USER:", data.currentUser);
+    console.log("IS ADMIN:", data.isAdmin);
+    console.log("NEW USERS:", allUsers);
 
-    const chats = Array.isArray(data.conversations)
+    // ==================================================
+    // DIRECT CONVERSATIONS FROM /api/new-users
+    // ==================================================
+
+    const directChats = allUsers
+      .filter((user) => {
+        // Current user ko khud se direct chat mein show na karo
+        return Number(user.id) !== Number(data.currentUser?.id);
+      })
+      .map((user) => {
+        const initials =
+          user.name
+            ?.trim()
+            .slice(0, 2)
+            .toUpperCase() || "U";
+
+        return {
+         conversationId: `direct-${user.id}`,
+
+          // IMPORTANT
+          user_id: user.id,
+
+          name: user.name || "Unknown",
+
+          email: user.email || "",
+
+          phone: user.phone || "",
+
+          role: user.role || "",
+
+          type: "direct",
+
+          initials,
+
+          avatar_bg:
+            "bg-emerald-100 text-emerald-600",
+
+          lastMsg: "No messages yet",
+
+          last_msg: "No messages yet",
+
+          last_msg_time: null,
+
+          unread_count: 0,
+
+          messages: [],
+        };
+      });
+
+    // ==================================================
+    // GROUP / EXISTING CONVERSATIONS
+    // ==================================================
+
+    const existingConversations = Array.isArray(
+      data.conversations
+    )
       ? data.conversations
       : [];
 
-    console.log(
-      "IS ADMIN:",
-      data.isAdmin
+    // Sirf group conversations rakhein
+    const groupChats = existingConversations.filter(
+      (chat) => chat.type === "group"
     );
 
-    console.log(
-      "ALL USERS:",
-      allUsers
-    );
+    // ==================================================
+    // MERGE DIRECT + GROUP
+    // ==================================================
 
-    console.log(
-      "ALL USERS LENGTH:",
-      allUsers.length
-    );
+    const chats = [
+      ...directChats,
+      ...groupChats,
+    ];
 
-    console.log(
-      "ALL CONVERSATIONS:",
-      chats
-    );
-
-    console.log(
-      "ALL CONVERSATIONS LENGTH:",
-      chats.length
-    );
+    console.log("DIRECT CHATS:", directChats);
+    console.log("GROUP CHATS:", groupChats);
+    console.log("FINAL CHATS:", chats);
 
     setConversations(chats);
 
-    /*
-    ==========================================
-    KEEP SELECTED CHAT
-    ==========================================
-    */
+    // ==================================================
+    // KEEP SELECTED CHAT
+    // ==================================================
 
     setSelectedChat((current) => {
       if (!chats.length) {
@@ -4381,15 +4461,13 @@ const loadConversations = async () => {
 
       const updatedChat = chats.find(
         (chat) =>
-          Number(chat.id) ===
-          Number(current.id)
+          String(chat.id) === String(current.id)
       );
 
       if (updatedChat) {
         return {
           ...updatedChat,
-          messages:
-            current.messages || [],
+          messages: current.messages || [],
         };
       }
 
@@ -4410,152 +4488,162 @@ const loadConversations = async () => {
      LOAD MESSAGES
   ================================================== */
 
-  const loadMessages = async (
-    conversationId
-  ) => {
-    if (!conversationId) {
+ const loadMessages = async (
+  chat
+) => {
+  try {
+    if (!chat) {
       return;
     }
 
-    try {
-      setLoadingMessages(true);
+    /*
+    New user:
+    No conversation yet.
+    */
 
-      const response =
-        await fetch(
-          `/api/messages?conversationId=${conversationId}`,
-          {
-            method: "GET",
-            credentials: "include",
-            cache: "no-store",
-          }
-        );
-
-      const data =
-        await response.json();
-
-      if (
-        !response.ok ||
-        !data.success
-      ) {
-        throw new Error(
-          data.message ||
-            "Failed to load messages"
-        );
-      }
-
-      const apiMessages =
-        Array.isArray(data.messages)
-          ? data.messages
-          : [];
-
-      const formattedMessages =
-        apiMessages.map(
-          (msg) => ({
-            id: msg.id,
-
-     sender:
-  Number(msg.sender_id) === Number(currentUser?.id)
-    ? "me"
-    : "them",
-
-senderId: msg.sender_id,
-
-            senderName:
-              msg.sender_name ||
-              "",
-
-            senderEmail:
-              msg.sender_email ||
-              "",
-
-            text:
-              msg.text || "",
-
-            time:
-              msg.created_at
-                ? new Date(
-                    msg.created_at
-                  ).toLocaleTimeString(
-                    [],
-                    {
-                      hour: "2-digit",
-                      minute:
-                        "2-digit",
-                    }
-                  )
-                : "",
-
-            type:
-              msg.msg_type ||
-              "text",
-
-            fileName:
-              msg.file_name ||
-              null,
-
-            fileSize:
-              msg.file_size ||
-              null,
-
-            fileUrl:
-              msg.file_url ||
-              null,
-
-            created_at:
-              msg.created_at ||
-              null,
-          })
-        );
-
-      /*
-      Update selected chat
-      */
-
+    if (
+      !chat.id &&
+      chat.targetUserId
+    ) {
       setSelectedChat(
-        (current) => {
-          if (
-            !current ||
-            Number(current.id) !==
-              Number(conversationId)
-          ) {
-            return current;
-          }
+        (current) =>
+          current
+            ? {
+                ...current,
+                messages: [],
+              }
+            : current
+      );
 
-          return {
-            ...current,
-            messages:
-              formattedMessages,
-          };
+      return;
+    }
+
+    /*
+    Existing conversation
+    */
+
+    const conversationId =
+      Number(chat.id);
+
+    if (
+      !Number.isInteger(
+        conversationId
+      ) ||
+      conversationId <= 0
+    ) {
+      console.error(
+        "Invalid conversation ID:",
+        chat.id
+      );
+
+      return;
+    }
+
+    const response =
+      await fetch(
+        `/api/messages?conversationId=${conversationId}`,
+        {
+          method: "GET",
+          credentials: "include",
+          cache: "no-store",
         }
       );
 
-      /*
-      Update sidebar
-      */
+    const data =
+      await response.json();
 
-      setConversations(
-        (prev) =>
-          prev.map(
-            (chat) =>
-              Number(chat.id) ===
-              Number(conversationId)
-                ? {
-                    ...chat,
-                    messages:
-                      formattedMessages,
-                  }
-                : chat
-          )
+    if (
+      !response.ok ||
+      !data.success
+    ) {
+      throw new Error(
+        data.message ||
+          "Failed to load messages"
       );
-    } catch (error) {
-      console.error(
-        "Load Messages Error:",
-        error
-      );
-    } finally {
-      setLoadingMessages(false);
     }
-  };
+
+    const messages =
+      (data.messages || []).map(
+        (message) => ({
+          id: message.id,
+
+          sender:
+            Number(
+              message.sender_id
+            ) ===
+            Number(
+              currentUser?.id
+            )
+              ? "me"
+              : "them",
+
+          senderId:
+            Number(
+              message.sender_id
+            ),
+
+          senderName:
+            message.sender_name ||
+            "",
+
+          senderEmail:
+            message.sender_email ||
+            "",
+
+          text:
+            message.text || "",
+
+          time:
+            message.created_at
+              ? new Date(
+                  message.created_at
+                ).toLocaleTimeString(
+                  [],
+                  {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  }
+                )
+              : "",
+
+          type:
+            message.msg_type ||
+            "text",
+
+          fileName:
+            message.file_name ||
+            null,
+
+          fileSize:
+            message.file_size ||
+            null,
+
+          fileUrl:
+            message.file_url ||
+            null,
+
+          created_at:
+            message.created_at ||
+            null,
+        })
+      );
+
+    setSelectedChat(
+      (current) =>
+        current
+          ? {
+              ...current,
+              messages,
+            }
+          : current
+    );
+  } catch (error) {
+    console.error(
+      "Load Messages Error:",
+      error
+    );
+  }
+};
 
   /* ==================================================
      INITIAL LOAD
@@ -4614,210 +4702,782 @@ const handleSelectChat = (chat) => {
      SEND TEXT MESSAGE
   ================================================== */
 
-  const handleSendMessage =
-    async (e) => {
-      e?.preventDefault();
+// const handleSendMessage = async (e) => {
+//   e?.preventDefault();
 
-      const text =
-        inputMessage.trim();
+//   const text = inputMessage.trim();
 
-      if (
-        !text ||
-        !selectedChat ||
-        sendingMessage
-      ) {
-        return;
+//   if (!text || sendingMessage) {
+//     return;
+//   }
+
+//   // ============================================
+//   // CURRENT USER
+//   // ============================================
+
+//   const currentUserId =
+//     Number(currentUser?.id);
+
+//   // ============================================
+//   // REAL DB CONVERSATION ID
+//   // ============================================
+
+//   const rawConversationId =
+//     selectedChat?.id;
+
+//   const conversationId =
+//     rawConversationId &&
+//     Number.isInteger(
+//       Number(rawConversationId)
+//     ) &&
+//     Number(rawConversationId) > 0
+//       ? Number(rawConversationId)
+//       : null;
+
+//   // ============================================
+//   // TARGET USER
+//   // ============================================
+
+//   const targetUserId =
+//     selectedChat?.user_id
+//       ? Number(selectedChat.user_id)
+//       : null;
+
+//   console.log("SEND DEBUG:", {
+//     currentUserId,
+//     selectedChat,
+//     conversationId,
+//     targetUserId,
+//   });
+
+//   // ============================================
+//   // VALIDATION
+//   // ============================================
+
+//   if (
+//     !conversationId &&
+//     !targetUserId
+//   ) {
+//     console.error(
+//       "Cannot send message:",
+//       {
+//         currentUser,
+//         selectedChat,
+//       }
+//     );
+
+//     alert(
+//       "No conversation or target user selected"
+//     );
+
+//     return;
+//   }
+
+//   // ============================================
+//   // CANNOT MESSAGE SELF
+//   // ============================================
+
+//   if (
+//     targetUserId &&
+//     targetUserId === currentUserId
+//   ) {
+//     alert(
+//       "You cannot send a message to yourself"
+//     );
+
+//     return;
+//   }
+
+//   try {
+//     setSendingMessage(true);
+
+//     const body = {
+//       text,
+//       msgType: "text",
+//     };
+
+//     // Existing real conversation
+//     if (conversationId) {
+//       body.conversationId =
+//         conversationId;
+//     }
+
+//     // New direct chat
+//     if (
+//       !conversationId &&
+//       targetUserId
+//     ) {
+//       body.targetUserId =
+//         targetUserId;
+//     }
+
+//     console.log(
+//       "POST /api/messages BODY:",
+//       body
+//     );
+
+//     const response =
+//       await fetch(
+//         "/api/messages",
+//         {
+//           method: "POST",
+
+//           credentials: "include",
+
+//           headers: {
+//             "Content-Type":
+//               "application/json",
+//           },
+
+//           body: JSON.stringify(body),
+//         }
+//       );
+
+//     const data =
+//       await response.json();
+
+//     console.log(
+//       "POST /api/messages RESPONSE:",
+//       data
+//     );
+
+//     if (
+//       !response.ok ||
+//       !data.success
+//     ) {
+//       throw new Error(
+//         data.message ||
+//           "Failed to send message"
+//       );
+//     }
+
+//     // ============================================
+//     // API RETURNS REAL DB CONVERSATION ID
+//     // ============================================
+
+//     const realConversationId =
+//       Number(
+//         data.conversationId
+//       );
+
+//     const apiMessage =
+//       data.data;
+
+//     const newMessage = {
+//       id:
+//         Number(apiMessage.id),
+
+//       sender:
+//         Number(
+//           apiMessage.sender_id
+//         ) === currentUserId
+//           ? "me"
+//           : "them",
+
+//       senderId:
+//         Number(
+//           apiMessage.sender_id
+//         ),
+
+//       senderName:
+//         apiMessage.sender_name ||
+//         currentUser?.name ||
+//         "You",
+
+//       senderEmail:
+//         apiMessage.sender_email ||
+//         currentUser?.email ||
+//         "",
+
+//       text:
+//         apiMessage.text ||
+//         text,
+
+//       time:
+//         apiMessage.created_at
+//           ? new Date(
+//               apiMessage.created_at
+//             ).toLocaleTimeString(
+//               [],
+//               {
+//                 hour: "2-digit",
+//                 minute: "2-digit",
+//               }
+//             )
+//           : getCurrentTime(),
+
+//       type:
+//         apiMessage.msg_type ||
+//         "text",
+
+//       fileName:
+//         apiMessage.file_name ||
+//         null,
+
+//       fileSize:
+//         apiMessage.file_size ||
+//         null,
+
+//       fileUrl:
+//         apiMessage.file_url ||
+//         null,
+
+//       created_at:
+//         apiMessage.created_at ||
+//         null,
+//     };
+
+//     // ============================================
+//     // UPDATE SELECTED CHAT
+//     // ============================================
+
+//     setSelectedChat(
+//       (current) => {
+//         if (!current) {
+//           return current;
+//         }
+
+//         return {
+//           ...current,
+
+//           // IMPORTANT
+//           id:
+//             realConversationId ||
+//             current.id ||
+//             null,
+
+//           // Remove fake direct-X value
+//           conversationId:
+//             realConversationId ||
+//             null,
+
+//           messages: [
+//             ...(current.messages ||
+//               []),
+//             newMessage,
+//           ],
+
+//           lastMsg:
+//             text,
+
+//           last_msg:
+//             text,
+
+//           last_msg_time:
+//             apiMessage.created_at ||
+//             null,
+
+//           time:
+//             newMessage.time,
+//         };
+//       }
+//     );
+
+//     // ============================================
+//     // UPDATE SIDEBAR
+//     // ============================================
+
+//     setConversations(
+//       (prev) =>
+//         prev.map((chat) => {
+//           const chatUserId =
+//             Number(
+//               chat.user_id
+//             );
+
+//           const chatConversationId =
+//             Number(
+//               chat.id
+//             );
+
+//           /*
+//           Match either:
+//           1. Real conversation ID
+//           2. Same target user
+//           */
+
+//           const isSameChat =
+//             (
+//               realConversationId &&
+//               chatConversationId ===
+//                 realConversationId
+//             ) ||
+//             (
+//               targetUserId &&
+//               chatUserId ===
+//                 targetUserId
+//             );
+
+//           if (!isSameChat) {
+//             return chat;
+//           }
+
+//           return {
+//             ...chat,
+
+//             id:
+//               realConversationId ||
+//               chat.id,
+
+//             conversationId:
+//               realConversationId ||
+//               null,
+
+//             messages: [
+//               ...(chat.messages ||
+//                 []),
+//               newMessage,
+//             ],
+
+//             lastMsg:
+//               text,
+
+//             last_msg:
+//               text,
+
+//             last_msg_time:
+//               apiMessage.created_at ||
+//               null,
+
+//             time:
+//               newMessage.time,
+
+//             unread_count:
+//               0,
+//           };
+//         })
+//     );
+
+//     setInputMessage("");
+//   } catch (error) {
+//     console.error(
+//       "Send Message Error:",
+//       error
+//     );
+
+//     alert(
+//       error.message ||
+//         "Message send failed"
+//     );
+//   } finally {
+//     setSendingMessage(false);
+//   }
+// };
+
+
+const handleSendMessage = async (e) => {
+  e?.preventDefault();
+
+  const text = inputMessage.trim();
+
+  if (!text || sendingMessage) {
+    return;
+  }
+
+  // ============================================
+  // CURRENT USER
+  // ============================================
+
+  const currentUserId = Number(currentUser?.id);
+
+  // ============================================
+  // REAL CONVERSATION ID
+  // ============================================
+
+  const rawConversationId =
+    selectedChat?.id ??
+    selectedChat?.conversationId;
+
+  let conversationId = null;
+
+  // Only accept REAL numeric DB ID
+  if (
+    rawConversationId !== null &&
+    rawConversationId !== undefined &&
+    rawConversationId !== ""
+  ) {
+    const numericConversationId =
+      Number(rawConversationId);
+
+    if (
+      Number.isInteger(numericConversationId) &&
+      numericConversationId > 0
+    ) {
+      conversationId =
+        numericConversationId;
+    }
+  }
+
+  // ============================================
+  // TARGET USER
+  // ============================================
+
+  const rawTargetUserId =
+    selectedChat?.user_id ??
+    selectedChat?.userId;
+
+  let targetUserId = null;
+
+  if (
+    rawTargetUserId !== null &&
+    rawTargetUserId !== undefined &&
+    rawTargetUserId !== ""
+  ) {
+    const numericTargetUserId =
+      Number(rawTargetUserId);
+
+    if (
+      Number.isInteger(numericTargetUserId) &&
+      numericTargetUserId > 0
+    ) {
+      targetUserId =
+        numericTargetUserId;
+    }
+  }
+
+  // ============================================
+  // IMPORTANT:
+  // fake direct-X IDs are NOT DB IDs
+  // ============================================
+
+  if (
+    typeof rawConversationId === "string" &&
+    rawConversationId.startsWith("direct-")
+  ) {
+    conversationId = null;
+  }
+
+  console.log("================================");
+  console.log("SEND MESSAGE DEBUG");
+  console.log("currentUserId:", currentUserId);
+  console.log("selectedChat:", selectedChat);
+  console.log(
+    "rawConversationId:",
+    rawConversationId
+  );
+  console.log(
+    "conversationId:",
+    conversationId
+  );
+  console.log(
+    "targetUserId:",
+    targetUserId
+  );
+  console.log("================================");
+
+  // ============================================
+  // VALIDATION
+  // ============================================
+
+  if (!conversationId && !targetUserId) {
+    console.error(
+      "Cannot send message:",
+      {
+        currentUser,
+        selectedChat,
       }
+    );
 
-      try {
-        setSendingMessage(true);
+    alert(
+      "No conversation or target user selected"
+    );
 
-        const response =
-          await fetch(
-            "/api/messages",
-            {
-              method: "POST",
-              credentials:
-                "include",
-              headers: {
-                "Content-Type":
-                  "application/json",
-              },
-              body: JSON.stringify(
-                {
-                  conversationId:
-                    selectedChat.id,
+    return;
+  }
 
-                  text,
+  // ============================================
+  // CANNOT MESSAGE SELF
+  // ============================================
 
-                  msgType: "text",
-                }
-              ),
-            }
-          );
+  if (
+    targetUserId &&
+    targetUserId === currentUserId
+  ) {
+    alert(
+      "You cannot send a message to yourself"
+    );
 
-        const data =
-          await response.json();
+    return;
+  }
 
-        if (
-          !response.ok ||
-          !data.success
-        ) {
-          throw new Error(
-            data.message ||
-              "Failed to send message"
-          );
-        }
+  try {
+    setSendingMessage(true);
 
-        const apiMessage =
-          data.data;
-
-        const newMessage = {
-          id:
-            apiMessage.id,
-
-    sender:
-  Number(apiMessage.sender_id) === Number(currentUser?.id)
-    ? "me"
-    : "them",
-
-senderId:
-  apiMessage.sender_id,
-
-          senderName:
-            apiMessage.sender_name ||
-            "You",
-
-          senderEmail:
-            apiMessage.sender_email ||
-            "",
-
-          text:
-            apiMessage.text ||
-            text,
-
-          time:
-            apiMessage.created_at
-              ? new Date(
-                  apiMessage.created_at
-                ).toLocaleTimeString(
-                  [],
-                  {
-                    hour: "2-digit",
-                    minute:
-                      "2-digit",
-                  }
-                )
-              : getCurrentTime(),
-
-          type:
-            apiMessage.msg_type ||
-            "text",
-
-          fileName:
-            apiMessage.file_name ||
-            null,
-
-          fileSize:
-            apiMessage.file_size ||
-            null,
-
-          fileUrl:
-            apiMessage.file_url ||
-            null,
-
-          created_at:
-            apiMessage.created_at ||
-            null,
-        };
-
-        /*
-        Update selected chat
-        */
-
-        setSelectedChat(
-          (current) => {
-            if (!current) {
-              return current;
-            }
-
-            return {
-              ...current,
-
-              messages: [
-                ...(current.messages ||
-                  []),
-                newMessage,
-              ],
-
-              last_msg: text,
-
-              lastMsg: text,
-
-              last_msg_time:
-                apiMessage.created_at ||
-                null,
-
-              time:
-                newMessage.time,
-            };
-          }
-        );
-
-        /*
-        Update sidebar
-        */
-
-        setConversations(
-          (prev) =>
-            prev.map(
-              (chat) =>
-                Number(chat.id) ===
-                Number(
-                  selectedChat.id
-                )
-                  ? {
-                      ...chat,
-
-                      messages: [
-                        ...(chat.messages ||
-                          []),
-                        newMessage,
-                      ],
-
-                      last_msg:
-                        text,
-
-                      lastMsg:
-                        text,
-
-                      last_msg_time:
-                        apiMessage.created_at ||
-                        null,
-
-                      time:
-                        newMessage.time,
-                    }
-                  : chat
-            )
-        );
-
-        setInputMessage("");
-      } catch (error) {
-        console.error(
-          "Send Message Error:",
-          error
-        );
-
-        alert(
-          error.message ||
-            "Message send failed"
-        );
-      } finally {
-        setSendingMessage(false);
-      }
+    const body = {
+      text,
+      msgType: "text",
     };
 
+    // ============================================
+    // EXISTING REAL CONVERSATION
+    // ============================================
+
+    if (conversationId) {
+      body.conversationId =
+        conversationId;
+    }
+
+    // ============================================
+    // NEW DIRECT CHAT
+    // ============================================
+
+    if (!conversationId && targetUserId) {
+      body.targetUserId =
+        targetUserId;
+    }
+
+    console.log(
+      "POST /api/messages BODY:",
+      body
+    );
+
+    const response =
+      await fetch(
+        "/api/messages",
+        {
+          method: "POST",
+
+          credentials: "include",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+
+          body: JSON.stringify(body),
+        }
+      );
+
+    const data =
+      await response.json();
+
+    console.log(
+      "POST /api/messages RESPONSE:",
+      data
+    );
+
+    if (
+      !response.ok ||
+      !data.success
+    ) {
+      throw new Error(
+        data.message ||
+          "Failed to send message"
+      );
+    }
+
+    // ============================================
+    // REAL DB CONVERSATION ID FROM API
+    // ============================================
+
+    const realConversationId =
+      Number(data.conversationId);
+
+    const apiMessage =
+      data.data;
+
+    if (
+      !apiMessage ||
+      !realConversationId
+    ) {
+      throw new Error(
+        "API did not return a valid conversation/message"
+      );
+    }
+
+    // ============================================
+    // FORMAT MESSAGE
+    // ============================================
+
+    const newMessage = {
+      id:
+        Number(apiMessage.id),
+
+      conversation_id:
+        realConversationId,
+
+      sender:
+        Number(
+          apiMessage.sender_id
+        ) === currentUserId
+          ? "me"
+          : "them",
+
+      senderId:
+        Number(
+          apiMessage.sender_id
+        ),
+
+      senderName:
+        apiMessage.sender_name ||
+        currentUser?.name ||
+        "You",
+
+      senderEmail:
+        apiMessage.sender_email ||
+        currentUser?.email ||
+        "",
+
+      text:
+        apiMessage.text ||
+        text,
+
+      time:
+        apiMessage.created_at
+          ? new Date(
+              apiMessage.created_at
+            ).toLocaleTimeString(
+              [],
+              {
+                hour: "2-digit",
+                minute: "2-digit",
+              }
+            )
+          : getCurrentTime(),
+
+      type:
+        apiMessage.msg_type ||
+        "text",
+
+      fileName:
+        apiMessage.file_name ||
+        null,
+
+      fileSize:
+        apiMessage.file_size ||
+        null,
+
+      fileUrl:
+        apiMessage.file_url ||
+        null,
+
+      created_at:
+        apiMessage.created_at ||
+        null,
+    };
+
+    // ============================================
+    // UPDATE SELECTED CHAT
+    // ============================================
+
+    setSelectedChat((current) => {
+      if (!current) {
+        return current;
+      }
+
+      return {
+        ...current,
+
+        // REAL DB ID
+        id:
+          realConversationId,
+
+        // Keep same value
+        conversationId:
+          realConversationId,
+
+        messages: [
+          ...(current.messages || []),
+          newMessage,
+        ],
+
+        lastMsg:
+          text,
+
+        last_msg:
+          text,
+
+        last_msg_time:
+          apiMessage.created_at ||
+          null,
+
+        time:
+          newMessage.time,
+      };
+    });
+
+    // ============================================
+    // UPDATE SIDEBAR
+    // ============================================
+
+    setConversations((prev) =>
+      prev.map((chat) => {
+        const chatUserId =
+          Number(
+            chat.user_id ??
+            chat.userId
+          );
+
+        const chatConversationId =
+          Number(
+            chat.id ??
+            chat.conversationId
+          );
+
+        const isSameChat =
+          (
+            realConversationId &&
+            chatConversationId ===
+              realConversationId
+          ) ||
+          (
+            targetUserId &&
+            chatUserId ===
+              targetUserId
+          );
+
+        if (!isSameChat) {
+          return chat;
+        }
+
+        return {
+          ...chat,
+
+          // REAL DB ID
+          id:
+            realConversationId,
+
+          conversationId:
+            realConversationId,
+
+          messages: [
+            ...(chat.messages || []),
+            newMessage,
+          ],
+
+          lastMsg:
+            text,
+
+          last_msg:
+            text,
+
+          last_msg_time:
+            apiMessage.created_at ||
+            null,
+
+          time:
+            newMessage.time,
+
+          unread_count: 0,
+        };
+      })
+    );
+
+    setInputMessage("");
+  } catch (error) {
+    console.error(
+      "Send Message Error:",
+      error
+    );
+
+    alert(
+      error.message ||
+        "Message send failed"
+    );
+  } finally {
+    setSendingMessage(false);
+  }
+};
   /* ==================================================
      FILE UPLOAD
   ================================================== */
@@ -5664,1231 +6324,2817 @@ console.log(
      RENDER
   ================================================== */
 
-  const handleConfirmLogout = async () => {
-  setLoggingOut(true);
 
-  try {
-    localStorage.removeItem("crm_login_time");
 
-    const response = await fetch("/api/logout", {
-      method: "POST",
-    });
+//   return (
 
-    const data = await response.json();
+//     <div className="flex flex-col   lg:ml-64  h-full min-h-0 p-4 sm:p-6 lg:p-8 space-y-6 bg-slate-50 text-slate-800 font-sans overflow-hidden">
 
-    if (!response.ok) {
-      alert(data.message || "Logout failed");
-      setLoggingOut(false);
-      setShowLogoutModal(false);
-      return;
-    }
+//       {/* ==================================================
+//           FILE INPUT
+//       ================================================== */}
 
-    router.push("/login");
-  } catch (error) {
-    console.error("Logout error:", error);
-    alert("Something went wrong during logout.");
-    setLoggingOut(false);
-    setShowLogoutModal(false);
-  }
-};
+//       <input
+//         type="file"
+//         ref={fileInputRef}
+//         onChange={
+//           handleFileUpload
+//         }
+//         className="hidden"
+//       />
 
-  return (
-    <div className="flex flex-col   h-screen w-full bg-slate-50 text-slate-800 font-sans overflow-hidden">
+//       {/* ==================================================
+//           TOP NAVBAR
+//       ================================================== */}
 
-      {/* ==================================================
-          FILE INPUT
-      ================================================== */}
+//       <header className="h-14 bg-white border-b border-slate-200 px-4 sm:px-6 flex items-center justify-between shrink-0">
 
-      <input
-        type="file"
-        ref={fileInputRef}
-        onChange={
-          handleFileUpload
-        }
-        className="hidden"
-      />
+//         <div className="flex items-center gap-2 sm:gap-3">
 
-      {/* ==================================================
-          TOP NAVBAR
-      ================================================== */}
+//           <Menu className="w-5 h-5 text-slate-500 cursor-pointer" />
 
-      <header className="h-14 bg-white border-b border-slate-200 px-4 sm:px-6 flex items-center justify-between shrink-0">
+//           <h1 className="font-semibold text-base sm:text-lg text-slate-800">
+//             Messages Dashboard
+//           </h1>
 
-        <div className="flex items-center gap-2 sm:gap-3">
+//         </div>
 
-          <Menu className="w-5 h-5 text-slate-500 cursor-pointer" />
+//         <div className="flex items-center gap-2 sm:gap-4">
 
-          <h1 className="font-semibold text-base sm:text-lg text-slate-800">
-            Messages Dashboard
-          </h1>
+//           <div className="hidden lg:flex bg-emerald-50 text-emerald-600 text-xs px-3 py-1.5 rounded-md font-medium items-center gap-1.5 border border-emerald-100">
 
-        </div>
+//             <Calendar className="w-3.5 h-3.5" />
 
-        <div className="flex items-center gap-2 sm:gap-4">
+//             CRM Inbox
 
-          <div className="hidden lg:flex bg-emerald-50 text-emerald-600 text-xs px-3 py-1.5 rounded-md font-medium items-center gap-1.5 border border-emerald-100">
+//           </div>
 
-            <Calendar className="w-3.5 h-3.5" />
+//           <div className="flex items-center gap-2">
 
-            CRM Inbox
+//             <div className="w-8 h-8 rounded-full bg-emerald-600 text-white font-medium flex items-center justify-center text-xs">
+//               M
+//             </div>
 
+//             <div className="text-left text-xs hidden sm:block">
+
+//               <p className="font-semibold text-slate-700">
+//                 M Aftab
+//               </p>
+
+//               <p className="text-slate-400 text-[10px]">
+//                 admin@callcrm.com
+//               </p>
+
+//             </div>
+
+//           </div>
+
+//         </div>
+
+//       </header>
+
+//       {/* ==================================================
+//           MAIN
+//       ================================================== */}
+
+//       <div className="flex-1 flex overflow-hidden relative">
+
+//         {/* ==================================================
+//             LEFT SIDEBAR
+//         ================================================== */}
+
+//         <aside
+//           className={`w-full md:w-80 lg:w-96 bg-white border-r border-slate-200 flex flex-col shrink-0 ${
+//             showMobileChat
+//               ? "hidden md:flex"
+//               : "flex"
+//           }`}
+//         >
+
+//           {/* SEARCH */}
+
+//           <div className="p-3 flex items-center gap-2">
+
+//             <div className="relative flex-1">
+
+//               <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+
+//               <input
+//                 type="text"
+//                 placeholder="Search conversations..."
+//                 value={
+//                   searchText
+//                 }
+//                 onChange={(e) =>
+//                   setSearchText(
+//                     e.target.value
+//                   )
+//                 }
+//                 className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-emerald-500"
+//               />
+
+//             </div>
+
+//             <button
+//               type="button"
+//               className="p-1.5 text-slate-400 border border-slate-200 rounded-lg"
+//             >
+//               <Filter className="w-4 h-4" />
+//             </button>
+
+//           </div>
+
+//           {/* TABS */}
+
+//           <div className="flex items-center justify-between border-b border-slate-200 px-3">
+
+//             <div className="flex">
+
+//               {[
+//                 "All",
+//                 "Group",
+//               ].map(
+//                 (tab) => (
+//                   <button
+//                     key={tab}
+//                     type="button"
+//                     onClick={() =>
+//                       setActiveTab(
+//                         tab
+//                       )
+//                     }
+//                     className={`py-2 px-3 text-xs font-medium border-b-2 ${
+//                       activeTab ===
+//                       tab
+//                         ? "border-emerald-500 text-emerald-600"
+//                         : "border-transparent text-slate-500 hover:text-slate-700"
+//                     }`}
+//                   >
+//                     {tab}
+//                   </button>
+//                 )
+//               )}
+
+//             </div>
+
+//             {activeTab ===
+//               "Group" && (
+//               <button
+//                 type="button"
+//                 onClick={() =>
+//                   setIsGroupModalOpen(
+//                     true
+//                   )
+//                 }
+//                 className="mb-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] px-2.5 py-1 rounded-md flex items-center gap-1 font-medium"
+//               >
+//                 <Plus className="w-3.5 h-3.5" />
+
+//                 Create Group
+//               </button>
+//             )}
+
+//           </div>
+
+
+// {/* ==================================================
+//     ADMIN USERS
+// ================================================== */}
+
+// {isAdmin && (
+//   <div className="border-b border-slate-200">
+
+//     <div className="px-3 py-2 bg-slate-50 flex items-center justify-between">
+
+//       <div className="flex items-center gap-2">
+
+//         <Users className="w-3.5 h-3.5 text-emerald-600" />
+
+//         <span className="text-[10px] font-bold text-slate-600 uppercase">
+//           All Users
+//         </span>
+
+//       </div>
+
+//       <span className="text-[9px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full font-semibold">
+//         {users.length}
+//       </span>
+
+//     </div>
+
+//     {users.map((user) => {
+
+//       const initials =
+//         user.name
+//           ?.trim()
+//           .slice(0, 2)
+//           .toUpperCase() || "U";
+
+//       const isCurrentUser =
+//         Number(user.id) ===
+//         Number(currentUser?.id);
+
+//       return (
+//         <div
+//           key={`admin-user-${user.id}`}
+//           className="p-3 flex items-center gap-3 hover:bg-slate-50 border-t border-slate-100"
+//         >
+       
+
+//           {/* AVATAR */}
+
+//           <div className="w-9 h-9 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-xs shrink-0">
+//             {initials}
+//           </div>
+
+//           {/* USER INFO */}
+
+//           <div className="flex-1 min-w-0">
+
+//             <div className="flex items-center gap-2">
+
+//               <h4 className="text-xs font-semibold text-slate-800 truncate">
+//                 {user.name}
+//               </h4>
+
+//               {isCurrentUser && (
+//                 <span className="text-[8px] bg-blue-50 text-blue-600 border border-blue-100 px-1.5 py-0.5 rounded">
+//                   You
+//                 </span>
+//               )}
+
+//             </div>
+
+//             <p className="text-[10px] text-slate-400 truncate">
+//               {user.email}
+//             </p>
+
+//           </div>
+
+//           {/* ROLE */}
+
+//           <span className="text-[8px] bg-slate-100 text-slate-500 border border-slate-200 px-1.5 py-0.5 rounded capitalize">
+//             {user.role}
+//           </span>
+
+//         </div>
+//       );
+//     })}
+
+//   </div>
+// )}
+//           {/* CONVERSATIONS */}
+
+//           <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
+
+//             {loadingConversations ? (
+
+//               <div className="p-6 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
+
+//                 <Loader2 className="w-4 h-4 animate-spin" />
+
+//                 Loading conversations...
+
+//               </div>
+
+//             ) : filteredConversations.length ===
+//               0 ? (
+
+//               <div className="p-6 text-center text-xs text-slate-400">
+
+//                 No conversations found.
+
+//               </div>
+
+//             ) : (
+
+//               filteredConversations.map(
+//                 (chat) => (
+
+//                   <div
+//                     key={
+//                       chat.id
+//                     }
+//                     onClick={() =>
+//                       handleSelectChat(
+//                         chat
+//                       )
+//                     }
+//                     className={`p-3 flex items-start gap-3 cursor-pointer transition-colors ${
+//                       selectedChat?.id ===
+//                       chat.id
+//                         ? "bg-emerald-50/60"
+//                         : "hover:bg-slate-50"
+//                     }`}
+//                   >
+
+//                     <div
+//                       className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
+//                         chat.avatar_bg ||
+//                         chat.avatarBg ||
+//                         "bg-emerald-100 text-emerald-600"
+//                       }`}
+//                     >
+
+//                       {chat.type ===
+//                       "group" ? (
+//                         <Users className="w-4 h-4" />
+//                       ) : (
+//                         chat.initials ||
+//                         "U"
+//                       )}
+
+//                     </div>
+
+//                     <div className="flex-1 min-w-0">
+
+//                       <div className="flex justify-between items-baseline mb-0.5">
+
+//                         <h4 className="text-xs font-semibold text-slate-800 truncate">
+
+//                           {chat.name ||
+//                             "Unknown"}
+
+//                         </h4>
+
+//                         <span className="text-[10px] text-slate-400 ml-2 shrink-0">
+
+//                           {chat.time ||
+//                             (chat.last_msg_time
+//                               ? new Date(
+//                                   chat.last_msg_time
+//                                 ).toLocaleTimeString(
+//                                   [],
+//                                   {
+//                                     hour: "2-digit",
+//                                     minute:
+//                                       "2-digit",
+//                                   }
+//                                 )
+//                               : "")}
+
+//                         </span>
+
+//                       </div>
+
+//                    <div className="flex items-center justify-between gap-2">
+//   <p
+//     className={`text-xs truncate ${
+//       Number(chat.unread_count || 0) > 0
+//         ? "font-semibold text-slate-700"
+//         : "text-slate-500"
+//     }`}
+//   >
+//     {chat.lastMsg ||
+//       chat.last_msg ||
+//       "No messages yet"}
+//   </p>
+
+//   {Number(chat.unread_count || 0) > 0 && (
+//     <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-emerald-600 text-white text-[9px] font-bold flex items-center justify-center shrink-0">
+//       {Number(chat.unread_count) > 99
+//         ? "99+"
+//         : chat.unread_count}
+//     </span>
+//   )}
+// </div>
+
+//                     </div>
+
+//                   </div>
+
+//                 )
+//               )
+
+//             )}
+
+//           </div>
+
+//         </aside>
+
+//         {/* ==================================================
+//             CHAT SCREEN
+//         ================================================== */}
+
+//         <section
+//           className={`flex-1 flex flex-col bg-slate-100 w-full h-full ${
+//             !showMobileChat
+//               ? "hidden md:flex"
+//               : "flex"
+//           }`}
+//         >
+
+//           {selectedChat ? (
+//             <>
+
+//               {/* CHAT HEADER */}
+
+//               <div className="h-14 bg-white border-b border-slate-200 px-4 sm:px-6 flex items-center justify-between shrink-0">
+
+//                 <div className="flex items-center gap-2 sm:gap-3">
+
+//                   <button
+//                     type="button"
+//                     onClick={() =>
+//                       setShowMobileChat(
+//                         false
+//                       )
+//                     }
+//                     className="md:hidden p-1 text-slate-500"
+//                   >
+//                     <ChevronLeft className="w-5 h-5" />
+//                   </button>
+
+//                   <div
+//                     className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${
+//                       selectedChat.avatar_bg ||
+//                       selectedChat.avatarBg ||
+//                       "bg-emerald-100 text-emerald-600"
+//                     }`}
+//                   >
+
+//                     {selectedChat.type ===
+//                     "group" ? (
+//                       <Users className="w-4 h-4" />
+//                     ) : (
+//                       selectedChat.initials ||
+//                       "U"
+//                     )}
+
+//                   </div>
+
+//                   <div>
+
+//                     <h3 className="text-xs sm:text-sm font-semibold text-slate-800 flex items-center gap-2">
+
+//                       {selectedChat.name}
+
+//                       {selectedChat.type ===
+//                         "group" && (
+//                         <span className="text-[10px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded font-normal">
+//                           Group
+//                         </span>
+//                       )}
+
+//                     </h3>
+
+//                     <p className="text-[10px] text-slate-400">
+
+//                       {selectedChat.type ===
+//                       "group"
+//                         ? `${
+//                             selectedChat
+//                               .members
+//                               ?.length ||
+//                             0
+//                           } Members`
+//                         : selectedChat.email ||
+//                           "Direct Chat"}
+
+//                     </p>
+
+//                   </div>
+
+//                 </div>
+
+//                 <div className="flex items-center gap-2">
+
+//                   {selectedChat.type ===
+//                     "group" && (
+
+//                     <div className="flex items-center gap-1.5">
+
+//                       <button
+//                         type="button"
+//                         onClick={() =>
+//                           setIsAddMemberModalOpen(
+//                             true
+//                           )
+//                         }
+//                         className="flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1 rounded-lg text-xs font-medium"
+//                       >
+
+//                         <UserPlus className="w-3.5 h-3.5" />
+
+//                         <span className="hidden sm:inline">
+//                           Add Member
+//                         </span>
+
+//                       </button>
+
+//                       <button
+//                         type="button"
+//                         onClick={() =>
+//                           setIsGroupInfoOpen(
+//                             true
+//                           )
+//                         }
+//                         className="flex items-center gap-1 bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1 rounded-lg text-xs font-medium"
+//                       >
+
+//                         <Info className="w-3.5 h-3.5 text-slate-500" />
+
+//                         <span className="hidden sm:inline">
+//                           Members
+//                         </span>
+
+//                         (
+//                         {
+//                           selectedChat
+//                             .members
+//                             ?.length ||
+//                           0
+//                         }
+//                         )
+
+//                       </button>
+
+//                     </div>
+
+//                   )}
+
+//                   <Search className="w-4 h-4 cursor-pointer text-slate-400 hover:text-slate-600 ml-2" />
+
+//                   <Star className="w-4 h-4 cursor-pointer text-slate-400 hover:text-amber-500" />
+
+//                   <MoreVertical className="w-4 h-4 cursor-pointer text-slate-400 hover:text-slate-600" />
+
+//                 </div>
+
+//               </div>
+
+//               {/* ==================================================
+//                   MESSAGES
+//               ================================================== */}
+
+//        {/* ==================================================
+//     MESSAGES
+// ================================================== */}
+
+// <div className="flex-1 overflow-y-hidden bg-white px-3 sm:px-5 py-3">
+
+//   {loadingMessages ? (
+
+//     <div className="flex justify-center items-center h-full text-xs text-slate-400 gap-2">
+//       <Loader2 className="w-4 h-4 animate-spin" />
+//       Loading messages...
+//     </div>
+
+//   ) : selectedChat.messages?.length > 0 ? (
+
+//     <div className="space-y-1">
+
+//       {selectedChat.messages.map(
+//         (msg, index) => {
+
+//           const isMe =
+//             msg.sender === "me";
+
+//           const isSystem =
+//             msg.sender === "system";
+
+//           const previousMessage =
+//             selectedChat.messages[index - 1];
+
+//           const showDate =
+//             !previousMessage ||
+//             !isSameMessageDate(
+//               previousMessage.created_at,
+//               msg.created_at
+//             );
+
+//           /*
+//           ==================================================
+//           SYSTEM MESSAGE
+//           ==================================================
+//           */
+
+//           if (isSystem) {
+//             return (
+//               <React.Fragment key={msg.id}>
+
+//                 {showDate && msg.created_at && (
+//                   <div className="flex items-center justify-center py-3">
+
+//                     <div className="flex items-center gap-3 w-full">
+
+//                       <div className="h-px bg-slate-200 flex-1" />
+
+//                       <span className="text-[10px] text-slate-400 font-medium whitespace-nowrap">
+//                         {formatMessageDate(
+//                           msg.created_at
+//                         )}
+//                       </span>
+
+//                       <div className="h-px bg-slate-200 flex-1" />
+
+//                     </div>
+
+//                   </div>
+//                 )}
+
+//                 <div className="flex justify-center py-2">
+
+//                   <span className="text-[10px] bg-slate-100 text-slate-500 px-3 py-1 rounded-full">
+//                     {msg.text}
+//                   </span>
+
+//                 </div>
+
+//               </React.Fragment>
+//             );
+//           }
+
+//           return (
+//             <React.Fragment key={msg.id}>
+
+//               {/* ==================================================
+//                   DATE SEPARATOR
+//               ================================================== */}
+
+//               {showDate && msg.created_at && (
+
+//                 <div className="flex items-center justify-center py-3">
+
+//                   <div className="flex items-center gap-3 w-full">
+
+//                     <div className="h-px bg-slate-200 flex-1" />
+
+//                     <span className="text-[10px] text-slate-400 font-medium whitespace-nowrap">
+//                       {formatMessageDate(
+//                         msg.created_at
+//                       )}
+//                     </span>
+
+//                     <div className="h-px bg-slate-200 flex-1" />
+
+//                   </div>
+
+//                 </div>
+
+//               )}
+
+//               {/* ==================================================
+//                   INCOMING MESSAGE
+//               ================================================== */}
+
+//               {!isMe ? (
+
+//                 <div className="flex items-end gap-2 mb-3">
+
+//                   {/* AVATAR */}
+
+//                   <div
+//                     className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-[9px] shrink-0 ${
+//                       selectedChat.avatar_bg ||
+//                       selectedChat.avatarBg ||
+//                       "bg-emerald-100 text-emerald-600"
+//                     }`}
+//                   >
+//                     {selectedChat.initials ||
+//                       selectedChat.name
+//                         ?.slice(0, 2)
+//                         .toUpperCase() ||
+//                       "U"}
+//                   </div>
+
+//                   <div className="flex flex-col items-start max-w-[78%] sm:max-w-md">
+
+//                     {/* GROUP SENDER NAME */}
+
+//                     {!isMe &&
+//                       selectedChat.type ===
+//                         "group" && (
+
+//                         <p className="text-[10px] font-semibold text-emerald-600 mb-1 ml-1">
+//                           {msg.senderName ||
+//                             selectedChat.name}
+//                         </p>
+
+//                       )}
+
+//                     {/* MESSAGE BUBBLE */}
+
+//                     <div className="bg-white border border-slate-200 rounded-lg rounded-bl-none px-3 py-2 shadow-sm">
+
+//                       {/* TEXT */}
+
+//                       {msg.text && (
+//                         <p className="text-[11px] sm:text-xs text-slate-700 leading-relaxed whitespace-pre-wrap break-words">
+//                           {msg.text}
+//                         </p>
+//                       )}
+
+//                       {/* IMAGE */}
+
+//                       {msg.type === "image" &&
+//                         msg.fileUrl && (
+
+//                         <div
+//                           className={`${
+//                             msg.text
+//                               ? "mt-2"
+//                               : ""
+//                           }`}
+//                         >
+
+//                           <div className="rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
+
+//                             <img
+//                               src={msg.fileUrl}
+//                               alt={
+//                                 msg.fileName ||
+//                                 "Attached image"
+//                               }
+//                               className="max-w-[280px] max-h-64 w-full object-cover"
+//                             />
+
+//                           </div>
+
+//                           {msg.fileName && (
+//                             <p className="text-[9px] text-slate-400 mt-1">
+//                               {msg.fileName}
+//                             </p>
+//                           )}
+
+//                         </div>
+
+//                       )}
+
+//                       {/* FILE */}
+
+//                       {msg.type === "file" && (
+
+//                         <div
+//                           className={`${
+//                             msg.text
+//                               ? "mt-2"
+//                               : ""
+//                           }`}
+//                         >
+
+//                           <div className="w-[220px] sm:w-[250px] bg-slate-50 border border-slate-200 rounded-lg p-2 flex items-center gap-2">
+
+//                             <div className="w-9 h-9 rounded-md bg-blue-50 flex items-center justify-center shrink-0">
+
+//                               <FileText className="w-5 h-5 text-blue-500" />
+
+//                             </div>
+
+//                             <div className="flex-1 min-w-0">
+
+//                               <p className="text-[10px] font-semibold text-slate-700 truncate">
+//                                 {msg.fileName ||
+//                                   "Attached file"}
+//                               </p>
+
+//                               <p className="text-[9px] text-slate-400 mt-0.5">
+//                                 {msg.fileSize ||
+//                                   "File"}
+//                                 {" • "}
+//                                 {msg.fileName
+//                                   ?.split(".")
+//                                   .pop()
+//                                   ?.toUpperCase() ||
+//                                   "FILE"}
+//                               </p>
+
+//                             </div>
+
+//                             {msg.fileUrl && (
+
+//                               <a
+//                                 href={
+//                                   msg.fileUrl
+//                                 }
+//                                 target="_blank"
+//                                 rel="noopener noreferrer"
+//                                 download={
+//                                   msg.fileName
+//                                 }
+//                                 className="w-7 h-7 rounded-md flex items-center justify-center hover:bg-slate-200 text-slate-500 shrink-0"
+//                               >
+//                                 <Download className="w-4 h-4" />
+//                               </a>
+
+//                             )}
+
+//                           </div>
+
+//                         </div>
+
+//                       )}
+
+//                     </div>
+
+//                     {/* TIME OUTSIDE BUBBLE */}
+
+//                     <span className="text-[9px] text-slate-400 mt-1 ml-1">
+//                       {msg.time}
+//                     </span>
+
+//                   </div>
+
+//                 </div>
+
+//               ) : (
+
+//                 /* ==================================================
+//                    OUTGOING MESSAGE
+//                 ================================================== */
+
+//                 <div className="flex justify-end items-end mb-3">
+
+//                   <div className="flex flex-col items-end max-w-[78%] sm:max-w-md">
+
+//                     {/* BLUE MESSAGE BUBBLE */}
+
+//                     <div className="bg-blue-500 text-white rounded-lg rounded-br-none px-3 py-2 shadow-sm">
+
+//                       {/* TEXT */}
+
+//                       {msg.text && (
+
+//                         <p className="text-[11px] sm:text-xs leading-relaxed whitespace-pre-wrap break-words">
+//                           {msg.text}
+//                         </p>
+
+//                       )}
+
+//                       {/* IMAGE */}
+
+//                       {msg.type === "image" &&
+//                         msg.fileUrl && (
+
+//                         <div
+//                           className={`${
+//                             msg.text
+//                               ? "mt-2"
+//                               : ""
+//                           }`}
+//                         >
+
+//                           <div className="rounded-lg overflow-hidden">
+
+//                             <img
+//                               src={msg.fileUrl}
+//                               alt={
+//                                 msg.fileName ||
+//                                 "Attached image"
+//                               }
+//                               className="max-w-[280px] max-h-64 w-full object-cover"
+//                             />
+
+//                           </div>
+
+//                           {msg.fileName && (
+//                             <p className="text-[9px] text-blue-100 mt-1">
+//                               {msg.fileName}
+//                             </p>
+//                           )}
+
+//                         </div>
+
+//                       )}
+
+//                       {/* FILE */}
+
+//                       {msg.type === "file" && (
+
+//                         <div
+//                           className={`${
+//                             msg.text
+//                               ? "mt-2"
+//                               : ""
+//                           }`}
+//                         >
+
+//                           <div className="w-[220px] sm:w-[250px] bg-blue-600/70 border border-blue-400/50 rounded-lg p-2 flex items-center gap-2">
+
+//                             <div className="w-9 h-9 rounded-md bg-white/20 flex items-center justify-center shrink-0">
+
+//                               <FileText className="w-5 h-5 text-white" />
+
+//                             </div>
+
+//                             <div className="flex-1 min-w-0">
+
+//                               <p className="text-[10px] font-semibold text-white truncate">
+//                                 {msg.fileName ||
+//                                   "Attached file"}
+//                               </p>
+
+//                               <p className="text-[9px] text-blue-100 mt-0.5">
+//                                 {msg.fileSize ||
+//                                   "File"}
+//                                 {" • "}
+//                                 {msg.fileName
+//                                   ?.split(".")
+//                                   .pop()
+//                                   ?.toUpperCase() ||
+//                                   "FILE"}
+//                               </p>
+
+//                             </div>
+
+//                             {msg.fileUrl && (
+
+//                               <a
+//                                 href={
+//                                   msg.fileUrl
+//                                 }
+//                                 target="_blank"
+//                                 rel="noopener noreferrer"
+//                                 download={
+//                                   msg.fileName
+//                                 }
+//                                 className="w-7 h-7 rounded-md flex items-center justify-center hover:bg-blue-500 text-white shrink-0"
+//                               >
+//                                 <Download className="w-4 h-4" />
+//                               </a>
+
+//                             )}
+
+//                           </div>
+
+//                         </div>
+
+//                       )}
+
+//                     </div>
+
+//                     {/* TIME + CHECK */}
+
+//                     <div className="flex items-center gap-1 mt-1 mr-1">
+
+//                       <span className="text-[9px] text-slate-400">
+//                         {msg.time}
+//                       </span>
+
+//                       <CheckCheck className="w-3.5 h-3.5 text-blue-500" />
+
+//                     </div>
+
+//                   </div>
+
+//                 </div>
+
+//               )}
+
+//             </React.Fragment>
+//           );
+//         }
+//       )}
+
+//       <div ref={messagesEndRef} />
+
+//     </div>
+
+//   ) : (
+
+//     <div className="flex items-center justify-center h-full text-xs text-slate-400">
+//       No messages yet. Start the conversation.
+//     </div>
+
+//   )}
+
+// </div>
+              
+
+//               {/* ==================================================
+//                   MESSAGE INPUT
+//               ================================================== */}
+
+//               <div className="p-3 sm:p-4 fixed bottom-0 w-[40vw] bg-white border-t border-slate-200 shrink-0">
+
+//                 <form
+//                   onSubmit={
+//                     handleSendMessage
+//                   }
+//                   className="bg-slate-50 border border-slate-200 rounded-xl p-2 focus-within:border-emerald-500"
+//                 >
+
+//                   <input
+//                     type="text"
+//                     placeholder="Type a message..."
+//                     value={
+//                       inputMessage
+//                     }
+//                     onChange={(e) =>
+//                       setInputMessage(
+//                         e.target.value
+//                       )
+//                     }
+//                     disabled={
+//                       sendingMessage
+//                     }
+//                     className="w-full bg-transparent text-xs px-2 py-1 outline-none text-slate-700"
+//                   />
+
+//                   <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-200/60">
+
+//                     <div className="flex items-center gap-3 text-slate-400">
+
+//                       <button
+//                         type="button"
+//                         className="hover:text-slate-600"
+//                       >
+//                         <Smile className="w-4 h-4" />
+//                       </button>
+
+//                       <button
+//                         type="button"
+//                         disabled={
+//                           sendingMessage
+//                         }
+//                         onClick={() =>
+//                           fileInputRef.current?.click()
+//                         }
+//                         className="hover:text-slate-600 disabled:opacity-50"
+//                       >
+//                         <Paperclip className="w-4 h-4" />
+//                       </button>
+
+//                       <button
+//                         type="button"
+//                         disabled={
+//                           sendingMessage
+//                         }
+//                         onClick={() =>
+//                           fileInputRef.current?.click()
+//                         }
+//                         className="hover:text-slate-600 disabled:opacity-50"
+//                       >
+//                         <ImageIcon className="w-4 h-4" />
+//                       </button>
+
+//                     </div>
+
+//                     <button
+//                       type="submit"
+//                       disabled={
+//                         sendingMessage ||
+//                         !inputMessage.trim()
+//                       }
+//                       className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs px-4 py-1.5 rounded-lg flex items-center gap-1.5 font-medium"
+//                     >
+
+//                       {sendingMessage ? (
+//                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
+//                       ) : (
+//                         <Send className="w-3.5 h-3.5" />
+//                       )}
+
+//                       {sendingMessage
+//                         ? "Sending..."
+//                         : "Send"}
+
+//                     </button>
+
+//                   </div>
+
+//                 </form>
+
+//               </div>
+
+//             </>
+//           ) : (
+
+//             <div className="flex-1 flex items-center justify-center text-slate-400 text-xs">
+//               Select a conversation to start chatting
+//             </div>
+
+//           )}
+
+//         </section>
+
+//       </div>
+
+//       {/* ==================================================
+//           ADD MEMBER MODAL
+//       ================================================== */}
+
+//       {isAddMemberModalOpen &&
+//         selectedChat?.type ===
+//           "group" && (
+
+//           <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+
+//             <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+
+//               <div className="flex items-center justify-between p-4 border-b border-slate-100">
+
+//                 <h3 className="font-semibold text-sm text-slate-800 flex items-center gap-2">
+
+//                   <UserPlus className="w-4 h-4 text-emerald-600" />
+
+//                   Add Member to "{selectedChat.name}"
+
+//                 </h3>
+
+//                 <button
+//                   type="button"
+//                   onClick={() =>
+//                     setIsAddMemberModalOpen(
+//                       false
+//                     )
+//                   }
+//                   className="text-slate-400 hover:text-slate-600"
+//                 >
+//                   <X className="w-4 h-4" />
+//                 </button>
+
+//               </div>
+
+//               <form
+//                 onSubmit={
+//                   handleAddMemberToExistingGroup
+//                 }
+//                 className="p-4 space-y-4"
+//               >
+
+//                 <div>
+
+//                   <label className="block text-xs font-semibold text-slate-700 mb-1">
+//                     Member Name
+//                   </label>
+
+//                   <input
+//                     type="text"
+//                     required
+//                     placeholder="Enter Name"
+//                     value={
+//                       newMemberName
+//                     }
+//                     onChange={(e) =>
+//                       setNewMemberName(
+//                         e.target.value
+//                       )
+//                     }
+//                     className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-emerald-500"
+//                   />
+
+//                 </div>
+
+//                 <div>
+
+//                   <label className="block text-xs font-semibold text-slate-700 mb-1">
+//                     Phone Number
+//                   </label>
+
+//                   <input
+//                     type="text"
+//                     required
+//                     placeholder="+92 300 0000000"
+//                     value={
+//                       newMemberPhone
+//                     }
+//                     onChange={(e) =>
+//                       setNewMemberPhone(
+//                         e.target.value
+//                       )
+//                     }
+//                     className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-emerald-500"
+//                   />
+
+//                 </div>
+
+//                 <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+
+//                   <button
+//                     type="button"
+//                     onClick={() =>
+//                       setIsAddMemberModalOpen(
+//                         false
+//                       )
+//                     }
+//                     className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-lg"
+//                   >
+//                     Cancel
+//                   </button>
+
+//                   <button
+//                     type="submit"
+//                     disabled={
+//                       sendingMessage
+//                     }
+//                     className="px-4 py-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg font-medium"
+//                   >
+//                     {sendingMessage
+//                       ? "Adding..."
+//                       : "Add Member"}
+//                   </button>
+
+//                 </div>
+
+//               </form>
+
+//             </div>
+
+//           </div>
+
+//         )}
+
+//       {/* ==================================================
+//           CREATE GROUP MODAL
+//       ================================================== */}
+
+//       {isGroupModalOpen && (
+
+//         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+
+//           <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden max-h-[90vh] flex flex-col">
+
+//             <div className="flex items-center justify-between p-4 border-b border-slate-100">
+
+//               <h3 className="font-semibold text-sm text-slate-800 flex items-center gap-2">
+
+//                 <Users className="w-4 h-4 text-emerald-600" />
+
+//                 Create New Group
+
+//               </h3>
+
+//               <button
+//                 type="button"
+//                 onClick={() =>
+//                   setIsGroupModalOpen(
+//                     false
+//                   )
+//                 }
+//                 className="text-slate-400 hover:text-slate-600"
+//               >
+//                 <X className="w-4 h-4" />
+//               </button>
+
+//             </div>
+
+//             <form
+//               onSubmit={
+//                 handleCreateGroup
+//               }
+//               className="p-4 space-y-4 overflow-y-auto flex-1"
+//             >
+
+//               {/* GROUP NAME */}
+
+//               <div>
+
+//                 <label className="block text-xs font-semibold text-slate-700 mb-1">
+//                   Group Name
+//                 </label>
+
+//                 <input
+//                   type="text"
+//                   required
+//                   placeholder="Group Name..."
+//                   value={
+//                     groupName
+//                   }
+//                   onChange={(e) =>
+//                     setGroupName(
+//                       e.target.value
+//                     )
+//                   }
+//                   className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-emerald-500"
+//                 />
+
+//               </div>
+
+//               {/* CUSTOM MEMBER */}
+
+//               <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-2">
+
+//                 <label className="block text-xs font-semibold text-slate-700 flex items-center gap-1">
+
+//                   <UserPlus className="w-3.5 h-3.5 text-blue-500" />
+
+//                   Add Member by Phone
+
+//                 </label>
+
+//                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+
+//                   <input
+//                     type="text"
+//                     placeholder="Member Name"
+//                     value={
+//                       customName
+//                     }
+//                     onChange={(e) =>
+//                       setCustomName(
+//                         e.target.value
+//                       )
+//                     }
+//                     className="px-2.5 py-1 border border-slate-200 rounded text-xs bg-white focus:outline-none focus:border-emerald-500"
+//                   />
+
+//                   <input
+//                     type="text"
+//                     placeholder="Phone Number"
+//                     value={
+//                       customPhone
+//                     }
+//                     onChange={(e) =>
+//                       setCustomPhone(
+//                         e.target.value
+//                       )
+//                     }
+//                     className="px-2.5 py-1 border border-slate-200 rounded text-xs bg-white focus:outline-none focus:border-emerald-500"
+//                   />
+
+//                 </div>
+
+//                 <button
+//                   type="button"
+//                   onClick={
+//                     handleAddCustomMember
+//                   }
+//                   className="w-full mt-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 font-medium py-1 rounded text-xs flex items-center justify-center gap-1"
+//                 >
+
+//                   <Plus className="w-3 h-3" />
+
+//                   Add
+
+//                 </button>
+
+//               </div>
+
+//               {/* CUSTOM MEMBERS */}
+
+//               {customMembersList.length >
+//                 0 && (
+
+//                 <div>
+
+//                   <label className="block text-[11px] font-semibold text-slate-500 mb-1">
+//                     Added Members (
+//                     {
+//                       customMembersList.length
+//                     }
+//                     ):
+//                   </label>
+
+//                   <div className="flex flex-wrap gap-1.5">
+
+//                     {customMembersList.map(
+//                       (member) => (
+
+//                         <span
+//                           key={
+//                             member.id
+//                           }
+//                           className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1"
+//                         >
+
+//                           {
+//                             member.name
+//                           }
+
+//                           {" "}
+
+//                           (
+//                           {
+//                             member.phone
+//                           }
+//                           )
+
+//                           <button
+//                             type="button"
+//                             onClick={() =>
+//                               removeCustomMember(
+//                                 member.id
+//                               )
+//                             }
+//                             className="hover:text-red-500"
+//                           >
+//                             <X className="w-3 h-3" />
+//                           </button>
+
+//                         </span>
+
+//                       )
+//                     )}
+
+//                   </div>
+
+//                 </div>
+
+//               )}
+
+//               {/* EXISTING CONTACTS */}
+
+//               <div>
+
+//                 <label className="block text-xs font-semibold text-slate-700 mb-1">
+//                   Select Existing Contacts
+//                 </label>
+
+//                 <div className="max-h-36 overflow-y-auto border border-slate-200 rounded-lg divide-y divide-slate-100">
+
+//                   {conversations
+//                     .filter(
+//                       (contact) =>
+//                         contact.type ===
+//                         "direct"
+//                     )
+//                     .length ===
+//                     0 ? (
+
+//                     <p className="p-3 text-xs text-slate-400 text-center">
+//                       No existing contacts found.
+//                     </p>
+
+//                   ) : (
+
+//                     conversations
+//                       .filter(
+//                         (contact) =>
+//                           contact.type ===
+//                           "direct"
+//                       )
+//                       .map(
+//                         (
+//                           contact
+//                         ) => {
+
+//                           const contactId =
+//                             contact.user_id ||
+//                             contact.id;
+
+//                           const isChecked =
+//                             selectedMembers.some(
+//                               (member) =>
+//                                 Number(
+//                                   member.user_id ||
+//                                     member.id
+//                                 ) ===
+//                                 Number(
+//                                   contactId
+//                                 )
+//                             );
+
+//                           return (
+
+//                             <label
+//                               key={
+//                                 contact.id
+//                               }
+//                               className="flex items-center justify-between p-2 hover:bg-slate-50 cursor-pointer"
+//                             >
+
+//                               <div className="flex items-center gap-2">
+
+//                                 <div
+//                                   className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] ${
+//                                     contact.avatar_bg ||
+//                                     contact.avatarBg ||
+//                                     "bg-emerald-100 text-emerald-600"
+//                                   }`}
+//                                 >
+//                                   {
+//                                     contact.initials ||
+//                                     "U"
+//                                   }
+//                                 </div>
+
+//                                 <div>
+
+//                                   <p className="text-xs text-slate-700 font-medium">
+//                                     {
+//                                       contact.name
+//                                     }
+//                                   </p>
+
+//                                   <p className="text-[9px] text-slate-400">
+//                                     {
+//                                       contact.phone ||
+//                                       contact.email ||
+//                                       ""
+//                                     }
+//                                   </p>
+
+//                                 </div>
+
+//                               </div>
+
+//                               <input
+//                                 type="checkbox"
+//                                 checked={
+//                                   isChecked
+//                                 }
+//                                 onChange={() =>
+//                                   handleMemberToggle(
+//                                     contact
+//                                   )
+//                                 }
+//                                 className="rounded text-emerald-600 focus:ring-emerald-500 h-3.5 w-3.5"
+//                               />
+
+//                             </label>
+
+//                           );
+//                         }
+//                       )
+
+//                   )}
+
+//                 </div>
+
+//               </div>
+
+//               {/* FOOTER */}
+
+//               <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+
+//                 <button
+//                   type="button"
+//                   onClick={() =>
+//                     setIsGroupModalOpen(
+//                       false
+//                     )
+//                   }
+//                   className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-lg font-medium"
+//                 >
+//                   Cancel
+//                 </button>
+
+//                 <button
+//                   type="submit"
+//                   disabled={
+//                     sendingMessage
+//                   }
+//                   className="px-4 py-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg font-medium"
+//                 >
+
+//                   {sendingMessage
+//                     ? "Creating..."
+//                     : "Create Group"}
+
+//                 </button>
+
+//               </div>
+
+//             </form>
+
+//           </div>
+
+//         </div>
+
+//       )}
+
+//       {/* ==================================================
+//           GROUP MEMBERS MODAL
+//       ================================================== */}
+
+//       {isGroupInfoOpen &&
+//         selectedChat?.type ===
+//           "group" && (
+
+//         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+
+//           <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden flex flex-col">
+
+//             <div className="flex items-center justify-between p-4 border-b border-slate-100">
+
+//               <div className="flex items-center gap-2">
+
+//                 <Users className="w-4 h-4 text-emerald-600" />
+
+//                 <h3 className="font-semibold text-sm text-slate-800">
+//                   {
+//                     selectedChat.name
+//                   }{" "}
+//                   Members
+//                 </h3>
+
+//               </div>
+
+//               <button
+//                 type="button"
+//                 onClick={() =>
+//                   setIsGroupInfoOpen(
+//                     false
+//                   )
+//                 }
+//                 className="text-slate-400 hover:text-slate-600"
+//               >
+//                 <X className="w-4 h-4" />
+//               </button>
+
+//             </div>
+
+//             <div className="p-4 max-h-80 overflow-y-auto space-y-2">
+
+//               <p className="text-xs text-slate-400 font-medium mb-2">
+//                 Total Members:{" "}
+//                 {
+//                   selectedChat
+//                     .members
+//                     ?.length ||
+//                   0
+//                 }
+//               </p>
+
+//               {selectedChat
+//                 .members
+//                 ?.length >
+//               0 ? (
+
+//         selectedChat.members.map(
+//   (member, index) => (
+//     <div
+//       key={`member-${member.user_id || member.id || "unknown"}-${index}`}
+//       className="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-100"
+//     >
+//       <div className="flex items-center gap-2 min-w-0">
+
+//         <div
+//           className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
+//             member.avatarBg ||
+//             "bg-slate-200 text-slate-600"
+//           }`}
+//         >
+//           {member.initials ||
+//             member.name
+//               ?.slice(0, 2)
+//               .toUpperCase() ||
+//             "U"}
+//         </div>
+
+//         <div className="min-w-0">
+
+//           <p className="text-xs font-semibold text-slate-700 truncate">
+//             {member.name}
+//           </p>
+
+//           <p className="text-[10px] text-slate-400 flex items-center gap-1">
+
+//             <Phone className="w-2.5 h-2.5" />
+
+//             {member.phone ||
+//               member.email ||
+//               "No Phone"}
+
+//           </p>
+
+//         </div>
+
+//       </div>
+
+//       {member.role && (
+//         <span className="text-[9px] bg-white border border-slate-200 px-1.5 py-0.5 rounded text-slate-500">
+//           {member.role}
+//         </span>
+//       )}
+
+//     </div>
+//   )
+// )
+
+//               ) : (
+
+//                 <p className="text-xs text-slate-400 text-center py-4">
+//                   No members in this group.
+//                 </p>
+
+//               )}
+
+//             </div>
+
+//             <div className="p-3 border-t border-slate-100 flex justify-end">
+
+//               <button
+//                 type="button"
+//                 onClick={() =>
+//                   setIsGroupInfoOpen(
+//                     false
+//                   )
+//                 }
+//                 className="px-3 py-1 text-xs bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 font-medium"
+//               >
+//                 Close
+//               </button>
+
+//             </div>
+
+//           </div>
+
+//         </div>
+
+//       )}
+//       {/* EXACT MATCH SIDEBAR COMPONENT */}
+//                 <Sidebar
+//                   sidebarOpen={sidebarOpen}
+//                   setSidebarOpen={setSidebarOpen}
+//                   setShowLogoutModal={setShowLogoutModal}
+//                 />
+
+//       <LogoutModal
+//   show={showLogoutModal}
+//   loggingOut={loggingOut}
+//   onCancel={() => setShowLogoutModal(false)}
+//   onConfirm={handleConfirmLogout}
+// />
+
+//     </div>
+//   );
+
+
+
+return (
+  <div className="flex flex-col lg:ml-64 h-screen min-h-0 p-4 sm:p-6 lg:p-8 bg-slate-50 text-slate-800 font-sans overflow-hidden">
+      {/* MOBILE HEADER */}
+      <header className="lg:hidden h-16 bg-[#050B1E] border-b border-slate-800 flex items-center justify-between px-4 text-white">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-rose-500 to-indigo-600 p-[2px] flex items-center justify-center">
+            <div className="w-full h-full bg-[#050B1E] rounded-full flex items-center justify-center">
+              <div className="w-3.5 h-3.5 rounded-full border-2 border-rose-500 flex items-center justify-center">
+                <div className="w-1 h-1 bg-white rounded-full" />
+              </div>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2">
-
-            <div className="w-8 h-8 rounded-full bg-emerald-600 text-white font-medium flex items-center justify-center text-xs">
-              M
-            </div>
-
-            <div className="text-left text-xs hidden sm:block">
-
-              <p className="font-semibold text-slate-700">
-                M Aftab
-              </p>
-
-              <p className="text-slate-400 text-[10px]">
-                admin@callcrm.com
-              </p>
-
-            </div>
-
-          </div>
-
+          <span className="font-extrabold text-xl tracking-tight text-white">
+            CallCRM
+          </span>
         </div>
 
+        <button
+          type="button"
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          className="p-2 rounded-lg text-slate-300 hover:bg-white/10"
+        >
+          {sidebarOpen ? <X size={22} /> : <Menu size={22} />}
+        </button>
       </header>
 
-      {/* ==================================================
-          MAIN
-      ================================================== */}
+      {/* MOBILE OVERLAY */}
+      {sidebarOpen && (
+        <div
+          onClick={() => setSidebarOpen(false)}
+          className="fixed inset-0 z-40 bg-black/60 lg:hidden"
+        />
+      )}
 
-      <div className="flex-1 flex overflow-hidden relative">
+    {/* ==================================================
+        FILE INPUT
+    ================================================== */}
+    <input
+      type="file"
+      ref={fileInputRef}
+      onChange={handleFileUpload}
+      className="hidden"
+    />
 
-        {/* ==================================================
-            LEFT SIDEBAR
-        ================================================== */}
+    {/* ==================================================
+        TOP NAVBAR
+    ================================================== */}
+    <header className="h-14 bg-white border-b border-slate-200 px-4 sm:px-6 flex items-center justify-between shrink-0 rounded-t-xl">
 
-        <aside
-          className={`w-full md:w-80 lg:w-96 bg-white border-r border-slate-200 flex flex-col shrink-0 ${
-            showMobileChat
-              ? "hidden md:flex"
-              : "flex"
-          }`}
-        >
+      <div className="flex items-center gap-2 sm:gap-3">
 
-          {/* SEARCH */}
+        {/* <Menu className="w-5 h-5 text-slate-500 cursor-pointer" /> */}
 
-          <div className="p-3 flex items-center gap-2">
-
-            <div className="relative flex-1">
-
-              <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
-
-              <input
-                type="text"
-                placeholder="Search conversations..."
-                value={
-                  searchText
-                }
-                onChange={(e) =>
-                  setSearchText(
-                    e.target.value
-                  )
-                }
-                className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-emerald-500"
-              />
-
-            </div>
-
-            <button
-              type="button"
-              className="p-1.5 text-slate-400 border border-slate-200 rounded-lg"
-            >
-              <Filter className="w-4 h-4" />
-            </button>
-
-          </div>
-
-          {/* TABS */}
-
-          <div className="flex items-center justify-between border-b border-slate-200 px-3">
-
-            <div className="flex">
-
-              {[
-                "All",
-                "Group",
-              ].map(
-                (tab) => (
-                  <button
-                    key={tab}
-                    type="button"
-                    onClick={() =>
-                      setActiveTab(
-                        tab
-                      )
-                    }
-                    className={`py-2 px-3 text-xs font-medium border-b-2 ${
-                      activeTab ===
-                      tab
-                        ? "border-emerald-500 text-emerald-600"
-                        : "border-transparent text-slate-500 hover:text-slate-700"
-                    }`}
-                  >
-                    {tab}
-                  </button>
-                )
-              )}
-
-            </div>
-
-            {activeTab ===
-              "Group" && (
-              <button
-                type="button"
-                onClick={() =>
-                  setIsGroupModalOpen(
-                    true
-                  )
-                }
-                className="mb-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] px-2.5 py-1 rounded-md flex items-center gap-1 font-medium"
-              >
-                <Plus className="w-3.5 h-3.5" />
-
-                Create Group
-              </button>
-            )}
-
-          </div>
-
-
-{/* ==================================================
-    ADMIN USERS
-================================================== */}
-
-{isAdmin && (
-  <div className="border-b border-slate-200">
-
-    <div className="px-3 py-2 bg-slate-50 flex items-center justify-between">
-
-      <div className="flex items-center gap-2">
-
-        <Users className="w-3.5 h-3.5 text-emerald-600" />
-
-        <span className="text-[10px] font-bold text-slate-600 uppercase">
-          All Users
-        </span>
+        <h1 className="font-semibold text-base sm:text-lg text-slate-800">
+          Messages Dashboard
+        </h1>
 
       </div>
 
-      <span className="text-[9px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full font-semibold">
-        {users.length}
-      </span>
+      <div className="flex items-center gap-2 sm:gap-4">
 
-    </div>
+        <div className="hidden lg:flex bg-emerald-50 text-emerald-600 text-xs px-3 py-1.5 rounded-md font-medium items-center gap-1.5 border border-emerald-100">
+          <Calendar className="w-3.5 h-3.5" />
+          CRM Inbox
+        </div>
 
-    {users.map((user) => {
+        <div className="flex items-center gap-2">
 
-      const initials =
-        user.name
-          ?.trim()
-          .slice(0, 2)
-          .toUpperCase() || "U";
-
-      const isCurrentUser =
-        Number(user.id) ===
-        Number(currentUser?.id);
-
-      return (
-        <div
-          key={`admin-user-${user.id}`}
-          className="p-3 flex items-center gap-3 hover:bg-slate-50 border-t border-slate-100"
-        >
-       
-
-          {/* AVATAR */}
-
-          <div className="w-9 h-9 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-xs shrink-0">
-            {initials}
+          <div className="w-8 h-8 rounded-full bg-emerald-600 text-white font-medium flex items-center justify-center text-xs">
+            M
           </div>
 
-          {/* USER INFO */}
+          <div className="text-left text-xs hidden sm:block">
 
-          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-slate-700">
+              M Aftab
+            </p>
 
-            <div className="flex items-center gap-2">
-
-              <h4 className="text-xs font-semibold text-slate-800 truncate">
-                {user.name}
-              </h4>
-
-              {isCurrentUser && (
-                <span className="text-[8px] bg-blue-50 text-blue-600 border border-blue-100 px-1.5 py-0.5 rounded">
-                  You
-                </span>
-              )}
-
-            </div>
-
-            <p className="text-[10px] text-slate-400 truncate">
-              {user.email}
+            <p className="text-slate-400 text-[10px]">
+              admin@callcrm.com
             </p>
 
           </div>
 
-          {/* ROLE */}
-
-          <span className="text-[8px] bg-slate-100 text-slate-500 border border-slate-200 px-1.5 py-0.5 rounded capitalize">
-            {user.role}
-          </span>
-
         </div>
-      );
-    })}
 
-  </div>
-)}
-          {/* CONVERSATIONS */}
+      </div>
 
-          <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
+    </header>
 
-            {loadingConversations ? (
 
-              <div className="p-6 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
+    {/* ==================================================
+        MAIN CHAT AREA
+    ================================================== */}
+    <div className="flex-1 min-h-0 flex overflow-hidden relative border-x border-b border-slate-200 rounded-b-xl">
 
-                <Loader2 className="w-4 h-4 animate-spin" />
 
-                Loading conversations...
+      {/* ==================================================
+          LEFT SIDEBAR
+      ================================================== */}
+      <aside
+        className={`w-full md:w-80 lg:w-96 bg-white border-r border-slate-200 flex flex-col shrink-0 min-h-0 ${
+          showMobileChat
+            ? "hidden md:flex"
+            : "flex"
+        }`}
+      >
 
-              </div>
+        {/* ==================================================
+            SEARCH
+        ================================================== */}
+        <div className="p-3 flex items-center gap-2 shrink-0">
 
-            ) : filteredConversations.length ===
-              0 ? (
+          <div className="relative flex-1">
 
-              <div className="p-6 text-center text-xs text-slate-400">
+            <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
 
-                No conversations found.
-
-              </div>
-
-            ) : (
-
-              filteredConversations.map(
-                (chat) => (
-
-                  <div
-                    key={
-                      chat.id
-                    }
-                    onClick={() =>
-                      handleSelectChat(
-                        chat
-                      )
-                    }
-                    className={`p-3 flex items-start gap-3 cursor-pointer transition-colors ${
-                      selectedChat?.id ===
-                      chat.id
-                        ? "bg-emerald-50/60"
-                        : "hover:bg-slate-50"
-                    }`}
-                  >
-
-                    <div
-                      className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
-                        chat.avatar_bg ||
-                        chat.avatarBg ||
-                        "bg-emerald-100 text-emerald-600"
-                      }`}
-                    >
-
-                      {chat.type ===
-                      "group" ? (
-                        <Users className="w-4 h-4" />
-                      ) : (
-                        chat.initials ||
-                        "U"
-                      )}
-
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-
-                      <div className="flex justify-between items-baseline mb-0.5">
-
-                        <h4 className="text-xs font-semibold text-slate-800 truncate">
-
-                          {chat.name ||
-                            "Unknown"}
-
-                        </h4>
-
-                        <span className="text-[10px] text-slate-400 ml-2 shrink-0">
-
-                          {chat.time ||
-                            (chat.last_msg_time
-                              ? new Date(
-                                  chat.last_msg_time
-                                ).toLocaleTimeString(
-                                  [],
-                                  {
-                                    hour: "2-digit",
-                                    minute:
-                                      "2-digit",
-                                  }
-                                )
-                              : "")}
-
-                        </span>
-
-                      </div>
-
-                   <div className="flex items-center justify-between gap-2">
-  <p
-    className={`text-xs truncate ${
-      Number(chat.unread_count || 0) > 0
-        ? "font-semibold text-slate-700"
-        : "text-slate-500"
-    }`}
-  >
-    {chat.lastMsg ||
-      chat.last_msg ||
-      "No messages yet"}
-  </p>
-
-  {Number(chat.unread_count || 0) > 0 && (
-    <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-emerald-600 text-white text-[9px] font-bold flex items-center justify-center shrink-0">
-      {Number(chat.unread_count) > 99
-        ? "99+"
-        : chat.unread_count}
-    </span>
-  )}
-</div>
-
-                    </div>
-
-                  </div>
-
-                )
-              )
-
-            )}
+            <input
+              type="text"
+              placeholder="Search conversations..."
+              value={searchText}
+              onChange={(e) =>
+                setSearchText(e.target.value)
+              }
+              className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-emerald-500"
+            />
 
           </div>
 
-        </aside>
+          <button
+            type="button"
+            className="p-1.5 text-slate-400 border border-slate-200 rounded-lg"
+          >
+            <Filter className="w-4 h-4" />
+          </button>
+
+        </div>
+
 
         {/* ==================================================
-            CHAT SCREEN
+            TABS
         ================================================== */}
+        <div className="flex items-center justify-between border-b border-slate-200 px-3 shrink-0">
 
-        <section
-          className={`flex-1 flex flex-col bg-slate-100 w-full h-full ${
-            !showMobileChat
-              ? "hidden md:flex"
-              : "flex"
-          }`}
-        >
+          <div className="flex">
 
-          {selectedChat ? (
-            <>
+            {["All", "Group"].map((tab) => (
 
-              {/* CHAT HEADER */}
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setActiveTab(tab)}
+                className={`py-2 px-3 text-xs font-medium border-b-2 ${
+                  activeTab === tab
+                    ? "border-emerald-500 text-emerald-600"
+                    : "border-transparent text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                {tab}
+              </button>
 
-              <div className="h-14 bg-white border-b border-slate-200 px-4 sm:px-6 flex items-center justify-between shrink-0">
+            ))}
 
-                <div className="flex items-center gap-2 sm:gap-3">
+          </div>
 
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setShowMobileChat(
-                        false
-                      )
-                    }
-                    className="md:hidden p-1 text-slate-500"
-                  >
-                    <ChevronLeft className="w-5 h-5" />
-                  </button>
+          {activeTab === "Group" && (
 
-                  <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${
-                      selectedChat.avatar_bg ||
-                      selectedChat.avatarBg ||
-                      "bg-emerald-100 text-emerald-600"
-                    }`}
-                  >
+            <button
+              type="button"
+              onClick={() => setIsGroupModalOpen(true)}
+              className="mb-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] px-2.5 py-1 rounded-md flex items-center gap-1 font-medium"
+            >
 
-                    {selectedChat.type ===
-                    "group" ? (
-                      <Users className="w-4 h-4" />
-                    ) : (
-                      selectedChat.initials ||
-                      "U"
-                    )}
+              <Plus className="w-3.5 h-3.5" />
 
+              Create Group
+
+            </button>
+
+          )}
+
+        </div>
+
+
+        {/* ==================================================
+            ADMIN USERS
+        ================================================== */}
+        {isAdmin && (
+
+          <div className="border-b border-slate-200 shrink-0">
+
+            <div className="px-3 py-2 bg-slate-50 flex items-center justify-between">
+
+              <div className="flex items-center gap-2">
+
+                <Users className="w-3.5 h-3.5 text-emerald-600" />
+
+                <span className="text-[10px] font-bold text-slate-600 uppercase">
+                  All Users
+                </span>
+
+              </div>
+
+              <span className="text-[9px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full font-semibold">
+                {users.length}
+              </span>
+
+            </div>
+
+            {users.map((user) => {
+
+              const initials =
+                user.name
+                  ?.trim()
+                  .slice(0, 2)
+                  .toUpperCase() || "U";
+
+              const isCurrentUser =
+                Number(user.id) ===
+                Number(currentUser?.id);
+
+              return (
+
+                <div
+                  key={`admin-user-${user.id}`}
+                  className="p-3 flex items-center gap-3 hover:bg-slate-50 border-t border-slate-100"
+                >
+
+                  <div className="w-9 h-9 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-xs shrink-0">
+                    {initials}
                   </div>
 
-                  <div>
+                  <div className="flex-1 min-w-0">
 
-                    <h3 className="text-xs sm:text-sm font-semibold text-slate-800 flex items-center gap-2">
+                    <div className="flex items-center gap-2">
 
-                      {selectedChat.name}
+                      <h4 className="text-xs font-semibold text-slate-800 truncate">
+                        {user.name}
+                      </h4>
 
-                      {selectedChat.type ===
-                        "group" && (
-                        <span className="text-[10px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded font-normal">
-                          Group
+                      {isCurrentUser && (
+                        <span className="text-[8px] bg-blue-50 text-blue-600 border border-blue-100 px-1.5 py-0.5 rounded">
+                          You
                         </span>
                       )}
 
-                    </h3>
+                    </div>
 
-                    <p className="text-[10px] text-slate-400">
-
-                      {selectedChat.type ===
-                      "group"
-                        ? `${
-                            selectedChat
-                              .members
-                              ?.length ||
-                            0
-                          } Members`
-                        : selectedChat.email ||
-                          "Direct Chat"}
-
+                    <p className="text-[10px] text-slate-400 truncate">
+                      {user.email}
                     </p>
 
                   </div>
 
+                  <span className="text-[8px] bg-slate-100 text-slate-500 border border-slate-200 px-1.5 py-0.5 rounded capitalize">
+                    {user.role}
+                  </span>
+
                 </div>
 
-                <div className="flex items-center gap-2">
+              );
 
-                  {selectedChat.type ===
-                    "group" && (
+            })}
 
-                    <div className="flex items-center gap-1.5">
+          </div>
 
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setIsAddMemberModalOpen(
-                            true
-                          )
-                        }
-                        className="flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1 rounded-lg text-xs font-medium"
-                      >
+        )}
 
-                        <UserPlus className="w-3.5 h-3.5" />
 
-                        <span className="hidden sm:inline">
-                          Add Member
-                        </span>
+        {/* ==================================================
+            CONVERSATIONS
+            ONLY THIS AREA SCROLLS
+        ================================================== */}
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden divide-y divide-slate-100">
 
-                      </button>
+          {loadingConversations ? (
 
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setIsGroupInfoOpen(
-                            true
-                          )
-                        }
-                        className="flex items-center gap-1 bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1 rounded-lg text-xs font-medium"
-                      >
+            <div className="p-6 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
 
-                        <Info className="w-3.5 h-3.5 text-slate-500" />
+              <Loader2 className="w-4 h-4 animate-spin" />
 
-                        <span className="hidden sm:inline">
-                          Members
-                        </span>
+              Loading conversations...
 
-                        (
-                        {
-                          selectedChat
-                            .members
-                            ?.length ||
-                          0
-                        }
-                        )
+            </div>
 
-                      </button>
+          ) : filteredConversations.length === 0 ? (
 
-                    </div>
+            <div className="p-6 text-center text-xs text-slate-400">
+              No conversations found.
+            </div>
 
+          ) : (
+
+            filteredConversations.map((chat) => (
+
+              <div
+                key={chat.id}
+                onClick={() => handleSelectChat(chat)}
+                className={`p-3 flex items-start gap-3 cursor-pointer transition-colors ${
+                  selectedChat?.id === chat.id
+                    ? "bg-emerald-50/60"
+                    : "hover:bg-slate-50"
+                }`}
+              >
+
+                <div
+                  className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
+                    chat.avatar_bg ||
+                    chat.avatarBg ||
+                    "bg-emerald-100 text-emerald-600"
+                  }`}
+                >
+
+                  {chat.type === "group" ? (
+                    <Users className="w-4 h-4" />
+                  ) : (
+                    chat.initials || "U"
                   )}
 
-                  <Search className="w-4 h-4 cursor-pointer text-slate-400 hover:text-slate-600 ml-2" />
+                </div>
 
-                  <Star className="w-4 h-4 cursor-pointer text-slate-400 hover:text-amber-500" />
 
-                  <MoreVertical className="w-4 h-4 cursor-pointer text-slate-400 hover:text-slate-600" />
+                <div className="flex-1 min-w-0">
+
+                  <div className="flex justify-between items-baseline mb-0.5">
+
+                    <h4 className="text-xs font-semibold text-slate-800 truncate">
+                      {chat.name || "Unknown"}
+                    </h4>
+
+                    <span className="text-[10px] text-slate-400 ml-2 shrink-0">
+
+                      {chat.time ||
+                        (chat.last_msg_time
+                          ? new Date(
+                              chat.last_msg_time
+                            ).toLocaleTimeString(
+                              [],
+                              {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              }
+                            )
+                          : "")}
+
+                    </span>
+
+                  </div>
+
+
+                  <div className="flex items-center justify-between gap-2">
+
+                    <p
+                      className={`text-xs truncate ${
+                        Number(chat.unread_count || 0) > 0
+                          ? "font-semibold text-slate-700"
+                          : "text-slate-500"
+                      }`}
+                    >
+                      {chat.lastMsg ||
+                        chat.last_msg ||
+                        "No messages yet"}
+                    </p>
+
+                    {Number(chat.unread_count || 0) > 0 && (
+
+                      <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-emerald-600 text-white text-[9px] font-bold flex items-center justify-center shrink-0">
+
+                        {Number(chat.unread_count) > 99
+                          ? "99+"
+                          : chat.unread_count}
+
+                      </span>
+
+                    )}
+
+                  </div>
 
                 </div>
 
               </div>
 
-              {/* ==================================================
-                  MESSAGES
-              ================================================== */}
-
-       {/* ==================================================
-    MESSAGES
-================================================== */}
-
-<div className="flex-1 overflow-y-auto bg-white px-3 sm:px-5 py-3">
-
-  {loadingMessages ? (
-
-    <div className="flex justify-center items-center h-full text-xs text-slate-400 gap-2">
-      <Loader2 className="w-4 h-4 animate-spin" />
-      Loading messages...
-    </div>
-
-  ) : selectedChat.messages?.length > 0 ? (
-
-    <div className="space-y-1">
-
-      {selectedChat.messages.map(
-        (msg, index) => {
-
-          const isMe =
-            msg.sender === "me";
-
-          const isSystem =
-            msg.sender === "system";
-
-          const previousMessage =
-            selectedChat.messages[index - 1];
-
-          const showDate =
-            !previousMessage ||
-            !isSameMessageDate(
-              previousMessage.created_at,
-              msg.created_at
-            );
-
-          /*
-          ==================================================
-          SYSTEM MESSAGE
-          ==================================================
-          */
-
-          if (isSystem) {
-            return (
-              <React.Fragment key={msg.id}>
-
-                {showDate && msg.created_at && (
-                  <div className="flex items-center justify-center py-3">
-
-                    <div className="flex items-center gap-3 w-full">
-
-                      <div className="h-px bg-slate-200 flex-1" />
-
-                      <span className="text-[10px] text-slate-400 font-medium whitespace-nowrap">
-                        {formatMessageDate(
-                          msg.created_at
-                        )}
-                      </span>
-
-                      <div className="h-px bg-slate-200 flex-1" />
-
-                    </div>
-
-                  </div>
-                )}
-
-                <div className="flex justify-center py-2">
-
-                  <span className="text-[10px] bg-slate-100 text-slate-500 px-3 py-1 rounded-full">
-                    {msg.text}
-                  </span>
-
-                </div>
-
-              </React.Fragment>
-            );
-          }
-
-          return (
-            <React.Fragment key={msg.id}>
-
-              {/* ==================================================
-                  DATE SEPARATOR
-              ================================================== */}
-
-              {showDate && msg.created_at && (
-
-                <div className="flex items-center justify-center py-3">
-
-                  <div className="flex items-center gap-3 w-full">
-
-                    <div className="h-px bg-slate-200 flex-1" />
-
-                    <span className="text-[10px] text-slate-400 font-medium whitespace-nowrap">
-                      {formatMessageDate(
-                        msg.created_at
-                      )}
-                    </span>
-
-                    <div className="h-px bg-slate-200 flex-1" />
-
-                  </div>
-
-                </div>
-
-              )}
-
-              {/* ==================================================
-                  INCOMING MESSAGE
-              ================================================== */}
-
-              {!isMe ? (
-
-                <div className="flex items-end gap-2 mb-3">
-
-                  {/* AVATAR */}
-
-                  <div
-                    className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-[9px] shrink-0 ${
-                      selectedChat.avatar_bg ||
-                      selectedChat.avatarBg ||
-                      "bg-emerald-100 text-emerald-600"
-                    }`}
-                  >
-                    {selectedChat.initials ||
-                      selectedChat.name
-                        ?.slice(0, 2)
-                        .toUpperCase() ||
-                      "U"}
-                  </div>
-
-                  <div className="flex flex-col items-start max-w-[78%] sm:max-w-md">
-
-                    {/* GROUP SENDER NAME */}
-
-                    {!isMe &&
-                      selectedChat.type ===
-                        "group" && (
-
-                        <p className="text-[10px] font-semibold text-emerald-600 mb-1 ml-1">
-                          {msg.senderName ||
-                            selectedChat.name}
-                        </p>
-
-                      )}
-
-                    {/* MESSAGE BUBBLE */}
-
-                    <div className="bg-white border border-slate-200 rounded-lg rounded-bl-none px-3 py-2 shadow-sm">
-
-                      {/* TEXT */}
-
-                      {msg.text && (
-                        <p className="text-[11px] sm:text-xs text-slate-700 leading-relaxed whitespace-pre-wrap break-words">
-                          {msg.text}
-                        </p>
-                      )}
-
-                      {/* IMAGE */}
-
-                      {msg.type === "image" &&
-                        msg.fileUrl && (
-
-                        <div
-                          className={`${
-                            msg.text
-                              ? "mt-2"
-                              : ""
-                          }`}
-                        >
-
-                          <div className="rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
-
-                            <img
-                              src={msg.fileUrl}
-                              alt={
-                                msg.fileName ||
-                                "Attached image"
-                              }
-                              className="max-w-[280px] max-h-64 w-full object-cover"
-                            />
-
-                          </div>
-
-                          {msg.fileName && (
-                            <p className="text-[9px] text-slate-400 mt-1">
-                              {msg.fileName}
-                            </p>
-                          )}
-
-                        </div>
-
-                      )}
-
-                      {/* FILE */}
-
-                      {msg.type === "file" && (
-
-                        <div
-                          className={`${
-                            msg.text
-                              ? "mt-2"
-                              : ""
-                          }`}
-                        >
-
-                          <div className="w-[220px] sm:w-[250px] bg-slate-50 border border-slate-200 rounded-lg p-2 flex items-center gap-2">
-
-                            <div className="w-9 h-9 rounded-md bg-blue-50 flex items-center justify-center shrink-0">
-
-                              <FileText className="w-5 h-5 text-blue-500" />
-
-                            </div>
-
-                            <div className="flex-1 min-w-0">
-
-                              <p className="text-[10px] font-semibold text-slate-700 truncate">
-                                {msg.fileName ||
-                                  "Attached file"}
-                              </p>
-
-                              <p className="text-[9px] text-slate-400 mt-0.5">
-                                {msg.fileSize ||
-                                  "File"}
-                                {" • "}
-                                {msg.fileName
-                                  ?.split(".")
-                                  .pop()
-                                  ?.toUpperCase() ||
-                                  "FILE"}
-                              </p>
-
-                            </div>
-
-                            {msg.fileUrl && (
-
-                              <a
-                                href={
-                                  msg.fileUrl
-                                }
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                download={
-                                  msg.fileName
-                                }
-                                className="w-7 h-7 rounded-md flex items-center justify-center hover:bg-slate-200 text-slate-500 shrink-0"
-                              >
-                                <Download className="w-4 h-4" />
-                              </a>
-
-                            )}
-
-                          </div>
-
-                        </div>
-
-                      )}
-
-                    </div>
-
-                    {/* TIME OUTSIDE BUBBLE */}
-
-                    <span className="text-[9px] text-slate-400 mt-1 ml-1">
-                      {msg.time}
-                    </span>
-
-                  </div>
-
-                </div>
-
-              ) : (
-
-                /* ==================================================
-                   OUTGOING MESSAGE
-                ================================================== */
-
-                <div className="flex justify-end items-end mb-3">
-
-                  <div className="flex flex-col items-end max-w-[78%] sm:max-w-md">
-
-                    {/* BLUE MESSAGE BUBBLE */}
-
-                    <div className="bg-blue-500 text-white rounded-lg rounded-br-none px-3 py-2 shadow-sm">
-
-                      {/* TEXT */}
-
-                      {msg.text && (
-
-                        <p className="text-[11px] sm:text-xs leading-relaxed whitespace-pre-wrap break-words">
-                          {msg.text}
-                        </p>
-
-                      )}
-
-                      {/* IMAGE */}
-
-                      {msg.type === "image" &&
-                        msg.fileUrl && (
-
-                        <div
-                          className={`${
-                            msg.text
-                              ? "mt-2"
-                              : ""
-                          }`}
-                        >
-
-                          <div className="rounded-lg overflow-hidden">
-
-                            <img
-                              src={msg.fileUrl}
-                              alt={
-                                msg.fileName ||
-                                "Attached image"
-                              }
-                              className="max-w-[280px] max-h-64 w-full object-cover"
-                            />
-
-                          </div>
-
-                          {msg.fileName && (
-                            <p className="text-[9px] text-blue-100 mt-1">
-                              {msg.fileName}
-                            </p>
-                          )}
-
-                        </div>
-
-                      )}
-
-                      {/* FILE */}
-
-                      {msg.type === "file" && (
-
-                        <div
-                          className={`${
-                            msg.text
-                              ? "mt-2"
-                              : ""
-                          }`}
-                        >
-
-                          <div className="w-[220px] sm:w-[250px] bg-blue-600/70 border border-blue-400/50 rounded-lg p-2 flex items-center gap-2">
-
-                            <div className="w-9 h-9 rounded-md bg-white/20 flex items-center justify-center shrink-0">
-
-                              <FileText className="w-5 h-5 text-white" />
-
-                            </div>
-
-                            <div className="flex-1 min-w-0">
-
-                              <p className="text-[10px] font-semibold text-white truncate">
-                                {msg.fileName ||
-                                  "Attached file"}
-                              </p>
-
-                              <p className="text-[9px] text-blue-100 mt-0.5">
-                                {msg.fileSize ||
-                                  "File"}
-                                {" • "}
-                                {msg.fileName
-                                  ?.split(".")
-                                  .pop()
-                                  ?.toUpperCase() ||
-                                  "FILE"}
-                              </p>
-
-                            </div>
-
-                            {msg.fileUrl && (
-
-                              <a
-                                href={
-                                  msg.fileUrl
-                                }
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                download={
-                                  msg.fileName
-                                }
-                                className="w-7 h-7 rounded-md flex items-center justify-center hover:bg-blue-500 text-white shrink-0"
-                              >
-                                <Download className="w-4 h-4" />
-                              </a>
-
-                            )}
-
-                          </div>
-
-                        </div>
-
-                      )}
-
-                    </div>
-
-                    {/* TIME + CHECK */}
-
-                    <div className="flex items-center gap-1 mt-1 mr-1">
-
-                      <span className="text-[9px] text-slate-400">
-                        {msg.time}
-                      </span>
-
-                      <CheckCheck className="w-3.5 h-3.5 text-blue-500" />
-
-                    </div>
-
-                  </div>
-
-                </div>
-
-              )}
-
-            </React.Fragment>
-          );
-        }
-      )}
-
-      <div ref={messagesEndRef} />
-
-    </div>
-
-  ) : (
-
-    <div className="flex items-center justify-center h-full text-xs text-slate-400">
-      No messages yet. Start the conversation.
-    </div>
-
-  )}
-
-</div>
-              
-
-              {/* ==================================================
-                  MESSAGE INPUT
-              ================================================== */}
-
-              <div className="p-3 sm:p-4 bg-white border-t border-slate-200 shrink-0">
-
-                <form
-                  onSubmit={
-                    handleSendMessage
-                  }
-                  className="bg-slate-50 border border-slate-200 rounded-xl p-2 focus-within:border-emerald-500"
+            ))
+
+          )}
+
+        </div>
+
+      </aside>
+
+
+      {/* ==================================================
+          CHAT SCREEN
+      ================================================== */}
+      <section
+        className={`flex-1 min-w-0 min-h-0 flex flex-col bg-[#efeae2] ${
+          !showMobileChat
+            ? "hidden md:flex"
+            : "flex"
+        }`}
+      >
+
+        {selectedChat ? (
+
+          <>
+
+            {/* ==================================================
+                CHAT HEADER
+            ================================================== */}
+            <div className="h-14 bg-white border-b border-slate-200 px-4 sm:px-6 flex items-center justify-between shrink-0">
+
+              <div className="flex items-center gap-2 sm:gap-3">
+
+                <button
+                  type="button"
+                  onClick={() => setShowMobileChat(false)}
+                  className="md:hidden p-1 text-slate-500"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+
+                <div
+                  className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${
+                    selectedChat.avatar_bg ||
+                    selectedChat.avatarBg ||
+                    "bg-emerald-100 text-emerald-600"
+                  }`}
                 >
 
-                  <input
-                    type="text"
-                    placeholder="Type a message..."
-                    value={
-                      inputMessage
-                    }
-                    onChange={(e) =>
-                      setInputMessage(
-                        e.target.value
-                      )
-                    }
-                    disabled={
-                      sendingMessage
-                    }
-                    className="w-full bg-transparent text-xs px-2 py-1 outline-none text-slate-700"
-                  />
+                  {selectedChat.type === "group" ? (
+                    <Users className="w-4 h-4" />
+                  ) : (
+                    selectedChat.initials || "U"
+                  )}
 
-                  <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-200/60">
+                </div>
 
-                    <div className="flex items-center gap-3 text-slate-400">
 
-                      <button
-                        type="button"
-                        className="hover:text-slate-600"
-                      >
-                        <Smile className="w-4 h-4" />
-                      </button>
+                <div>
 
-                      <button
-                        type="button"
-                        disabled={
-                          sendingMessage
-                        }
-                        onClick={() =>
-                          fileInputRef.current?.click()
-                        }
-                        className="hover:text-slate-600 disabled:opacity-50"
-                      >
-                        <Paperclip className="w-4 h-4" />
-                      </button>
+                  <h3 className="text-xs sm:text-sm font-semibold text-slate-800 flex items-center gap-2">
 
-                      <button
-                        type="button"
-                        disabled={
-                          sendingMessage
-                        }
-                        onClick={() =>
-                          fileInputRef.current?.click()
-                        }
-                        className="hover:text-slate-600 disabled:opacity-50"
-                      >
-                        <ImageIcon className="w-4 h-4" />
-                      </button>
+                    {selectedChat.name}
 
-                    </div>
+                    {selectedChat.type === "group" && (
+
+                      <span className="text-[10px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded font-normal">
+                        Group
+                      </span>
+
+                    )}
+
+                  </h3>
+
+                  <p className="text-[10px] text-slate-400">
+
+                    {selectedChat.type === "group"
+                      ? `${selectedChat.members?.length || 0} Members`
+                      : selectedChat.email || "Direct Chat"}
+
+                  </p>
+
+                </div>
+
+              </div>
+
+
+              <div className="flex items-center gap-2">
+
+                {selectedChat.type === "group" && (
+
+                  <div className="flex items-center gap-1.5">
 
                     <button
-                      type="submit"
-                      disabled={
-                        sendingMessage ||
-                        !inputMessage.trim()
+                      type="button"
+                      onClick={() =>
+                        setIsAddMemberModalOpen(true)
                       }
-                      className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs px-4 py-1.5 rounded-lg flex items-center gap-1.5 font-medium"
+                      className="flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1 rounded-lg text-xs font-medium"
                     >
 
-                      {sendingMessage ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      ) : (
-                        <Send className="w-3.5 h-3.5" />
-                      )}
+                      <UserPlus className="w-3.5 h-3.5" />
 
-                      {sendingMessage
-                        ? "Sending..."
-                        : "Send"}
+                      <span className="hidden sm:inline">
+                        Add Member
+                      </span>
+
+                    </button>
+
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setIsGroupInfoOpen(true)
+                      }
+                      className="flex items-center gap-1 bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1 rounded-lg text-xs font-medium"
+                    >
+
+                      <Info className="w-3.5 h-3.5 text-slate-500" />
+
+                      <span className="hidden sm:inline">
+                        Members
+                      </span>
+
+                      ({selectedChat.members?.length || 0})
 
                     </button>
 
                   </div>
 
-                </form>
+                )}
+
+                <Search className="w-4 h-4 cursor-pointer text-slate-400 hover:text-slate-600 ml-2" />
+
+                <Star className="w-4 h-4 cursor-pointer text-slate-400 hover:text-amber-500" />
+
+                <MoreVertical className="w-4 h-4 cursor-pointer text-slate-400 hover:text-slate-600" />
 
               </div>
 
-            </>
-          ) : (
-
-            <div className="flex-1 flex items-center justify-center text-slate-400 text-xs">
-              Select a conversation to start chatting
             </div>
 
-          )}
 
-        </section>
+            {/* ==================================================
+                MESSAGES
+                ONLY THIS SECTION SCROLLS
+            ================================================== */}
+            <div
+              className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-[#efeae2] px-3 sm:px-5 py-4"
+            >
 
-      </div>
+              {loadingMessages ? (
 
-      {/* ==================================================
-          ADD MEMBER MODAL
-      ================================================== */}
+                <div className="flex justify-center items-center h-full text-xs text-slate-400 gap-2">
 
-      {isAddMemberModalOpen &&
-        selectedChat?.type ===
-          "group" && (
+                  <Loader2 className="w-4 h-4 animate-spin" />
 
-          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                  Loading messages...
 
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+                </div>
 
-              <div className="flex items-center justify-between p-4 border-b border-slate-100">
+              ) : selectedChat.messages?.length > 0 ? (
 
-                <h3 className="font-semibold text-sm text-slate-800 flex items-center gap-2">
+                <div className="space-y-1 min-h-full">
 
-                  <UserPlus className="w-4 h-4 text-emerald-600" />
+                  {selectedChat.messages.map(
+                    (msg, index) => {
 
-                  Add Member to "{selectedChat.name}"
+                      const isMe =
+                        msg.sender === "me";
 
-                </h3>
+                      const isSystem =
+                        msg.sender === "system";
 
-                <button
-                  type="button"
-                  onClick={() =>
-                    setIsAddMemberModalOpen(
-                      false
-                    )
-                  }
-                  className="text-slate-400 hover:text-slate-600"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+                      const previousMessage =
+                        selectedChat.messages[index - 1];
 
-              </div>
+                      const showDate =
+                        !previousMessage ||
+                        !isSameMessageDate(
+                          previousMessage.created_at,
+                          msg.created_at
+                        );
+
+
+                      {/* ==================================================
+                          SYSTEM MESSAGE
+                      ================================================== */}
+                      if (isSystem) {
+
+                        return (
+
+                          <React.Fragment key={msg.id}>
+
+                            {showDate &&
+                              msg.created_at && (
+
+                                <div className="flex items-center justify-center py-3">
+
+                                  <div className="flex items-center gap-3 w-full max-w-xl">
+
+                                    <div className="h-px bg-slate-300 flex-1" />
+
+                                    <span className="text-[10px] text-slate-500 font-medium whitespace-nowrap bg-white/60 px-3 py-1 rounded-full">
+
+                                      {formatMessageDate(
+                                        msg.created_at
+                                      )}
+
+                                    </span>
+
+                                    <div className="h-px bg-slate-300 flex-1" />
+
+                                  </div>
+
+                                </div>
+
+                              )}
+
+
+                            <div className="flex justify-center py-2">
+
+                              <span className="text-[10px] bg-white/70 text-slate-500 px-3 py-1 rounded-full shadow-sm">
+
+                                {msg.text}
+
+                              </span>
+
+                            </div>
+
+                          </React.Fragment>
+
+                        );
+
+                      }
+
+
+                      return (
+
+                        <React.Fragment key={msg.id}>
+
+                          {/* ==================================================
+                              DATE SEPARATOR
+                          ================================================== */}
+                          {showDate &&
+                            msg.created_at && (
+
+                              <div className="flex items-center justify-center py-3">
+
+                                <span className="text-[10px] bg-white/80 text-slate-500 px-3 py-1 rounded-full shadow-sm">
+
+                                  {formatMessageDate(
+                                    msg.created_at
+                                  )}
+
+                                </span>
+
+                              </div>
+
+                            )}
+
+
+                          {/* ==================================================
+                              INCOMING
+                          ================================================== */}
+                          {!isMe ? (
+
+                            <div className="flex items-end gap-2 mb-3">
+
+                              {/* AVATAR */}
+
+                              <div
+                                className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-[9px] shrink-0 ${
+                                  selectedChat.avatar_bg ||
+                                  selectedChat.avatarBg ||
+                                  "bg-emerald-100 text-emerald-600"
+                                }`}
+                              >
+                                {selectedChat.initials ||
+                                  selectedChat.name
+                                    ?.slice(0, 2)
+                                    .toUpperCase() ||
+                                  "U"}
+                              </div>
+
+
+                              <div className="flex flex-col items-start max-w-[78%] sm:max-w-md">
+
+                                {/* GROUP SENDER */}
+
+                                {selectedChat.type === "group" && (
+
+                                  <p className="text-[10px] font-semibold text-emerald-600 mb-1 ml-1">
+
+                                    {msg.senderName ||
+                                      selectedChat.name}
+
+                                  </p>
+
+                                )}
+
+
+                                {/* MESSAGE BUBBLE */}
+
+                                <div className="bg-white rounded-lg rounded-bl-none px-3 py-2 shadow-sm">
+
+                                  {/* TEXT */}
+
+                                  {msg.text && (
+
+                                    <p className="text-[11px] sm:text-xs text-slate-700 leading-relaxed whitespace-pre-wrap break-words">
+
+                                      {msg.text}
+
+                                    </p>
+
+                                  )}
+
+
+                                  {/* IMAGE */}
+
+                                  {msg.type === "image" &&
+                                    msg.fileUrl && (
+
+                                      <div
+                                        className={
+                                          msg.text
+                                            ? "mt-2"
+                                            : ""
+                                        }
+                                      >
+
+                                        <div className="rounded-lg overflow-hidden bg-slate-50">
+
+                                          <img
+                                            src={msg.fileUrl}
+                                            alt={
+                                              msg.fileName ||
+                                              "Attached image"
+                                            }
+                                            className="max-w-[280px] max-h-64 w-full object-cover"
+                                          />
+
+                                        </div>
+
+                                        {msg.fileName && (
+
+                                          <p className="text-[9px] text-slate-400 mt-1">
+
+                                            {msg.fileName}
+
+                                          </p>
+
+                                        )}
+
+                                      </div>
+
+                                    )}
+
+
+                                  {/* FILE */}
+
+                                  {msg.type === "file" && (
+
+                                    <div
+                                      className={
+                                        msg.text
+                                          ? "mt-2"
+                                          : ""
+                                      }
+                                    >
+
+                                      <div className="w-[220px] sm:w-[250px] bg-slate-50 border border-slate-200 rounded-lg p-2 flex items-center gap-2">
+
+                                        <div className="w-9 h-9 rounded-md bg-blue-50 flex items-center justify-center shrink-0">
+
+                                          <FileText className="w-5 h-5 text-blue-500" />
+
+                                        </div>
+
+                                        <div className="flex-1 min-w-0">
+
+                                          <p className="text-[10px] font-semibold text-slate-700 truncate">
+
+                                            {msg.fileName ||
+                                              "Attached file"}
+
+                                          </p>
+
+                                          <p className="text-[9px] text-slate-400 mt-0.5">
+
+                                            {msg.fileSize ||
+                                              "File"}
+
+                                            {" • "}
+
+                                            {msg.fileName
+                                              ?.split(".")
+                                              .pop()
+                                              ?.toUpperCase() ||
+                                              "FILE"}
+
+                                          </p>
+
+                                        </div>
+
+
+                                        {msg.fileUrl && (
+
+                                          <a
+                                            href={msg.fileUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            download={msg.fileName}
+                                            className="w-7 h-7 rounded-md flex items-center justify-center hover:bg-slate-200 text-slate-500 shrink-0"
+                                          >
+
+                                            <Download className="w-4 h-4" />
+
+                                          </a>
+
+                                        )}
+
+                                      </div>
+
+                                    </div>
+
+                                  )}
+
+                                </div>
+
+
+                                {/* TIME */}
+
+                                <span className="text-[9px] text-slate-400 mt-1 ml-1">
+
+                                  {msg.time}
+
+                                </span>
+
+                              </div>
+
+                            </div>
+
+                          ) : (
+
+                            /* ==================================================
+                               OUTGOING
+                            ================================================== */
+
+                            <div className="flex justify-end items-end mb-3">
+
+                              <div className="flex flex-col items-end max-w-[78%] sm:max-w-md">
+
+                                {/* MESSAGE BUBBLE */}
+
+                                <div className="bg-[#d9fdd3] text-slate-800 rounded-lg rounded-br-none px-3 py-2 shadow-sm">
+
+                                  {/* TEXT */}
+
+                                  {msg.text && (
+
+                                    <p className="text-[11px] sm:text-xs leading-relaxed whitespace-pre-wrap break-words">
+
+                                      {msg.text}
+
+                                    </p>
+
+                                  )}
+
+
+                                  {/* IMAGE */}
+
+                                  {msg.type === "image" &&
+                                    msg.fileUrl && (
+
+                                      <div
+                                        className={
+                                          msg.text
+                                            ? "mt-2"
+                                            : ""
+                                        }
+                                      >
+
+                                        <div className="rounded-lg overflow-hidden">
+
+                                          <img
+                                            src={msg.fileUrl}
+                                            alt={
+                                              msg.fileName ||
+                                              "Attached image"
+                                            }
+                                            className="max-w-[280px] max-h-64 w-full object-cover"
+                                          />
+
+                                        </div>
+
+                                        {msg.fileName && (
+
+                                          <p className="text-[9px] text-slate-500 mt-1">
+
+                                            {msg.fileName}
+
+                                          </p>
+
+                                        )}
+
+                                      </div>
+
+                                    )}
+
+
+                                  {/* FILE */}
+
+                                  {msg.type === "file" && (
+
+                                    <div
+                                      className={
+                                        msg.text
+                                          ? "mt-2"
+                                          : ""
+                                      }
+                                    >
+
+                                      <div className="w-[220px] sm:w-[250px] bg-emerald-600/80 border border-emerald-500/50 rounded-lg p-2 flex items-center gap-2">
+
+                                        <div className="w-9 h-9 rounded-md bg-white/30 flex items-center justify-center shrink-0">
+
+                                          <FileText className="w-5 h-5 text-white" />
+
+                                        </div>
+
+                                        <div className="flex-1 min-w-0">
+
+                                          <p className="text-[10px] font-semibold text-white truncate">
+
+                                            {msg.fileName ||
+                                              "Attached file"}
+
+                                          </p>
+
+                                          <p className="text-[9px] text-emerald-50 mt-0.5">
+
+                                            {msg.fileSize ||
+                                              "File"}
+
+                                            {" • "}
+
+                                            {msg.fileName
+                                              ?.split(".")
+                                              .pop()
+                                              ?.toUpperCase() ||
+                                              "FILE"}
+
+                                          </p>
+
+                                        </div>
+
+
+                                        {msg.fileUrl && (
+
+                                          <a
+                                            href={msg.fileUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            download={msg.fileName}
+                                            className="w-7 h-7 rounded-md flex items-center justify-center hover:bg-emerald-500 text-white shrink-0"
+                                          >
+
+                                            <Download className="w-4 h-4" />
+
+                                          </a>
+
+                                        )}
+
+                                      </div>
+
+                                    </div>
+
+                                  )}
+
+                                </div>
+
+
+                                {/* TIME + CHECK */}
+
+                                <div className="flex items-center gap-1 mt-1 mr-1">
+
+                                  <span className="text-[9px] text-slate-400">
+                                    {msg.time}
+                                  </span>
+
+                                  <CheckCheck className="w-3.5 h-3.5 text-[#53bdeb]" />
+
+                                </div>
+
+                              </div>
+
+                            </div>
+
+                          )}
+
+                        </React.Fragment>
+
+                      );
+
+                    }
+                  )}
+
+
+                  {/* AUTO SCROLL TARGET */}
+
+                  <div ref={messagesEndRef} />
+
+                </div>
+
+              ) : (
+
+                <div className="flex items-center justify-center h-full text-xs text-slate-400">
+
+                  No messages yet. Start the conversation.
+
+                </div>
+
+              )}
+
+            </div>
+
+
+            {/* ==================================================
+                MESSAGE INPUT
+                FIXED INSIDE CHAT PANEL
+            ================================================== */}
+            <div className="p-3 sm:p-4 bg-[#f0f2f5] border-t border-slate-200 shrink-0">
 
               <form
-                onSubmit={
-                  handleAddMemberToExistingGroup
-                }
-                className="p-4 space-y-4"
+                onSubmit={handleSendMessage}
+                className="bg-white border border-slate-200 rounded-xl p-2 focus-within:border-emerald-500 shadow-sm"
               >
 
-                <div>
-
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Member Name
-                  </label>
+                <div className="flex items-center gap-2">
 
                   <input
                     type="text"
-                    required
-                    placeholder="Enter Name"
-                    value={
-                      newMemberName
-                    }
+                    placeholder="Type a message..."
+                    value={inputMessage}
                     onChange={(e) =>
-                      setNewMemberName(
-                        e.target.value
-                      )
+                      setInputMessage(e.target.value)
                     }
-                    className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-emerald-500"
+                    disabled={sendingMessage}
+                    className="flex-1 min-w-0 bg-transparent text-xs px-2 py-2 outline-none text-slate-700"
                   />
-
-                </div>
-
-                <div>
-
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Phone Number
-                  </label>
-
-                  <input
-                    type="text"
-                    required
-                    placeholder="+92 300 0000000"
-                    value={
-                      newMemberPhone
-                    }
-                    onChange={(e) =>
-                      setNewMemberPhone(
-                        e.target.value
-                      )
-                    }
-                    className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-emerald-500"
-                  />
-
-                </div>
-
-                <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setIsAddMemberModalOpen(
-                        false
-                      )
-                    }
-                    className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-lg"
-                  >
-                    Cancel
-                  </button>
 
                   <button
                     type="submit"
                     disabled={
-                      sendingMessage
+                      sendingMessage ||
+                      !inputMessage.trim()
                     }
-                    className="px-4 py-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg font-medium"
+                    className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white w-8 h-8 rounded-full flex items-center justify-center shrink-0"
                   >
-                    {sendingMessage
-                      ? "Adding..."
-                      : "Add Member"}
+
+                    {sendingMessage ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Send className="w-3.5 h-3.5" />
+                    )}
+
                   </button>
+
+                </div>
+
+
+                <div className="flex items-center justify-between mt-1 pt-1 border-t border-slate-100">
+
+                  <div className="flex items-center gap-3 text-slate-400">
+
+                    <button
+                      type="button"
+                      className="hover:text-slate-600"
+                    >
+                      <Smile className="w-4 h-4" />
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={sendingMessage}
+                      onClick={() =>
+                        fileInputRef.current?.click()
+                      }
+                      className="hover:text-slate-600 disabled:opacity-50"
+                    >
+                      <Paperclip className="w-4 h-4" />
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={sendingMessage}
+                      onClick={() =>
+                        fileInputRef.current?.click()
+                      }
+                      className="hover:text-slate-600 disabled:opacity-50"
+                    >
+                      <ImageIcon className="w-4 h-4" />
+                    </button>
+
+                  </div>
+
+                  <span className="text-[9px] text-slate-400 hidden sm:block">
+                    Press Enter to send
+                  </span>
 
                 </div>
 
@@ -6896,36 +9142,47 @@ console.log(
 
             </div>
 
+          </>
+
+        ) : (
+
+          <div className="flex-1 flex items-center justify-center text-slate-400 text-xs">
+
+            Select a conversation to start chatting
+
           </div>
 
         )}
 
-      {/* ==================================================
-          CREATE GROUP MODAL
-      ================================================== */}
+      </section>
 
-      {isGroupModalOpen && (
+    </div>
+
+
+    {/* ==================================================
+        ADD MEMBER MODAL
+    ================================================== */}
+    {isAddMemberModalOpen &&
+      selectedChat?.type === "group" && (
 
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
 
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden max-h-[90vh] flex flex-col">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
 
             <div className="flex items-center justify-between p-4 border-b border-slate-100">
 
               <h3 className="font-semibold text-sm text-slate-800 flex items-center gap-2">
 
-                <Users className="w-4 h-4 text-emerald-600" />
+                <UserPlus className="w-4 h-4 text-emerald-600" />
 
-                Create New Group
+                Add Member to "{selectedChat.name}"
 
               </h3>
 
               <button
                 type="button"
                 onClick={() =>
-                  setIsGroupModalOpen(
-                    false
-                  )
+                  setIsAddMemberModalOpen(false)
                 }
                 className="text-slate-400 hover:text-slate-600"
               >
@@ -6934,309 +9191,72 @@ console.log(
 
             </div>
 
-            <form
-              onSubmit={
-                handleCreateGroup
-              }
-              className="p-4 space-y-4 overflow-y-auto flex-1"
-            >
 
-              {/* GROUP NAME */}
+            <form
+              onSubmit={handleAddMemberToExistingGroup}
+              className="p-4 space-y-4"
+            >
 
               <div>
 
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Group Name
+                  Member Name
                 </label>
 
                 <input
                   type="text"
                   required
-                  placeholder="Group Name..."
-                  value={
-                    groupName
-                  }
+                  placeholder="Enter Name"
+                  value={newMemberName}
                   onChange={(e) =>
-                    setGroupName(
-                      e.target.value
-                    )
+                    setNewMemberName(e.target.value)
                   }
                   className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-emerald-500"
                 />
 
               </div>
 
-              {/* CUSTOM MEMBER */}
-
-              <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-2">
-
-                <label className="block text-xs font-semibold text-slate-700 flex items-center gap-1">
-
-                  <UserPlus className="w-3.5 h-3.5 text-blue-500" />
-
-                  Add Member by Phone
-
-                </label>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-
-                  <input
-                    type="text"
-                    placeholder="Member Name"
-                    value={
-                      customName
-                    }
-                    onChange={(e) =>
-                      setCustomName(
-                        e.target.value
-                      )
-                    }
-                    className="px-2.5 py-1 border border-slate-200 rounded text-xs bg-white focus:outline-none focus:border-emerald-500"
-                  />
-
-                  <input
-                    type="text"
-                    placeholder="Phone Number"
-                    value={
-                      customPhone
-                    }
-                    onChange={(e) =>
-                      setCustomPhone(
-                        e.target.value
-                      )
-                    }
-                    className="px-2.5 py-1 border border-slate-200 rounded text-xs bg-white focus:outline-none focus:border-emerald-500"
-                  />
-
-                </div>
-
-                <button
-                  type="button"
-                  onClick={
-                    handleAddCustomMember
-                  }
-                  className="w-full mt-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 font-medium py-1 rounded text-xs flex items-center justify-center gap-1"
-                >
-
-                  <Plus className="w-3 h-3" />
-
-                  Add
-
-                </button>
-
-              </div>
-
-              {/* CUSTOM MEMBERS */}
-
-              {customMembersList.length >
-                0 && (
-
-                <div>
-
-                  <label className="block text-[11px] font-semibold text-slate-500 mb-1">
-                    Added Members (
-                    {
-                      customMembersList.length
-                    }
-                    ):
-                  </label>
-
-                  <div className="flex flex-wrap gap-1.5">
-
-                    {customMembersList.map(
-                      (member) => (
-
-                        <span
-                          key={
-                            member.id
-                          }
-                          className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1"
-                        >
-
-                          {
-                            member.name
-                          }
-
-                          {" "}
-
-                          (
-                          {
-                            member.phone
-                          }
-                          )
-
-                          <button
-                            type="button"
-                            onClick={() =>
-                              removeCustomMember(
-                                member.id
-                              )
-                            }
-                            className="hover:text-red-500"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-
-                        </span>
-
-                      )
-                    )}
-
-                  </div>
-
-                </div>
-
-              )}
-
-              {/* EXISTING CONTACTS */}
 
               <div>
 
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Select Existing Contacts
+                  Phone Number
                 </label>
 
-                <div className="max-h-36 overflow-y-auto border border-slate-200 rounded-lg divide-y divide-slate-100">
-
-                  {conversations
-                    .filter(
-                      (contact) =>
-                        contact.type ===
-                        "direct"
-                    )
-                    .length ===
-                    0 ? (
-
-                    <p className="p-3 text-xs text-slate-400 text-center">
-                      No existing contacts found.
-                    </p>
-
-                  ) : (
-
-                    conversations
-                      .filter(
-                        (contact) =>
-                          contact.type ===
-                          "direct"
-                      )
-                      .map(
-                        (
-                          contact
-                        ) => {
-
-                          const contactId =
-                            contact.user_id ||
-                            contact.id;
-
-                          const isChecked =
-                            selectedMembers.some(
-                              (member) =>
-                                Number(
-                                  member.user_id ||
-                                    member.id
-                                ) ===
-                                Number(
-                                  contactId
-                                )
-                            );
-
-                          return (
-
-                            <label
-                              key={
-                                contact.id
-                              }
-                              className="flex items-center justify-between p-2 hover:bg-slate-50 cursor-pointer"
-                            >
-
-                              <div className="flex items-center gap-2">
-
-                                <div
-                                  className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] ${
-                                    contact.avatar_bg ||
-                                    contact.avatarBg ||
-                                    "bg-emerald-100 text-emerald-600"
-                                  }`}
-                                >
-                                  {
-                                    contact.initials ||
-                                    "U"
-                                  }
-                                </div>
-
-                                <div>
-
-                                  <p className="text-xs text-slate-700 font-medium">
-                                    {
-                                      contact.name
-                                    }
-                                  </p>
-
-                                  <p className="text-[9px] text-slate-400">
-                                    {
-                                      contact.phone ||
-                                      contact.email ||
-                                      ""
-                                    }
-                                  </p>
-
-                                </div>
-
-                              </div>
-
-                              <input
-                                type="checkbox"
-                                checked={
-                                  isChecked
-                                }
-                                onChange={() =>
-                                  handleMemberToggle(
-                                    contact
-                                  )
-                                }
-                                className="rounded text-emerald-600 focus:ring-emerald-500 h-3.5 w-3.5"
-                              />
-
-                            </label>
-
-                          );
-                        }
-                      )
-
-                  )}
-
-                </div>
+                <input
+                  type="text"
+                  required
+                  placeholder="+92 300 0000000"
+                  value={newMemberPhone}
+                  onChange={(e) =>
+                    setNewMemberPhone(e.target.value)
+                  }
+                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-emerald-500"
+                />
 
               </div>
 
-              {/* FOOTER */}
 
               <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
 
                 <button
                   type="button"
                   onClick={() =>
-                    setIsGroupModalOpen(
-                      false
-                    )
+                    setIsAddMemberModalOpen(false)
                   }
-                  className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-lg font-medium"
+                  className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-lg"
                 >
                   Cancel
                 </button>
 
                 <button
                   type="submit"
-                  disabled={
-                    sendingMessage
-                  }
+                  disabled={sendingMessage}
                   className="px-4 py-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg font-medium"
                 >
-
                   {sendingMessage
-                    ? "Creating..."
-                    : "Create Group"}
-
+                    ? "Adding..."
+                    : "Add Member"}
                 </button>
 
               </div>
@@ -7249,13 +9269,305 @@ console.log(
 
       )}
 
-      {/* ==================================================
-          GROUP MEMBERS MODAL
-      ================================================== */}
 
-      {isGroupInfoOpen &&
-        selectedChat?.type ===
-          "group" && (
+    {/* ==================================================
+        CREATE GROUP MODAL
+    ================================================== */}
+    {isGroupModalOpen && (
+
+      <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+
+        <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden max-h-[90vh] flex flex-col">
+
+          <div className="flex items-center justify-between p-4 border-b border-slate-100">
+
+            <h3 className="font-semibold text-sm text-slate-800 flex items-center gap-2">
+
+              <Users className="w-4 h-4 text-emerald-600" />
+
+              Create New Group
+
+            </h3>
+
+            <button
+              type="button"
+              onClick={() =>
+                setIsGroupModalOpen(false)
+              }
+              className="text-slate-400 hover:text-slate-600"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+          </div>
+
+
+          <form
+            onSubmit={handleCreateGroup}
+            className="p-4 space-y-4 overflow-y-auto flex-1"
+          >
+
+            {/* GROUP NAME */}
+
+            <div>
+
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Group Name
+              </label>
+
+              <input
+                type="text"
+                required
+                placeholder="Group Name..."
+                value={groupName}
+                onChange={(e) =>
+                  setGroupName(e.target.value)
+                }
+                className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-emerald-500"
+              />
+
+            </div>
+
+
+            {/* CUSTOM MEMBER */}
+
+            <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-2">
+
+              <label className="block text-xs font-semibold text-slate-700 flex items-center gap-1">
+
+                <UserPlus className="w-3.5 h-3.5 text-blue-500" />
+
+                Add Member by Phone
+
+              </label>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+
+                <input
+                  type="text"
+                  placeholder="Member Name"
+                  value={customName}
+                  onChange={(e) =>
+                    setCustomName(e.target.value)
+                  }
+                  className="px-2.5 py-1 border border-slate-200 rounded text-xs bg-white focus:outline-none focus:border-emerald-500"
+                />
+
+                <input
+                  type="text"
+                  placeholder="Phone Number"
+                  value={customPhone}
+                  onChange={(e) =>
+                    setCustomPhone(e.target.value)
+                  }
+                  className="px-2.5 py-1 border border-slate-200 rounded text-xs bg-white focus:outline-none focus:border-emerald-500"
+                />
+
+              </div>
+
+              <button
+                type="button"
+                onClick={handleAddCustomMember}
+                className="w-full mt-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 font-medium py-1 rounded text-xs flex items-center justify-center gap-1"
+              >
+
+                <Plus className="w-3 h-3" />
+
+                Add
+
+              </button>
+
+            </div>
+
+
+            {/* CUSTOM MEMBERS */}
+
+            {customMembersList.length > 0 && (
+
+              <div>
+
+                <label className="block text-[11px] font-semibold text-slate-500 mb-1">
+
+                  Added Members ({customMembersList.length}):
+
+                </label>
+
+                <div className="flex flex-wrap gap-1.5">
+
+                  {customMembersList.map((member) => (
+
+                    <span
+                      key={member.id}
+                      className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1"
+                    >
+
+                      {member.name} ({member.phone})
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          removeCustomMember(member.id)
+                        }
+                        className="hover:text-red-500"
+                      >
+
+                        <X className="w-3 h-3" />
+
+                      </button>
+
+                    </span>
+
+                  ))}
+
+                </div>
+
+              </div>
+
+            )}
+
+
+            {/* EXISTING CONTACTS */}
+
+            <div>
+
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Select Existing Contacts
+              </label>
+
+              <div className="max-h-36 overflow-y-auto border border-slate-200 rounded-lg divide-y divide-slate-100">
+
+                {conversations.filter(
+                  (contact) =>
+                    contact.type === "direct"
+                ).length === 0 ? (
+
+                  <p className="p-3 text-xs text-slate-400 text-center">
+                    No existing contacts found.
+                  </p>
+
+                ) : (
+
+                  conversations
+                    .filter(
+                      (contact) =>
+                        contact.type === "direct"
+                    )
+                    .map((contact) => {
+
+                      const contactId =
+                        contact.user_id ||
+                        contact.id;
+
+                      const isChecked =
+                        selectedMembers.some(
+                          (member) =>
+                            Number(
+                              member.user_id ||
+                              member.id
+                            ) ===
+                            Number(contactId)
+                        );
+
+                      return (
+
+                        <label
+                          key={contact.id}
+                          className="flex items-center justify-between p-2 hover:bg-slate-50 cursor-pointer"
+                        >
+
+                          <div className="flex items-center gap-2">
+
+                            <div
+                              className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] ${
+                                contact.avatar_bg ||
+                                contact.avatarBg ||
+                                "bg-emerald-100 text-emerald-600"
+                              }`}
+                            >
+                              {contact.initials || "U"}
+                            </div>
+
+                            <div>
+
+                              <p className="text-xs text-slate-700 font-medium">
+                                {contact.name}
+                              </p>
+
+                              <p className="text-[9px] text-slate-400">
+                                {contact.phone ||
+                                  contact.email ||
+                                  ""}
+                              </p>
+
+                            </div>
+
+                          </div>
+
+
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() =>
+                              handleMemberToggle(contact)
+                            }
+                            className="rounded text-emerald-600 focus:ring-emerald-500 h-3.5 w-3.5"
+                          />
+
+                        </label>
+
+                      );
+
+                    })
+
+                )}
+
+              </div>
+
+            </div>
+
+
+            {/* FOOTER */}
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+
+              <button
+                type="button"
+                onClick={() =>
+                  setIsGroupModalOpen(false)
+                }
+                className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-lg font-medium"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="submit"
+                disabled={sendingMessage}
+                className="px-4 py-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg font-medium"
+              >
+
+                {sendingMessage
+                  ? "Creating..."
+                  : "Create Group"}
+
+              </button>
+
+            </div>
+
+          </form>
+
+        </div>
+
+      </div>
+
+    )}
+
+
+    {/* ==================================================
+        GROUP MEMBERS MODAL
+    ================================================== */}
+    {isGroupInfoOpen &&
+      selectedChat?.type === "group" && (
 
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
 
@@ -7268,10 +9580,7 @@ console.log(
                 <Users className="w-4 h-4 text-emerald-600" />
 
                 <h3 className="font-semibold text-sm text-slate-800">
-                  {
-                    selectedChat.name
-                  }{" "}
-                  Members
+                  {selectedChat.name} Members
                 </h3>
 
               </div>
@@ -7279,9 +9588,7 @@ console.log(
               <button
                 type="button"
                 onClick={() =>
-                  setIsGroupInfoOpen(
-                    false
-                  )
+                  setIsGroupInfoOpen(false)
                 }
                 className="text-slate-400 hover:text-slate-600"
               >
@@ -7290,73 +9597,76 @@ console.log(
 
             </div>
 
+
             <div className="p-4 max-h-80 overflow-y-auto space-y-2">
 
               <p className="text-xs text-slate-400 font-medium mb-2">
+
                 Total Members:{" "}
-                {
-                  selectedChat
-                    .members
-                    ?.length ||
-                  0
-                }
+                {selectedChat.members?.length || 0}
+
               </p>
 
-              {selectedChat
-                .members
-                ?.length >
-              0 ? (
 
-        selectedChat.members.map(
-  (member, index) => (
-    <div
-      key={`member-${member.user_id || member.id || "unknown"}-${index}`}
-      className="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-100"
-    >
-      <div className="flex items-center gap-2 min-w-0">
+              {selectedChat.members?.length > 0 ? (
 
-        <div
-          className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
-            member.avatarBg ||
-            "bg-slate-200 text-slate-600"
-          }`}
-        >
-          {member.initials ||
-            member.name
-              ?.slice(0, 2)
-              .toUpperCase() ||
-            "U"}
-        </div>
+                selectedChat.members.map(
+                  (member, index) => (
 
-        <div className="min-w-0">
+                    <div
+                      key={`member-${member.user_id || member.id || "unknown"}-${index}`}
+                      className="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-100"
+                    >
 
-          <p className="text-xs font-semibold text-slate-700 truncate">
-            {member.name}
-          </p>
+                      <div className="flex items-center gap-2 min-w-0">
 
-          <p className="text-[10px] text-slate-400 flex items-center gap-1">
+                        <div
+                          className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
+                            member.avatarBg ||
+                            "bg-slate-200 text-slate-600"
+                          }`}
+                        >
+                          {member.initials ||
+                            member.name
+                              ?.slice(0, 2)
+                              .toUpperCase() ||
+                            "U"}
+                        </div>
 
-            <Phone className="w-2.5 h-2.5" />
 
-            {member.phone ||
-              member.email ||
-              "No Phone"}
+                        <div className="min-w-0">
 
-          </p>
+                          <p className="text-xs font-semibold text-slate-700 truncate">
+                            {member.name}
+                          </p>
 
-        </div>
+                          <p className="text-[10px] text-slate-400 flex items-center gap-1">
 
-      </div>
+                            <Phone className="w-2.5 h-2.5" />
 
-      {member.role && (
-        <span className="text-[9px] bg-white border border-slate-200 px-1.5 py-0.5 rounded text-slate-500">
-          {member.role}
-        </span>
-      )}
+                            {member.phone ||
+                              member.email ||
+                              "No Phone"}
 
-    </div>
-  )
-)
+                          </p>
+
+                        </div>
+
+                      </div>
+
+
+                      {member.role && (
+
+                        <span className="text-[9px] bg-white border border-slate-200 px-1.5 py-0.5 rounded text-slate-500">
+                          {member.role}
+                        </span>
+
+                      )}
+
+                    </div>
+
+                  )
+                )
 
               ) : (
 
@@ -7368,14 +9678,13 @@ console.log(
 
             </div>
 
+
             <div className="p-3 border-t border-slate-100 flex justify-end">
 
               <button
                 type="button"
                 onClick={() =>
-                  setIsGroupInfoOpen(
-                    false
-                  )
+                  setIsGroupInfoOpen(false)
                 }
                 className="px-3 py-1 text-xs bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 font-medium"
               >
@@ -7389,20 +9698,34 @@ console.log(
         </div>
 
       )}
-      {/* EXACT MATCH SIDEBAR COMPONENT */}
-                <Sidebar
-                  sidebarOpen={sidebarOpen}
-                  setSidebarOpen={setSidebarOpen}
-                  setShowLogoutModal={setShowLogoutModal}
-                />
 
-      <LogoutModal
-  show={showLogoutModal}
-  loggingOut={loggingOut}
-  onCancel={() => setShowLogoutModal(false)}
-  onConfirm={handleConfirmLogout}
-/>
 
-    </div>
-  );
+    {/* ==================================================
+        SIDEBAR
+
+
+        
+    ================================================== */}
+    <Sidebar
+      sidebarOpen={sidebarOpen}
+      setSidebarOpen={setSidebarOpen}
+      setShowLogoutModal={setShowLogoutModal}
+    />
+
+
+    {/* ==================================================
+        LOGOUT MODAL
+    ================================================== */}
+    <LogoutModal
+      show={showLogoutModal}
+      loggingOut={loggingOut}
+      onCancel={() =>
+        setShowLogoutModal(false)
+      }
+      onConfirm={handleConfirmLogout}
+    />
+
+  </div>
+);
 }
+

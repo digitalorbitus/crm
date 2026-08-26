@@ -563,6 +563,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Sidebar from "@/components/Sidebar";
+import LogoutModal from "@/components/LogoutModal";
 import { useRouter } from "next/navigation";
 import {
   Phone,
@@ -798,14 +799,14 @@ export default function StaffDashboardPage() {
                 </p>
 
                 {/* DEBUG PRINT FOR API RESPONSE */}
-                {rawApiResponse && (
+                {/* {rawApiResponse && (
                   <div className="mt-6 p-4 bg-slate-900 text-emerald-400 font-mono text-left text-xs rounded-xl overflow-x-auto max-w-2xl mx-auto">
                     <p className="text-slate-400 border-b border-slate-700 pb-1 mb-2 font-sans font-bold">
                       🔍 Backend API Raw Response (Debug Info):
                     </p>
                     <pre>{JSON.stringify(rawApiResponse, null, 2)}</pre>
                   </div>
-                )}
+                )} */}
               </div>
             ) : (
               <div className="space-y-3">
@@ -862,49 +863,12 @@ export default function StaffDashboardPage() {
       </div>
 
       {/* LOGOUT CONFIRMATION MODAL */}
-      {showLogoutModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-slate-100 space-y-4">
-            <div className="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto">
-              <AlertTriangle size={24} />
-            </div>
-
-            <div className="text-center space-y-1">
-              <h3 className="text-lg font-bold text-slate-900">Log Out?</h3>
-              <p className="text-sm text-slate-500">
-                Are you sure you want to log out of your account?
-              </p>
-            </div>
-
-            <div className="flex items-center gap-3 pt-2">
-              <button
-                type="button"
-                disabled={loggingOut}
-                onClick={() => setShowLogoutModal(false)}
-                className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition disabled:opacity-50 cursor-pointer"
-              >
-                Cancel
-              </button>
-
-              <button
-                type="button"
-                disabled={loggingOut}
-                onClick={handleConfirmLogout}
-                className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold text-white bg-red-600 hover:bg-red-700 shadow-lg shadow-red-500/20 flex items-center justify-center gap-2 transition disabled:opacity-50 cursor-pointer"
-              >
-                {loggingOut ? (
-                  <>
-                    <Loader2 size={16} className="animate-spin" />
-                    <span>Logging out...</span>
-                  </>
-                ) : (
-                  <span>Yes, Logout</span>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <LogoutModal
+      show={showLogoutModal}
+      loggingOut={loggingOut}
+      onCancel={() => setShowLogoutModal(false)}
+      onConfirm={handleConfirmLogout}
+    />
     </div>
   );
 }
