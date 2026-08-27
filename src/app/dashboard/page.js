@@ -548,20 +548,10 @@
 //   );
 // }
 
+
+
 "use client";
 
-// import {
-//   Phone,
-//   Menu,
-//   X,
-//   Loader2,
-//   AlertTriangle,
-//   Clock,
-//   PhoneIncoming,
-//   PhoneOff,
-//   TrendingUp,
-//   TrendingDown,
-// } from "lucide-react";
 import {
   Phone,
   Menu,
@@ -572,20 +562,126 @@ import {
   TrendingUp,
   TrendingDown,
 } from "lucide-react";
+
 import LogoutModal from "@/components/LogoutModal";
-import { useState } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
+import CRMLoader from "@/components/CRMLoader";
 import DashboardTopBar from "@/components/DashboardTopBar";
 
 export default function DashboardPage() {
   const router = useRouter();
 
+  // =========================
+  // STATES
+  // =========================
+  const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  const [staff, setStaff] = useState(null);
+  const [rawApiResponse, setRawApiResponse] = useState(null);
+  const [numbers, setNumbers] = useState([]);
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
-  // Stats Data matching UI Image Layout
+  // =========================
+  // LOAD STAFF DATA
+  // =========================
+  const loadStaffData = useCallback(async () => {
+    setLoading(true);
+    setErrorMessage("");
+
+    try {
+      // =====================================
+      // 1. FETCH AUTH DETAILS
+      // =====================================
+      const userRes = await fetch("/api/auth/me", {
+        cache: "no-store",
+      });
+
+      const userData = await userRes.json();
+
+      if (
+        !userRes.ok ||
+        !userData?.success ||
+        !userData?.user
+      ) {
+        setErrorMessage(
+          "Authentication failed. Please login again."
+        );
+
+        setLoading(false);
+        return;
+      }
+
+      setStaff(userData.user);
+
+      // =====================================
+      // 2. FETCH DAILY DESK DATA
+      // =====================================
+      const res = await fetch("/api/staff/daily-desk", {
+        cache: "no-store",
+      });
+
+      const data = await res.json();
+
+      setRawApiResponse(data);
+
+      if (!res.ok || !data?.success) {
+        throw new Error(
+          data?.message ||
+            "Failed to load Daily Desk data."
+        );
+      }
+
+      // =====================================
+      // SAFE EXTRACTION
+      // =====================================
+      let listData = [];
+
+      if (Array.isArray(data)) {
+        listData = data;
+      } else if (Array.isArray(data?.data)) {
+        listData = data.data;
+      } else if (Array.isArray(data?.tasks)) {
+        listData = data.tasks;
+      } else if (Array.isArray(data?.numbers)) {
+        listData = data.numbers;
+      } else if (Array.isArray(data?.assignments)) {
+        listData = data.assignments;
+      }
+
+      setNumbers(listData);
+    } catch (error) {
+      console.error(
+        "Staff dashboard fetch error:",
+        error
+      );
+
+      setErrorMessage(
+        error?.message ||
+          "Failed to fetch daily assignments."
+      );
+
+      setNumbers([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // =========================
+  // LOAD DATA ON PAGE LOAD
+  // =========================
+  useEffect(() => {
+    loadStaffData();
+  }, [loadStaffData]);
+
+  // =========================
+  // STATS DATA
+  // =========================
   const stats = [
     {
       title: "Total Calls",
@@ -629,24 +725,91 @@ export default function DashboardPage() {
     },
   ];
 
-  // Top Staff Data
+  // =========================
+  // TOP STAFF DATA
+  // =========================
   const topStaff = [
-    { name: "Ahmed Khan", total: 125, answered: 98, missed: 17, talkTime: "04h 32m" },
-    { name: "Usman Tariq", total: 118, answered: 92, missed: 26, talkTime: "04h 10m" },
-    { name: "Maria Sheikh", total: 110, answered: 85, missed: 25, talkTime: "03h 45m" },
-    { name: "Zain Ali", total: 105, answered: 80, missed: 25, talkTime: "03h 20m" },
-    { name: "Sara Khan", total: 95, answered: 72, missed: 23, talkTime: "02h 50m" },
+    {
+      name: "Ahmed Khan",
+      total: 125,
+      answered: 98,
+      missed: 17,
+      talkTime: "04h 32m",
+    },
+    {
+      name: "Usman Tariq",
+      total: 118,
+      answered: 92,
+      missed: 26,
+      talkTime: "04h 10m",
+    },
+    {
+      name: "Maria Sheikh",
+      total: 110,
+      answered: 85,
+      missed: 25,
+      talkTime: "03h 45m",
+    },
+    {
+      name: "Zain Ali",
+      total: 105,
+      answered: 80,
+      missed: 25,
+      talkTime: "03h 20m",
+    },
+    {
+      name: "Sara Khan",
+      total: 95,
+      answered: 72,
+      missed: 23,
+      talkTime: "02h 50m",
+    },
   ];
 
-  // Live Activity Data
+  // =========================
+  // LIVE ACTIVITY DATA
+  // =========================
   const liveActivities = [
-    { name: "Ahmed Khan", action: "completed a call", time: "10:15 AM", avatar: "A", color: "bg-blue-600" },
-    { name: "Usman Tariq", action: "missed a call", time: "10:14 AM", avatar: "U", color: "bg-indigo-600" },
-    { name: "Maria Sheikh", action: "completed a call", time: "10:12 AM", avatar: "M", color: "bg-sky-600" },
-    { name: "Zain Ali", action: "completed a call", time: "10:11 AM", avatar: "Z", color: "bg-emerald-600" },
-    { name: "Sara Khan", action: "completed a call", time: "10:08 AM", avatar: "S", color: "bg-rose-600" },
+    {
+      name: "Ahmed Khan",
+      action: "completed a call",
+      time: "10:15 AM",
+      avatar: "A",
+      color: "bg-blue-600",
+    },
+    {
+      name: "Usman Tariq",
+      action: "missed a call",
+      time: "10:14 AM",
+      avatar: "U",
+      color: "bg-indigo-600",
+    },
+    {
+      name: "Maria Sheikh",
+      action: "completed a call",
+      time: "10:12 AM",
+      avatar: "M",
+      color: "bg-sky-600",
+    },
+    {
+      name: "Zain Ali",
+      action: "completed a call",
+      time: "10:11 AM",
+      avatar: "Z",
+      color: "bg-emerald-600",
+    },
+    {
+      name: "Sara Khan",
+      action: "completed a call",
+      time: "10:08 AM",
+      avatar: "S",
+      color: "bg-rose-600",
+    },
   ];
 
+  // =========================
+  // LOGOUT
+  // =========================
   const handleConfirmLogout = async () => {
     setLoggingOut(true);
 
@@ -660,24 +823,44 @@ export default function DashboardPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        alert(data.message || "Logout failed");
+        alert(data?.message || "Logout failed");
+
         setLoggingOut(false);
         setShowLogoutModal(false);
+
         return;
       }
 
       router.push("/login");
     } catch (error) {
       console.error("Logout error:", error);
-      alert("Something went wrong during logout.");
+
+      alert(
+        "Something went wrong during logout."
+      );
+
       setLoggingOut(false);
       setShowLogoutModal(false);
     }
   };
 
+  // =========================
+  // LOADER
+  // =========================
+  if (loading) {
+    return (
+      <CRMLoader
+        subtitle="Dashboard"
+        message="Loading dashboard..."
+      />
+    );
+  }
+
+
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-800 relative">
       {/* MOBILE HEADER */}
+      
       <header className="lg:hidden h-16 bg-[#050B1E] border-b border-slate-800 flex items-center justify-between px-4 text-white">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-rose-500 to-indigo-600 p-[2px] flex items-center justify-center">

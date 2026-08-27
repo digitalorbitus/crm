@@ -316,7 +316,7 @@ export default function Sidebar({
       hasDropdown: true,
       roles: ["admin", "user", "agent"],
       subItems: [
-        { name: "Call Logs", href: "/calls/logs" },
+        { name: "Call ", href: "/calls" },
         { name: "Recordings", href: "/calls/recordings" },
       ],
     },
@@ -324,7 +324,7 @@ export default function Sidebar({
       name: "Daily staff task",
       icon: Users,
       href: "/staff/task",
-      roles: ["admin", "staff",  "agent"],
+      roles: [ "staff",  "agent"],
     },
     
     {
