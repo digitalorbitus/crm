@@ -1,5 +1,7 @@
 
 
+
+
 // "use client";
 
 // import {
@@ -51,11 +53,7 @@
 //   const [statusFilter, setStatusFilter] = useState("All Status");
 //   const [teamFilter, setTeamFilter] = useState("All Teams");
 
-//   // Date or Month
 //   const [dateFilter, setDateFilter] = useState("");
-
-//   // date = specific day
-//   // month = complete month
 //   const [filterType, setFilterType] = useState("date");
 
 //   // ==========================================
@@ -115,7 +113,8 @@
 
 //   useEffect(() => {
 //     try {
-//       let savedLoginTime = localStorage.getItem("crm_login_time");
+//       let savedLoginTime =
+//         localStorage.getItem("crm_login_time");
 
 //       if (!savedLoginTime) {
 //         const now = new Date();
@@ -129,10 +128,15 @@
 //       }
 
 //       setLoginDetails(
-//         formatDateTime(new Date(savedLoginTime))
+//         formatDateTime(
+//           new Date(savedLoginTime)
+//         )
 //       );
 //     } catch (e) {
-//       console.error("Storage access error:", e);
+//       console.error(
+//         "Storage access error:",
+//         e
+//       );
 //     }
 //   }, []);
 
@@ -146,24 +150,29 @@
 //       setUsersError("");
 
 //       // USERS API
-//       const response = await fetch("/api/new-users", {
-//         method: "GET",
-//         cache: "no-store",
-//       });
+//       const response = await fetch(
+//         "/api/new-users",
+//         {
+//           method: "GET",
+//           cache: "no-store",
+//         }
+//       );
 
 //       const data = await response.json();
 
 //       if (!response.ok) {
 //         throw new Error(
-//           data.message || "Failed to fetch users"
+//           data.message ||
+//             "Failed to fetch users"
 //         );
 //       }
 
-//       setUsersList(
+//       const users =
 //         data.users ||
-//           data.data ||
-//           []
-//       );
+//         data.data ||
+//         [];
+
+//       setUsersList(users);
 
 //       // LOGIN HISTORY API
 //       const historyRes = await fetch(
@@ -190,7 +199,7 @@
 
 //       console.log(
 //         "USERS:",
-//         data.users || data.data || []
+//         users
 //       );
 
 //       console.log(
@@ -220,7 +229,9 @@
 //   // CHECK HISTORY DATE
 //   // ==========================================
 
-//   const historyMatchesFilter = (historyItem) => {
+//   const historyMatchesFilter = (
+//     historyItem
+//   ) => {
 //     if (!dateFilter) {
 //       return true;
 //     }
@@ -256,7 +267,9 @@
 //       const formattedDate =
 //         `${year}-${month}-${day}`;
 
-//       return formattedDate === dateFilter;
+//       return (
+//         formattedDate === dateFilter
+//       );
 //     }
 
 //     // ========================================
@@ -267,7 +280,9 @@
 //       const formattedMonth =
 //         `${year}-${month}`;
 
-//       return formattedMonth === dateFilter;
+//       return (
+//         formattedMonth === dateFilter
+//       );
 //     }
 
 //     return true;
@@ -279,16 +294,29 @@
 
 //   const getUserHistory = (userId) => {
 //     return loginHistory
-//       .filter(
-//         (item) =>
-//           Number(item.user_id) ===
-//           Number(userId)
-//       )
+//       .filter((item) => {
+//         const historyUserId =
+//           item.user_id ??
+//           item.userId ??
+//           item.userid;
+
+//         const currentUserId =
+//           userId;
+
+//         return (
+//           String(historyUserId) ===
+//           String(currentUserId)
+//         );
+//       })
 //       .filter(historyMatchesFilter)
 //       .sort(
 //         (a, b) =>
-//           new Date(b.login_time) -
-//           new Date(a.login_time)
+//           new Date(
+//             b.login_time
+//           ) -
+//           new Date(
+//             a.login_time
+//           )
 //       );
 //   };
 
@@ -338,7 +366,8 @@
 //         .toLowerCase();
 
 //       const matchesRole =
-//         roleFilter === "All Roles" ||
+//         roleFilter ===
+//           "All Roles" ||
 //         userRole ===
 //           roleFilter
 //             .trim()
@@ -418,14 +447,13 @@
 //       let matchesDate = true;
 
 //       if (dateFilter) {
-//         const userHistory =
-//           getUserHistory(
-//             usr.id
-//           );
+//         const userId =
+//           usr.id ??
+//           usr._id;
 
-//         // Agar selected date/month mein
-//         // user ka koi login nahi hai
-//         // to user hide hoga.
+//         const userHistory =
+//           getUserHistory(userId);
+
 //         matchesDate =
 //           userHistory.length > 0;
 //       }
@@ -450,6 +478,96 @@
 //   ]);
 
 //   // ==========================================
+//   // CREATE TABLE ROWS
+//   //
+//   // IMPORTANT:
+//   // MONTH/DATE FILTER = EVERY HISTORY RECORD
+//   // ==========================================
+
+//   const tableRows = useMemo(() => {
+//     const rows = [];
+
+//     filteredUsers.forEach((usr) => {
+//       const userId =
+//         usr.id ??
+//         usr._id;
+
+//       const userHistory =
+//         getUserHistory(userId);
+
+//       const name =
+//         usr.name ||
+//         usr.fullName ||
+//         "Unnamed User";
+
+//       const email =
+//         usr.email ||
+//         "No Email";
+
+//       const role =
+//         usr.role ||
+//         "Agent";
+
+//       const team =
+//         usr.team ||
+//         "Sales";
+
+//       const status =
+//         usr.status ||
+//         "Offline";
+
+//       // ========================================
+//       // DATE / MONTH SELECTED
+//       //
+//       // EVERY HISTORY RECORD GETS OWN ROW
+//       // ========================================
+
+//       if (dateFilter) {
+//         userHistory.forEach(
+//           (history, historyIndex) => {
+//             rows.push({
+//               user: usr,
+//               name,
+//               email,
+//               role,
+//               team,
+//               status,
+//               history,
+//               historyIndex,
+//             });
+//           }
+//         );
+
+//         return;
+//       }
+
+//       // ========================================
+//       // NO DATE FILTER
+//       //
+//       // ONE ROW PER USER
+//       // ========================================
+
+//       rows.push({
+//         user: usr,
+//         name,
+//         email,
+//         role,
+//         team,
+//         status,
+//         history: null,
+//         historyIndex: 0,
+//       });
+//     });
+
+//     return rows;
+//   }, [
+//     filteredUsers,
+//     loginHistory,
+//     dateFilter,
+//     filterType,
+//   ]);
+
+//   // ==========================================
 //   // STATS
 //   // ==========================================
 
@@ -459,28 +577,30 @@
 
 //     const active =
 //       usersList.filter(
-//         (u) =>
-//           (
+//         (u) => {
+//           const status = (
 //             u.status || ""
-//           ).toLowerCase() ===
-//             "online" ||
-//           (
-//             u.status || ""
-//           ).toLowerCase() ===
-//             "active"
+//           ).toLowerCase();
+
+//           return (
+//             status === "online" ||
+//             status === "active"
+//           );
+//         }
 //       ).length;
 
 //     const inactive =
 //       usersList.filter(
-//         (u) =>
-//           (
+//         (u) => {
+//           const status = (
 //             u.status || ""
-//           ).toLowerCase() ===
-//             "offline" ||
-//           (
-//             u.status || ""
-//           ).toLowerCase() ===
-//             "inactive"
+//           ).toLowerCase();
+
+//           return (
+//             status === "offline" ||
+//             status === "inactive"
+//           );
+//         }
 //       ).length;
 
 //     const admins =
@@ -501,47 +621,64 @@
 //         period: "total in system",
 //         icon: Users,
 //         bgColor: "bg-purple-50",
-//         iconColor: "text-purple-600",
+//         iconColor:
+//           "text-purple-600",
 //       },
+
 //       {
 //         title: "Active Users",
 //         value: active,
 //         change: "Active",
 //         isPositive: true,
-//         period: "currently active",
+//         period:
+//           "currently active",
 //         icon: UserCheck,
-//         bgColor: "bg-emerald-50",
-//         iconColor: "text-emerald-500",
+//         bgColor:
+//           "bg-emerald-50",
+//         iconColor:
+//           "text-emerald-500",
 //       },
+
 //       {
 //         title: "Inactive Users",
 //         value: inactive,
 //         change: "Offline",
 //         isPositive: false,
-//         period: "currently offline",
+//         period:
+//           "currently offline",
 //         icon: UserX,
-//         bgColor: "bg-orange-50",
-//         iconColor: "text-orange-500",
+//         bgColor:
+//           "bg-orange-50",
+//         iconColor:
+//           "text-orange-500",
 //       },
+
 //       {
 //         title: "Logged In Now",
 //         value: active,
 //         change: "Live",
 //         isPositive: true,
-//         period: "online users",
+//         period:
+//           "online users",
 //         icon: UserPlus,
-//         bgColor: "bg-blue-50",
-//         iconColor: "text-blue-500",
+//         bgColor:
+//           "bg-blue-50",
+//         iconColor:
+//           "text-blue-500",
 //       },
+
 //       {
 //         title: "Total Admins",
 //         value: admins,
 //         change: "Admins",
 //         isNeutral: true,
-//         period: "admin accounts",
+//         period:
+//           "admin accounts",
 //         icon: ShieldCheck,
-//         bgColor: "bg-indigo-50",
-//         iconColor: "text-indigo-600",
+//         bgColor:
+//           "bg-indigo-50",
+//         iconColor:
+//           "text-indigo-600",
 //       },
 //     ];
 //   }, [usersList]);
@@ -596,7 +733,9 @@
 //   return (
 //     <div className="min-h-screen bg-[#F8FAFC] text-slate-800 relative">
 
-//       {/* MOBILE HEADER */}
+//       {/* ==========================================
+//           MOBILE HEADER
+//       ========================================== */}
 
 //       <header className="lg:hidden h-16 bg-[#050B1E] border-b border-slate-800 flex items-center justify-between px-4 text-white">
 
@@ -640,7 +779,9 @@
 
 //       </header>
 
-//       {/* MOBILE OVERLAY */}
+//       {/* ==========================================
+//           MOBILE OVERLAY
+//       ========================================== */}
 
 //       {sidebarOpen && (
 //         <div
@@ -651,7 +792,9 @@
 //         />
 //       )}
 
-//       {/* SIDEBAR */}
+//       {/* ==========================================
+//           SIDEBAR
+//       ========================================== */}
 
 //       <Sidebar
 //         sidebarOpen={
@@ -665,11 +808,15 @@
 //         }
 //       />
 
-//       {/* MAIN */}
+//       {/* ==========================================
+//           MAIN
+//       ========================================== */}
 
 //       <main className="lg:ml-64 min-h-screen p-4 sm:p-6 lg:p-8 space-y-6">
 
-//         {/* TOP BAR */}
+//         {/* ========================================
+//             TOP BAR
+//         ======================================== */}
 
 //         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
 
@@ -703,8 +850,6 @@
 //                     e.target.value
 //                   );
 
-//                   // Important:
-//                   // type change par old date clear
 //                   setDateFilter("");
 //                 }}
 //                 className="px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-700 shadow-sm focus:outline-none focus:border-blue-500"
@@ -746,7 +891,9 @@
 //                   <button
 //                     type="button"
 //                     onClick={() =>
-//                       setDateFilter("")
+//                       setDateFilter(
+//                         ""
+//                       )
 //                     }
 //                     className="text-slate-400 hover:text-rose-500 text-xs font-bold"
 //                     title="Clear date filter"
@@ -784,7 +931,9 @@
 
 //         </div>
 
-//         {/* STATS */}
+//         {/* ========================================
+//             STATS
+//         ======================================== */}
 
 //         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
 
@@ -812,9 +961,11 @@
 //                     <div
 //                       className={`w-8 h-8 rounded-xl ${stat.bgColor} ${stat.iconColor} flex items-center justify-center shrink-0`}
 //                     >
+
 //                       <Icon
 //                         size={16}
 //                       />
+
 //                     </div>
 
 //                   </div>
@@ -872,15 +1023,21 @@
 
 //         </div>
 
-//         {/* TABLE */}
+//         {/* ========================================
+//             TABLE CONTAINER
+//         ======================================== */}
 
 //         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
 
-//           {/* SEARCH */}
+//           {/* ======================================
+//               SEARCH
+//           ====================================== */}
 
 //           <div className="p-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
 
 //             <div className="flex flex-wrap items-center gap-2.5 w-full xl:w-auto flex-1">
+
+//               {/* SEARCH INPUT */}
 
 //               <div className="relative flex-1 min-w-[200px] sm:min-w-[240px]">
 
@@ -1054,7 +1211,9 @@
 
 //           </div>
 
-//           {/* TABLE */}
+//           {/* ======================================
+//               TABLE
+//           ====================================== */}
 
 //           <div className="overflow-x-auto">
 
@@ -1114,7 +1273,9 @@
 
 //               <tbody className="divide-y divide-slate-100">
 
-//                 {/* LOADING */}
+//                 {/* ==================================
+//                     LOADING
+//                 ================================== */}
 
 //                 {loadingUsers && (
 //                   <tr>
@@ -1142,7 +1303,9 @@
 //                   </tr>
 //                 )}
 
-//                 {/* ERROR */}
+//                 {/* ==================================
+//                     ERROR
+//                 ================================== */}
 
 //                 {!loadingUsers &&
 //                   usersError && (
@@ -1179,11 +1342,13 @@
 //                     </tr>
 //                   )}
 
-//                 {/* EMPTY */}
+//                 {/* ==================================
+//                     EMPTY
+//                 ================================== */}
 
 //                 {!loadingUsers &&
 //                   !usersError &&
-//                   filteredUsers.length ===
+//                   tableRows.length ===
 //                     0 && (
 //                     <tr>
 
@@ -1204,8 +1369,9 @@
 //                           </p>
 
 //                           <p className="text-[11px]">
-//                             No login record found for
-//                             the selected date/month.
+//                             {dateFilter
+//                               ? "No login record found for the selected date/month."
+//                               : "No users match your current filters."}
 //                           </p>
 
 //                         </div>
@@ -1215,65 +1381,64 @@
 //                     </tr>
 //                   )}
 
-//                 {/* DATA */}
+//                 {/* ==================================
+//                     DATA
+//                 ================================== */}
 
 //                 {!loadingUsers &&
 //                   !usersError &&
-//                   filteredUsers.map(
+//                   tableRows.map(
 //                     (
-//                       usr,
+//                       row,
 //                       index
 //                     ) => {
 
-//                       const name =
-//                         usr.name ||
-//                         usr.fullName ||
-//                         "Unnamed User";
+//                       const {
+//                         user: usr,
+//                         name,
+//                         email,
+//                         role,
+//                         team,
+//                         status,
+//                         history,
+//                       } = row;
 
-//                       const email =
-//                         usr.email ||
-//                         "No Email";
+//                       // ==================================
+//                       // LOGIN TIME
+//                       // ==================================
 
-//                       const role =
-//                         usr.role ||
-//                         "Agent";
+//                       const loginTime =
+//                         history
+//                           ? formatDisplayDateTime(
+//                               history.login_time
+//                             )
+//                           : formatDisplayDateTime(
+//                               usr.loginTime ||
+//                                 usr.login_time
+//                             );
 
-//                       const team =
-//                         usr.team ||
-//                         "Sales";
+//                       // ==================================
+//                       // LOGOUT TIME
+//                       // ==================================
 
-//                       const status =
-//                         usr.status ||
-//                         "Offline";
+//                       const logoutTime =
+//                         history
+//                           ? formatDisplayDateTime(
+//                               history.logout_time
+//                             )
+//                           : formatDisplayDateTime(
+//                               usr.logoutTime ||
+//                                 usr.logout_time
+//                             );
 
-//                       // ====================================
-//                       // USER HISTORY
-//                       // ====================================
-
-//                       const userHistory =
-//                         getUserHistory(
-//                           usr.id
-//                         );
-
-//                       // ====================================
-//                       // SELECTED RECORD
-//                       //
-//                       // Date/Month filter active:
-//                       // show latest matching history
-//                       //
-//                       // No filter:
-//                       // show users table latest values
-//                       // ====================================
-
-//                       const selectedHistory =
-//                         dateFilter
-//                           ? userHistory[0]
-//                           : null;
+//                       // ==================================
+//                       // LAST LOGIN
+//                       // ==================================
 
 //                       const lastLogin =
-//                         selectedHistory
+//                         history
 //                           ? formatDisplayDateTime(
-//                               selectedHistory.login_time
+//                               history.login_time
 //                             )
 //                           : formatDisplayDateTime(
 //                               usr.lastLogin ||
@@ -1281,33 +1446,18 @@
 //                                 usr.lastLoginTime
 //                             );
 
-//                       const loginTime =
-//                         selectedHistory
-//                           ? formatDisplayDateTime(
-//                               selectedHistory.login_time
-//                             )
-//                           : formatDisplayDateTime(
-//                               usr.loginTime ||
-//                                 usr.login_time
-//                             );
+//                       // ==================================
+//                       // UNIQUE KEY
+//                       // ==================================
 
-//                       const logoutTime =
-//                         selectedHistory
-//                           ? formatDisplayDateTime(
-//                               selectedHistory.logout_time
-//                             )
-//                           : formatDisplayDateTime(
-//                               usr.logoutTime ||
-//                                 usr.logout_time
-//                             );
+//                       const rowKey =
+//                         history
+//                           ? `${usr.id || usr._id}-${history.id || history._id || history.login_time || index}`
+//                           : `${usr.id || usr._id}-${index}`;
 
 //                       return (
 //                         <tr
-//                           key={
-//                             usr.id ||
-//                             usr._id ||
-//                             index
-//                           }
+//                           key={rowKey}
 //                           className="hover:bg-slate-50/70 transition-colors"
 //                         >
 
@@ -1365,10 +1515,12 @@
 
 //                             <span
 //                               className={`px-2 py-0.5 rounded-md font-bold text-[10px] capitalize ${
-//                                 role.toLowerCase() ===
+//                                 role
+//                                   .toLowerCase() ===
 //                                 "admin"
 //                                   ? "bg-purple-100 text-purple-700"
-//                                   : role.toLowerCase() ===
+//                                   : role
+//                                       .toLowerCase() ===
 //                                     "staff"
 //                                   ? "bg-blue-100 text-blue-700"
 //                                   : "bg-emerald-100 text-emerald-700"
@@ -1491,16 +1643,22 @@
 
 //           </div>
 
-//           {/* FOOTER */}
+//           {/* ========================================
+//               FOOTER
+//           ======================================== */}
 
 //           <div className="p-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 font-medium">
 
 //             <span>
 //               Showing{" "}
-//               {filteredUsers.length}{" "}
+//               {tableRows.length}{" "}
+//               {dateFilter
+//                 ? "records"
+//                 : "users"}{" "}
 //               of{" "}
-//               {usersList.length}{" "}
-//               users
+//               {dateFilter
+//                 ? loginHistory.length
+//                 : usersList.length}
 //             </span>
 
 //             <div className="flex items-center gap-1">
@@ -1538,7 +1696,9 @@
 
 //       </main>
 
-//       {/* LOGOUT MODAL */}
+//       {/* ==========================================
+//           LOGOUT MODAL
+//       ========================================== */}
 
 //       {showLogoutModal && (
 //         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
@@ -1629,6 +1789,8 @@
 
 
 
+
+
 "use client";
 
 import {
@@ -1647,6 +1809,7 @@ import {
   ChevronRight,
   Menu,
   X,
+   Clock,
   Loader2,
   AlertTriangle,
   RefreshCw,
@@ -1679,6 +1842,16 @@ export default function UsersPage() {
   const [roleFilter, setRoleFilter] = useState("All Roles");
   const [statusFilter, setStatusFilter] = useState("All Status");
   const [teamFilter, setTeamFilter] = useState("All Teams");
+  const [showBreakModal, setShowBreakModal] = useState(false);
+  const [showAdminBreakModal, setShowAdminBreakModal] = useState(false);
+  const [selectedBreakUser, setSelectedBreakUser] = useState(null);
+  const [applyBreakToAll, setApplyBreakToAll] = useState(false);
+  const [breakStartInput, setBreakStartInput] = useState("");
+  const [breakEndInput, setBreakEndInput] = useState("");
+  const [adminBreakStartInput, setAdminBreakStartInput] = useState("");
+  const [adminBreakEndInput, setAdminBreakEndInput] = useState("");
+  const [savingBreak, setSavingBreak] = useState(false);
+  const [savingAdminBreak, setSavingAdminBreak] = useState(false);
 
   const [dateFilter, setDateFilter] = useState("");
   const [filterType, setFilterType] = useState("date");
@@ -1728,6 +1901,44 @@ export default function UsersPage() {
       minute: "2-digit",
       hour12: true,
     });
+  };
+
+  const toDateTimeLocalValue = (value) => {
+    if (!value) return "";
+
+    const date = new Date(value);
+
+    if (isNaN(date.getTime())) {
+      return "";
+    }
+
+    const pad = (num) =>
+      String(num).padStart(2, "0");
+
+    return `${date.getFullYear()}-${pad(
+      date.getMonth() + 1
+    )}-${pad(date.getDate())}T${pad(
+      date.getHours()
+    )}:${pad(date.getMinutes())}`;
+  };
+
+  const normalizeDateTimeForDb = (value) => {
+    if (!value) return null;
+
+    const date = new Date(value);
+
+    if (isNaN(date.getTime())) {
+      return null;
+    }
+
+    const pad = (num) =>
+      String(num).padStart(2, "0");
+
+    return `${date.getFullYear()}-${pad(
+      date.getMonth() + 1
+    )}-${pad(date.getDate())} ${pad(
+      date.getHours()
+    )}:${pad(date.getMinutes())}:00`;
   };
 
   // ==========================================
@@ -1851,7 +2062,136 @@ export default function UsersPage() {
   useEffect(() => {
     fetchUsers();
   }, []);
+const handleSaveBreakTime = async () => {
+  if (!selectedBreakUser && !applyBreakToAll) return;
 
+  const formattedBreakStart = normalizeDateTimeForDb(breakStartInput);
+  const formattedBreakEnd = normalizeDateTimeForDb(breakEndInput);
+
+  if (formattedBreakStart && formattedBreakEnd) {
+    const start = new Date(breakStartInput);
+    const end = new Date(breakEndInput);
+
+    if (end < start) {
+      alert("Break end time must be after break start time.");
+      return;
+    }
+  }
+
+  try {
+    setSavingBreak(true);
+
+    const response = await fetch("/api/new-users", {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        userId: applyBreakToAll ? undefined : selectedBreakUser.id,
+        applyAll: applyBreakToAll,
+        break_start: formattedBreakStart,
+        break_end: formattedBreakEnd,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data.message || "Failed to update break time"
+      );
+    }
+
+    if (applyBreakToAll) {
+      setUsersList((prevUsers) =>
+        prevUsers.map((user) => ({
+          ...user,
+          break_start: formattedBreakStart,
+          break_end: formattedBreakEnd,
+        }))
+      );
+    } else {
+      setUsersList((prevUsers) =>
+        prevUsers.map((user) =>
+          String(user.id) === String(selectedBreakUser.id)
+            ? {
+                ...user,
+                break_start: formattedBreakStart,
+                break_end: formattedBreakEnd,
+              }
+            : user
+        )
+      );
+    }
+
+    setShowBreakModal(false);
+    setSelectedBreakUser(null);
+    setApplyBreakToAll(false);
+    setBreakStartInput("");
+    setBreakEndInput("");
+  } catch (error) {
+    console.error("SAVE BREAK ERROR:", error);
+    alert(error.message || "Failed to save break time");
+  } finally {
+    setSavingBreak(false);
+  }
+};
+
+  const handleSaveAdminBreakTime = async () => {
+    const formattedBreakStart = normalizeDateTimeForDb(adminBreakStartInput);
+    const formattedBreakEnd = normalizeDateTimeForDb(adminBreakEndInput);
+
+    if (formattedBreakStart && formattedBreakEnd) {
+      const start = new Date(adminBreakStartInput);
+      const end = new Date(adminBreakEndInput);
+
+      if (end < start) {
+        alert("Break end time must be after break start time.");
+        return;
+      }
+    }
+
+    try {
+      setSavingAdminBreak(true);
+
+      const response = await fetch("/api/new-users", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          applyAll: true,
+          break_start: formattedBreakStart,
+          break_end: formattedBreakEnd,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message || "Failed to update all users break time"
+        );
+      }
+
+      setUsersList((prevUsers) =>
+        prevUsers.map((user) => ({
+          ...user,
+          break_start: formattedBreakStart,
+          break_end: formattedBreakEnd,
+        }))
+      );
+
+      setShowAdminBreakModal(false);
+      setAdminBreakStartInput("");
+      setAdminBreakEndInput("");
+    } catch (error) {
+      console.error("SAVE ALL BREAK ERROR:", error);
+      alert(error.message || "Failed to apply break to all users");
+    } finally {
+      setSavingAdminBreak(false);
+    }
+  };
   // ==========================================
   // CHECK HISTORY DATE
   // ==========================================
@@ -1981,6 +2321,8 @@ export default function UsersPage() {
         name.includes(search) ||
         email.includes(search) ||
         phone.includes(search);
+
+
 
       // ========================================
       // ROLE
@@ -2158,6 +2500,8 @@ export default function UsersPage() {
               email,
               role,
               team,
+                break_start: usr.break_start,
+  break_end: usr.break_end,
               status,
               history,
               historyIndex,
@@ -2180,11 +2524,15 @@ export default function UsersPage() {
         email,
         role,
         team,
+          break_start: usr.break_start,
+  break_end: usr.break_end,
         status,
         history: null,
         historyIndex: 0,
       });
+      
     });
+    
 
     return rows;
   }, [
@@ -2797,6 +3145,19 @@ export default function UsersPage() {
 
               <button
                 type="button"
+                onClick={() => {
+                  setAdminBreakStartInput("");
+                  setAdminBreakEndInput("");
+                  setShowAdminBreakModal(true);
+                }}
+                className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white px-3.5 py-1.5 rounded-xl text-xs font-semibold transition shadow-sm cursor-pointer"
+              >
+                <Clock size={13} />
+                <span>All Users Break</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={
                   fetchUsers
                 }
@@ -2842,433 +3203,474 @@ export default function UsersPage() {
               TABLE
           ====================================== */}
 
-          <div className="overflow-x-auto">
+       <div className="overflow-x-auto">
 
-            <table className="w-full text-xs text-left">
+  <table className="w-full text-xs text-left">
 
-              <thead>
+    <thead>
 
-                <tr className="bg-slate-50/60 border-b border-slate-100 text-slate-500 font-semibold uppercase tracking-wider text-[11px]">
+      <tr className="bg-slate-50/60 border-b border-slate-100 text-slate-500 font-semibold uppercase tracking-wider text-[11px]">
 
-                  <th className="py-3 px-4 w-8">
-                    #
-                  </th>
+        <th className="py-3 px-4 w-8">
+          #
+        </th>
 
-                  <th className="py-3 px-4">
-                    User
-                  </th>
+        <th className="py-3 px-4">
+          User
+        </th>
 
-                  <th className="py-3 px-4">
-                    Role
-                  </th>
+        <th className="py-3 px-4">
+          Role
+        </th>
 
-                  <th className="py-3 px-4">
-                    Team
-                  </th>
+        <th className="py-3 px-4">
+          Team
+        </th>
 
-                  <th className="py-3 px-4">
-                    Total Calls
-                  </th>
+        <th className="py-3 px-4">
+          Total Calls
+        </th>
 
-                  <th className="py-3 px-4">
-                    Messages
-                  </th>
+        <th className="py-3 px-4">
+          Messages
+        </th>
 
-                  <th className="py-3 px-4">
-                    Last Login
-                  </th>
+        <th className="py-3 px-4">
+          Last Login
+        </th>
 
-                  <th className="py-3 px-4">
-                    Login Time
-                  </th>
+        <th className="py-3 px-4">
+          Login Time
+        </th>
 
-                  <th className="py-3 px-4">
-                    Logout Time
-                  </th>
+        <th className="py-3 px-4">
+          Logout Time
+        </th>
 
-                  <th className="py-3 px-4">
-                    Status
-                  </th>
+        <th className="py-3 px-4">
+          Break Start
+        </th>
 
-                  <th className="py-3 px-4 text-center">
-                    Actions
-                  </th>
+        <th className="py-3 px-4">
+          Break End
+        </th>
 
-                </tr>
+        <th className="py-3 px-4">
+          Status
+        </th>
 
-              </thead>
+        <th className="py-3 px-4 text-center">
+          Actions
+        </th>
 
-              <tbody className="divide-y divide-slate-100">
+      </tr>
 
-                {/* ==================================
-                    LOADING
-                ================================== */}
+    </thead>
 
-                {loadingUsers && (
-                  <tr>
+    <tbody className="divide-y divide-slate-100">
 
-                    <td
-                      colSpan={11}
-                      className="py-12 text-center text-slate-500"
-                    >
+      {/* ==================================
+          LOADING
+      ================================== */}
 
-                      <div className="flex flex-col items-center justify-center gap-2">
+      {loadingUsers && (
+        <tr>
 
-                        <Loader2
-                          size={24}
-                          className="animate-spin text-blue-600"
-                        />
+          <td
+            colSpan={13}
+            className="py-12 text-center text-slate-500"
+          >
 
-                        <span className="text-xs font-medium">
-                          Fetching Users Data...
-                        </span>
+            <div className="flex flex-col items-center justify-center gap-2">
 
-                      </div>
+              <Loader2
+                size={24}
+                className="animate-spin text-blue-600"
+              />
 
-                    </td>
+              <span className="text-xs font-medium">
+                Fetching Users Data...
+              </span>
 
-                  </tr>
-                )}
+            </div>
 
-                {/* ==================================
-                    ERROR
-                ================================== */}
+          </td>
 
-                {!loadingUsers &&
-                  usersError && (
-                    <tr>
+        </tr>
+      )}
 
-                      <td
-                        colSpan={11}
-                        className="py-10 text-center text-rose-500"
-                      >
+      {/* ==================================
+          ERROR
+      ================================== */}
 
-                        <div className="flex flex-col items-center justify-center gap-2">
-
-                          <AlertTriangle
-                            size={22}
-                          />
-
-                          <span className="font-semibold text-xs">
-                            {usersError}
-                          </span>
-
-                          <button
-                            onClick={
-                              fetchUsers
-                            }
-                            className="mt-1 px-3 py-1 bg-rose-100 text-rose-700 rounded-lg text-xs font-bold hover:bg-rose-200 transition"
-                          >
-                            Try Again
-                          </button>
-
-                        </div>
-
-                      </td>
-
-                    </tr>
-                  )}
-
-                {/* ==================================
-                    EMPTY
-                ================================== */}
-
-                {!loadingUsers &&
-                  !usersError &&
-                  tableRows.length ===
-                    0 && (
-                    <tr>
-
-                      <td
-                        colSpan={11}
-                        className="py-12 text-center text-slate-400"
-                      >
-
-                        <div className="flex flex-col items-center justify-center gap-1">
-
-                          <Users
-                            size={28}
-                            className="text-slate-300 mb-1"
-                          />
-
-                          <p className="font-bold text-slate-600 text-xs">
-                            No users found
-                          </p>
-
-                          <p className="text-[11px]">
-                            {dateFilter
-                              ? "No login record found for the selected date/month."
-                              : "No users match your current filters."}
-                          </p>
-
-                        </div>
-
-                      </td>
-
-                    </tr>
-                  )}
-
-                {/* ==================================
-                    DATA
-                ================================== */}
-
-                {!loadingUsers &&
-                  !usersError &&
-                  tableRows.map(
-                    (
-                      row,
-                      index
-                    ) => {
-
-                      const {
-                        user: usr,
-                        name,
-                        email,
-                        role,
-                        team,
-                        status,
-                        history,
-                      } = row;
-
-                      // ==================================
-                      // LOGIN TIME
-                      // ==================================
-
-                      const loginTime =
-                        history
-                          ? formatDisplayDateTime(
-                              history.login_time
-                            )
-                          : formatDisplayDateTime(
-                              usr.loginTime ||
-                                usr.login_time
-                            );
-
-                      // ==================================
-                      // LOGOUT TIME
-                      // ==================================
-
-                      const logoutTime =
-                        history
-                          ? formatDisplayDateTime(
-                              history.logout_time
-                            )
-                          : formatDisplayDateTime(
-                              usr.logoutTime ||
-                                usr.logout_time
-                            );
-
-                      // ==================================
-                      // LAST LOGIN
-                      // ==================================
-
-                      const lastLogin =
-                        history
-                          ? formatDisplayDateTime(
-                              history.login_time
-                            )
-                          : formatDisplayDateTime(
-                              usr.lastLogin ||
-                                usr.last_login ||
-                                usr.lastLoginTime
-                            );
-
-                      // ==================================
-                      // UNIQUE KEY
-                      // ==================================
-
-                      const rowKey =
-                        history
-                          ? `${usr.id || usr._id}-${history.id || history._id || history.login_time || index}`
-                          : `${usr.id || usr._id}-${index}`;
-
-                      return (
-                        <tr
-                          key={rowKey}
-                          className="hover:bg-slate-50/70 transition-colors"
-                        >
-
-                          {/* NUMBER */}
-
-                          <td className="py-3 px-4 text-slate-400 font-medium">
-                            {index + 1}
-                          </td>
-
-                          {/* USER */}
-
-                          <td className="py-3 px-4">
-
-                            <div className="flex items-center gap-2.5">
-
-                              <div className="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center text-slate-700 font-bold text-[11px] uppercase overflow-hidden shrink-0">
-
-                                {usr.avatar ? (
-                                  <img
-                                    src={
-                                      usr.avatar
-                                    }
-                                    alt={
-                                      name
-                                    }
-                                    className="w-full h-full object-cover"
-                                  />
-                                ) : (
-                                  name.charAt(
-                                    0
-                                  )
-                                )}
-
-                              </div>
-
-                              <div>
-
-                                <p className="font-bold text-slate-800 leading-snug">
-                                  {name}
-                                </p>
-
-                                <p className="text-[10px] text-slate-400">
-                                  {email}
-                                </p>
-
-                              </div>
-
-                            </div>
-
-                          </td>
-
-                          {/* ROLE */}
-
-                          <td className="py-3 px-4">
-
-                            <span
-                              className={`px-2 py-0.5 rounded-md font-bold text-[10px] capitalize ${
-                                role
-                                  .toLowerCase() ===
-                                "admin"
-                                  ? "bg-purple-100 text-purple-700"
-                                  : role
-                                      .toLowerCase() ===
-                                    "staff"
-                                  ? "bg-blue-100 text-blue-700"
-                                  : "bg-emerald-100 text-emerald-700"
-                              }`}
-                            >
-                              {role}
-                            </span>
-
-                          </td>
-
-                          {/* TEAM */}
-
-                          <td className="py-3 px-4 text-slate-600 font-medium">
-                            {team}
-                          </td>
-
-                          {/* CALLS */}
-
-                          <td className="py-3 px-4 text-slate-800 font-bold">
-                            {usr.calls ??
-                              usr.totalCalls ??
-                              0}
-                          </td>
-
-                          {/* MESSAGES */}
-
-                          <td className="py-3 px-4 text-slate-800 font-bold">
-                            {usr.messages ??
-                              usr.totalMessages ??
-                              0}
-                          </td>
-
-                          {/* LAST LOGIN */}
-
-                          <td className="py-3 px-4 text-slate-500 font-medium whitespace-nowrap">
-                            {lastLogin}
-                          </td>
-
-                          {/* LOGIN */}
-
-                          <td className="py-3 px-4 text-emerald-600 font-medium whitespace-nowrap">
-                            {loginTime}
-                          </td>
-
-                          {/* LOGOUT */}
-
-                          <td className="py-3 px-4 text-rose-500 font-medium whitespace-nowrap">
-                            {logoutTime}
-                          </td>
-
-                          {/* STATUS */}
-
-                          <td className="py-3 px-4">
-
-                            <span
-                              className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                                status
-                                  .toLowerCase() ===
-                                  "online" ||
-                                status
-                                  .toLowerCase() ===
-                                  "active"
-                                  ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
-                                  : "bg-rose-50 text-rose-500 border border-rose-200"
-                              }`}
-                            >
-                              {status}
-                            </span>
-
-                          </td>
-
-                          {/* ACTIONS */}
-
-                          <td className="py-3 px-4">
-
-                            <div className="flex items-center justify-center gap-2 text-slate-400">
-
-                              <button
-                                type="button"
-                                className="hover:text-blue-600 transition"
-                                title="View Details"
-                              >
-                                <Eye
-                                  size={14}
-                                />
-                              </button>
-
-                              <button
-                                type="button"
-                                className="hover:text-amber-600 transition"
-                                title="Edit User"
-                              >
-                                <Edit
-                                  size={14}
-                                />
-                              </button>
-
-                              <button
-                                type="button"
-                                className="hover:text-rose-600 transition"
-                                title="Delete User"
-                              >
-                                <Trash2
-                                  size={14}
-                                />
-                              </button>
-
-                            </div>
-
-                          </td>
-
-                        </tr>
+      {!loadingUsers && usersError && (
+        <tr>
+
+          <td
+            colSpan={13}
+            className="py-10 text-center text-rose-500"
+          >
+
+            <div className="flex flex-col items-center justify-center gap-2">
+
+              <AlertTriangle size={22} />
+
+              <span className="font-semibold text-xs">
+                {usersError}
+              </span>
+
+              <button
+                type="button"
+                onClick={fetchUsers}
+                className="mt-1 px-3 py-1 bg-rose-100 text-rose-700 rounded-lg text-xs font-bold hover:bg-rose-200 transition"
+              >
+                Try Again
+              </button>
+
+            </div>
+
+          </td>
+
+        </tr>
+      )}
+
+      {/* ==================================
+          EMPTY
+      ================================== */}
+
+      {!loadingUsers &&
+        !usersError &&
+        tableRows.length === 0 && (
+          <tr>
+
+            <td
+              colSpan={13}
+              className="py-12 text-center text-slate-400"
+            >
+
+              <div className="flex flex-col items-center justify-center gap-1">
+
+                <Users
+                  size={28}
+                  className="text-slate-300 mb-1"
+                />
+
+                <p className="font-bold text-slate-600 text-xs">
+                  No users found
+                </p>
+
+                <p className="text-[11px]">
+                  {dateFilter
+                    ? "No login record found for the selected date/month."
+                    : "No users match your current filters."}
+                </p>
+
+              </div>
+
+            </td>
+
+          </tr>
+        )}
+
+      {/* ==================================
+          DATA
+      ================================== */}
+
+      {!loadingUsers &&
+        !usersError &&
+        tableRows.map((row, index) => {
+
+          const {
+            user: usr,
+            name,
+            email,
+            role,
+            team,
+            status,
+            history,
+          } = row;
+
+          // ==================================
+          // BREAK TIME
+          // ==================================
+
+          const breakStart =
+            formatDisplayDateTime(
+              usr.break_start
+            );
+
+          const breakEnd =
+            formatDisplayDateTime(
+              usr.break_end
+            );
+
+          // ==================================
+          // LOGIN TIME
+          // ==================================
+
+          const loginTime = history
+            ? formatDisplayDateTime(
+                history.login_time
+              )
+            : formatDisplayDateTime(
+                usr.loginTime ||
+                  usr.login_time
+              );
+
+          // ==================================
+          // LOGOUT TIME
+          // ==================================
+
+          const logoutTime = history
+            ? formatDisplayDateTime(
+                history.logout_time
+              )
+            : formatDisplayDateTime(
+                usr.logoutTime ||
+                  usr.logout_time
+              );
+
+          // ==================================
+          // LAST LOGIN
+          // ==================================
+
+          const lastLogin = history
+            ? formatDisplayDateTime(
+                history.login_time
+              )
+            : formatDisplayDateTime(
+                usr.lastLogin ||
+                  usr.last_login ||
+                  usr.lastLoginTime
+              );
+
+          // ==================================
+          // UNIQUE KEY
+          // ==================================
+
+          const rowKey = history
+            ? `${usr.id || usr._id}-${
+                history.id ||
+                history._id ||
+                history.login_time ||
+                index
+              }`
+            : `${usr.id || usr._id}-${index}`;
+
+          return (
+            <tr
+              key={rowKey}
+              className="hover:bg-slate-50/70 transition-colors"
+            >
+
+              {/* NUMBER */}
+
+              <td className="py-3 px-4 text-slate-400 font-medium">
+                {index + 1}
+              </td>
+
+              {/* USER */}
+
+              <td className="py-3 px-4">
+
+                <div className="flex items-center gap-2.5">
+
+                  <div className="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center text-slate-700 font-bold text-[11px] uppercase overflow-hidden shrink-0">
+
+                    {usr.avatar ? (
+                      <img
+                        src={usr.avatar}
+                        alt={name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      name.charAt(0)
+                    )}
+
+                  </div>
+
+                  <div>
+
+                    <p className="font-bold text-slate-800 leading-snug">
+                      {name}
+                    </p>
+
+                    <p className="text-[10px] text-slate-400">
+                      {email}
+                    </p>
+
+                  </div>
+
+                </div>
+
+              </td>
+
+              {/* ROLE */}
+
+              <td className="py-3 px-4">
+
+                <span
+                  className={`px-2 py-0.5 rounded-md font-bold text-[10px] capitalize ${
+                    role.toLowerCase() === "admin"
+                      ? "bg-purple-100 text-purple-700"
+                      : role.toLowerCase() === "staff"
+                      ? "bg-blue-100 text-blue-700"
+                      : "bg-emerald-100 text-emerald-700"
+                  }`}
+                >
+                  {role}
+                </span>
+
+              </td>
+
+              {/* TEAM */}
+
+              <td className="py-3 px-4 text-slate-600 font-medium">
+                {team}
+              </td>
+
+              {/* TOTAL CALLS */}
+
+              <td className="py-3 px-4 text-slate-800 font-bold">
+                {usr.calls ??
+                  usr.totalCalls ??
+                  0}
+              </td>
+
+              {/* MESSAGES */}
+
+              <td className="py-3 px-4 text-slate-800 font-bold">
+                {usr.messages ??
+                  usr.totalMessages ??
+                  0}
+              </td>
+
+              {/* LAST LOGIN */}
+
+              <td className="py-3 px-4 text-slate-500 font-medium whitespace-nowrap">
+                {lastLogin}
+              </td>
+
+              {/* LOGIN TIME */}
+
+              <td className="py-3 px-4 text-emerald-600 font-medium whitespace-nowrap">
+                {loginTime}
+              </td>
+
+              {/* LOGOUT TIME */}
+
+              <td className="py-3 px-4 text-rose-500 font-medium whitespace-nowrap">
+                {logoutTime}
+              </td>
+
+              {/* BREAK START */}
+
+              <td className="py-3 px-4 text-amber-600 font-medium whitespace-nowrap">
+                {breakStart}
+              </td>
+
+              {/* BREAK END */}
+
+              <td className="py-3 px-4 text-indigo-600 font-medium whitespace-nowrap">
+                {breakEnd}
+              </td>
+
+              {/* STATUS */}
+
+              <td className="py-3 px-4">
+
+                <span
+                  className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                    status.toLowerCase() === "online" ||
+                    status.toLowerCase() === "active"
+                      ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
+                      : "bg-rose-50 text-rose-500 border border-rose-200"
+                  }`}
+                >
+                  {status}
+                </span>
+
+              </td>
+
+              {/* ACTIONS */}
+
+              <td className="py-3 px-4">
+
+                <div className="flex items-center justify-center gap-2 text-slate-400">
+
+                  {/* VIEW */}
+
+                  <button
+                    type="button"
+                    className="hover:text-blue-600 transition"
+                    title="View Details"
+                  >
+                    <Eye size={14} />
+                  </button>
+
+                  {/* BREAK */}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+
+                      setSelectedBreakUser(usr);
+                      setApplyBreakToAll(false);
+
+                      setBreakStartInput(
+                        toDateTimeLocalValue(
+                          usr.break_start
+                        )
                       );
-                    }
-                  )}
 
-              </tbody>
+                      setBreakEndInput(
+                        toDateTimeLocalValue(
+                          usr.break_end
+                        )
+                      );
 
-            </table>
+                      setShowBreakModal(true);
 
-          </div>
+                    }}
+                    className="hover:text-amber-600 transition"
+                    title="Set Break Time"
+                  >
+                    <Clock size={14} />
+                  </button>
+
+                  {/* EDIT */}
+
+                  <button
+                    type="button"
+                    className="hover:text-blue-600 transition"
+                    title="Edit User"
+                  >
+                    <Edit size={14} />
+                  </button>
+
+                  {/* DELETE */}
+
+                  <button
+                    type="button"
+                    className="hover:text-rose-600 transition"
+                    title="Delete User"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+
+                </div>
+
+              </td>
+
+            </tr>
+          );
+        })}
+
+    </tbody>
+
+  </table>
+
+</div>
 
           {/* ========================================
               FOOTER
@@ -3326,6 +3728,154 @@ export default function UsersPage() {
       {/* ==========================================
           LOGOUT MODAL
       ========================================== */}
+
+      {showBreakModal && selectedBreakUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border border-slate-100 space-y-4">
+
+            <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto">
+              <Clock size={22} />
+            </div>
+
+            <div className="text-center space-y-1">
+              <h3 className="text-lg font-bold text-slate-900">
+                Set Break Time
+              </h3>
+              <p className="text-sm text-slate-500">
+                Update break schedule for {selectedBreakUser.name}
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <label className="block text-xs font-semibold text-slate-600">
+                Break Start
+                <input
+                  type="datetime-local"
+                  value={breakStartInput}
+                  onChange={(e) => setBreakStartInput(e.target.value)}
+                  className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-xl bg-slate-50 text-slate-700 focus:outline-none focus:border-blue-500"
+                />
+              </label>
+
+              <label className="block text-xs font-semibold text-slate-600">
+                Break End
+                <input
+                  type="datetime-local"
+                  value={breakEndInput}
+                  onChange={(e) => setBreakEndInput(e.target.value)}
+                  className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-xl bg-slate-50 text-slate-700 focus:outline-none focus:border-blue-500"
+                />
+              </label>
+
+              <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={applyBreakToAll}
+                  onChange={(e) => setApplyBreakToAll(e.target.checked)}
+                  className="h-4 w-4 accent-amber-500"
+                />
+                Apply to all users
+              </label>
+            </div>
+
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowBreakModal(false);
+                  setSelectedBreakUser(null);
+                  setApplyBreakToAll(false);
+                  setBreakStartInput("");
+                  setBreakEndInput("");
+                }}
+                className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                disabled={savingBreak}
+                onClick={handleSaveBreakTime}
+                className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold text-white bg-amber-500 hover:bg-amber-600 shadow-lg transition disabled:opacity-50 cursor-pointer"
+              >
+                {savingBreak ? "Saving..." : applyBreakToAll ? "Apply to All" : "Save Break"}
+              </button>
+            </div>
+
+          </div>
+
+        </div>
+      )}
+
+      {showAdminBreakModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border border-slate-100 space-y-4">
+
+            <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto">
+              <Clock size={22} />
+            </div>
+
+            <div className="text-center space-y-1">
+              <h3 className="text-lg font-bold text-slate-900">
+                Admin Break for All Users
+              </h3>
+              <p className="text-sm text-slate-500">
+                Set one break schedule for the whole team.
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <label className="block text-xs font-semibold text-slate-600">
+                Break Start
+                <input
+                  type="datetime-local"
+                  value={adminBreakStartInput}
+                  onChange={(e) => setAdminBreakStartInput(e.target.value)}
+                  className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-xl bg-slate-50 text-slate-700 focus:outline-none focus:border-blue-500"
+                />
+              </label>
+
+              <label className="block text-xs font-semibold text-slate-600">
+                Break End
+                <input
+                  type="datetime-local"
+                  value={adminBreakEndInput}
+                  onChange={(e) => setAdminBreakEndInput(e.target.value)}
+                  className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-xl bg-slate-50 text-slate-700 focus:outline-none focus:border-blue-500"
+                />
+              </label>
+            </div>
+
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAdminBreakModal(false);
+                  setAdminBreakStartInput("");
+                  setAdminBreakEndInput("");
+                }}
+                className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                disabled={savingAdminBreak}
+                onClick={handleSaveAdminBreakTime}
+                className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold text-white bg-amber-500 hover:bg-amber-600 shadow-lg transition disabled:opacity-50 cursor-pointer"
+              >
+                {savingAdminBreak ? "Applying..." : "Apply to All"}
+              </button>
+            </div>
+
+          </div>
+
+        </div>
+      )}
 
       {showLogoutModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
