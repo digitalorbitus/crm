@@ -58,6 +58,7 @@ import CRMLoader from "@/components/CRMLoader";
 
 export default function MessagesDashboard() {
   const router = useRouter();
+  
 
   /* ==================================================
      CONVERSATIONS
@@ -1810,18 +1811,22 @@ const filteredConversations = useMemo(() => {
       setShowLogoutModal(false);
     }
   };
+   const [loading, setLoading] = useState(true);
+      useEffect(() => {
+    const timer = setTimeout(() => {
+      setLoading(false);
+    }, 4000);
 
-  // =========================
-  // LOADER
-  // =========================
-  // if (loading) {
-  //   return (
-  //     <CRMLoader
-  //       subtitle="Dashboard"
-  //       message="Loading dashboard..."
-  //     />
-  //   );
-  // }
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (loading) {
+    return < CRMLoader
+     subtitle="messages"
+        message="Loading dashboard..."
+        />;
+  }
+
 
 return (
   <div className="flex flex-col lg:ml-64 h-screen min-h-0 p-4 sm:p-6 lg:p-8 bg-slate-50 text-slate-800 font-sans overflow-hidden">

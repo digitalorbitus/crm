@@ -35,7 +35,7 @@ import { zoomConfig } from "../../../lib/db";
 export async function GET() {
   const { clientId } = zoomConfig;
 
-  const redirectUri = "http://localhost:3000/api/zoom/callback";
+  const redirectUri = "https://jadescorp.com/api/zoom/callback";
 
   console.log("ZOOM CLIENT ID:", clientId);
   console.log("ZOOM REDIRECT URI:", redirectUri);

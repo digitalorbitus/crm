@@ -3,8 +3,8 @@
 import { MessageCircle } from "lucide-react";
 
 export default function CRMLoader({
-  subtitle = "Loading",
-  message = "Please wait...",
+  subtitle = "",
+  message = "",
 }) {
   return (
     <div className="fixed inset-0 z-[9999] bg-slate-50 flex items-center justify-center">
