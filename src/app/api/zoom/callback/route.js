@@ -41,5 +41,7 @@ export async function GET(request) {
   console.log("Zoom Access Token:", data.access_token);
 
   // User ko dashboard ya home page par redirect kar dein
-  return NextResponse.redirect(new URL("/dashboard?zoom=connected", request.url));
+  return NextResponse.redirect(
+  "https://jadescorp.com/dashboard?zoom=connected"
+);
 }
