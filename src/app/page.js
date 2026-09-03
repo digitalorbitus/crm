@@ -7,3 +7,30 @@ hello
     </div>
   );
 }
+
+
+
+
+
+
+
+
+// "use client";
+
+// import { useState } from "react";
+// import CrmWelcome from "../components/CrmWelcome";
+// import Login from "../app/login/page";
+
+// export default function Home() {
+//   const [showLogin, setShowLogin] = useState(false);
+
+//   if (showLogin) {
+//     return <Login />;
+//   }
+
+//   return (
+//     <CrmWelcome
+//       onLogin={() => setShowLogin(true)}
+//     />
+//   );
+// }

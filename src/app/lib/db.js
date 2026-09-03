@@ -47,7 +47,7 @@ export async function query(sql, params = []) {
 export const zoomConfig = {
   clientId: process.env.ZOOM_CLIENT_ID,
   clientSecret: process.env.ZOOM_CLIENT_SECRET,
-   redirectUri: "https://jadescorp.com/api/zoom/callback",
+   redirectUri: process.env.ZOOM_REDIRECT_URI,
 };
 
 export default pool;

@@ -685,7 +685,7 @@ export default function DashboardPage() {
   const stats = [
     {
       title: "Total Calls",
-      value: "1,250",
+      value: "",
       change: "18%",
       isPositive: true,
       period: "from yesterday",
