@@ -427,8 +427,11 @@ export async function GET(request) {
     console.log("CODE LENGTH:", code ? code.length : 0);
     console.log("ZOOM ERROR PARAM:", errorParam);
 
-    // Security ke liye actual authorization code print nahi karna
-    console.log("REQUEST URL:", request.url.replace(code || "", "[CODE]"));
+    // Authorization code ko log mein expose nahi karna
+    console.log(
+      "REQUEST URL:",
+      request.url.replace(code || "", "[CODE]")
+    );
 
     console.log("====================================");
 
@@ -470,7 +473,8 @@ export async function GET(request) {
       return NextResponse.json(
         {
           success: false,
-          error: "CRM login required before connecting Zoom",
+          error:
+            "CRM login required before connecting Zoom",
         },
         { status: 401 }
       );
@@ -484,12 +488,16 @@ export async function GET(request) {
         process.env.JWT_SECRET
       );
     } catch (jwtError) {
-      console.error("JWT VERIFY ERROR:", jwtError);
+      console.error(
+        "JWT VERIFY ERROR:",
+        jwtError
+      );
 
       return NextResponse.json(
         {
           success: false,
-          error: "Invalid or expired CRM login session",
+          error:
+            "Invalid or expired CRM login session",
         },
         { status: 401 }
       );
@@ -501,13 +509,17 @@ export async function GET(request) {
       return NextResponse.json(
         {
           success: false,
-          error: "CRM user ID not found in login session",
+          error:
+            "CRM user ID not found in login session",
         },
         { status: 401 }
       );
     }
 
-    console.log("CRM USER ID:", crmUserId);
+    console.log(
+      "CRM USER ID:",
+      crmUserId
+    );
 
     // ==========================================
     // 5. CHECK CRM USER
@@ -552,20 +564,39 @@ export async function GET(request) {
       redirectUri,
     } = zoomConfig;
 
-    console.log("========== ZOOM CONFIG ==========");
-    console.log("CLIENT ID:", clientId);
+    console.log(
+      "========== ZOOM CONFIG =========="
+    );
+
+    console.log(
+      "CLIENT ID:",
+      clientId
+    );
+
     console.log(
       "CLIENT SECRET EXISTS:",
       !!clientSecret
     );
-    console.log("REDIRECT URI:", redirectUri);
-    console.log("================================");
 
-    if (!clientId || !clientSecret || !redirectUri) {
+    console.log(
+      "REDIRECT URI:",
+      redirectUri
+    );
+
+    console.log(
+      "================================"
+    );
+
+    if (
+      !clientId ||
+      !clientSecret ||
+      !redirectUri
+    ) {
       return NextResponse.json(
         {
           success: false,
-          error: "Zoom configuration is incomplete",
+          error:
+            "Zoom configuration is incomplete",
         },
         { status: 500 }
       );
@@ -579,22 +610,38 @@ export async function GET(request) {
       .from(`${clientId}:${clientSecret}`)
       .toString("base64");
 
-    console.log("========== TOKEN EXCHANGE ==========");
+    console.log(
+      "========== TOKEN EXCHANGE =========="
+    );
+
     console.log(
       "GRANT TYPE:",
       "authorization_code"
     );
-    console.log("CODE EXISTS:", !!code);
+
+    console.log(
+      "CODE EXISTS:",
+      !!code
+    );
+
     console.log(
       "CODE LENGTH:",
       code ? code.length : 0
     );
+
     console.log(
       "TOKEN REDIRECT URI:",
       redirectUri
     );
-    console.log("CLIENT ID USED:", clientId);
-    console.log("====================================");
+
+    console.log(
+      "CLIENT ID USED:",
+      clientId
+    );
+
+    console.log(
+      "===================================="
+    );
 
     const tokenResponse = await fetch(
       "https://zoom.us/oauth/token",
@@ -602,15 +649,21 @@ export async function GET(request) {
         method: "POST",
 
         headers: {
-          Authorization: `Basic ${credentials}`,
+          Authorization:
+            `Basic ${credentials}`,
+
           "Content-Type":
             "application/x-www-form-urlencoded",
         },
 
         body: new URLSearchParams({
-          grant_type: "authorization_code",
+          grant_type:
+            "authorization_code",
+
           code: code,
-          redirect_uri: redirectUri,
+
+          redirect_uri:
+            redirectUri,
         }).toString(),
       }
     );
@@ -642,20 +695,18 @@ export async function GET(request) {
         tokenData
       );
 
-      console.log(
-        "========================================="
-      );
-
       return NextResponse.json(
         {
           success: false,
+
           error:
             "Failed to exchange Zoom authorization code",
 
           details: tokenData,
         },
         {
-          status: tokenResponse.status,
+          status:
+            tokenResponse.status,
         }
       );
     }
@@ -737,6 +788,7 @@ export async function GET(request) {
       return NextResponse.json(
         {
           success: false,
+
           error:
             "Could not retrieve Zoom account information",
 
@@ -806,11 +858,17 @@ export async function GET(request) {
       `,
       [
         crmUserId,
+
         zoomUser.account_id || null,
+
         zoomUser.id || null,
+
         zoomUser.email || null,
+
         accessToken,
+
         refreshToken,
+
         expiresAt,
       ]
     );
@@ -832,7 +890,8 @@ export async function GET(request) {
     );
 
     console.log(
-      "====================================");
+      "===================================="
+    );
 
     // ==========================================
     // 14. REDIRECT TO CALLS PAGE
@@ -840,7 +899,7 @@ export async function GET(request) {
 
     const callsUrl = new URL(
       "/calls",
-      request.url
+      "https://jadescorp.com"
     );
 
     callsUrl.searchParams.set(
@@ -874,6 +933,7 @@ export async function GET(request) {
     return NextResponse.json(
       {
         success: false,
+
         error:
           error.message ||
           "Zoom callback server error",
