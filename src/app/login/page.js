@@ -284,15 +284,17 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState,useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Mail, Lock, Eye, EyeOff, LogIn, Loader2 } from "lucide-react";
+import CRMLoader from "@/components/CRMLoader";
+import Welcome from "@/components/CrmWelcome";
 
 export default function LoginPage() {
   const router = useRouter();
 
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
 
   const [formData, setFormData] = useState({
@@ -337,6 +339,22 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
+
+       useEffect(() => {
+      const timer = setTimeout(() => {
+        setLoading(false);
+      }, 4000);
+  
+      return () => clearTimeout(timer);
+    }, []);
+  
+    if (loading) {
+      return < Welcome
+       subtitle="messages"
+          message="Loading dashboard..."
+          />;
+    }
+  
 
   return (
     <div className="min-h-screen w-screen bg-white flex overflow-hidden">

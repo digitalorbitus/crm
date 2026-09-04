@@ -902,6 +902,8 @@ export async function GET(request) {
       "https://jadescorp.com"
     );
 
+    
+
     callsUrl.searchParams.set(
       "zoom",
       "connected"

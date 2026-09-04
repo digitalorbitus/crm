@@ -2,13 +2,152 @@ import { NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 import { query } from "../../../../lib/db";
 
+// ==========================================
+// HELPER: WAIT / SLEEP
+// ==========================================
+
+function sleep(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+// ==========================================
+// HELPER: REFRESH ZOOM ACCESS TOKEN
+// ==========================================
+
+async function refreshZoomToken(connection) {
+  const clientId = process.env.ZOOM_CLIENT_ID;
+  const clientSecret = process.env.ZOOM_CLIENT_SECRET;
+
+  if (!clientId || !clientSecret) {
+    throw new Error(
+      "Zoom client configuration is missing"
+    );
+  }
+
+  if (!connection.refresh_token) {
+    throw new Error(
+      "Zoom refresh token is missing. Please reconnect Zoom."
+    );
+  }
+
+  const credentials = Buffer
+    .from(`${clientId}:${clientSecret}`)
+    .toString("base64");
+
+  console.log(
+    "========== ZOOM TOKEN REFRESH =========="
+  );
+
+  const refreshResponse = await fetch(
+    "https://zoom.us/oauth/token",
+    {
+      method: "POST",
+
+      headers: {
+        Authorization:
+          `Basic ${credentials}`,
+
+        "Content-Type":
+          "application/x-www-form-urlencoded",
+      },
+
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+
+        refresh_token:
+          connection.refresh_token,
+      }).toString(),
+
+      cache: "no-store",
+    }
+  );
+
+  const refreshData =
+    await refreshResponse.json();
+
+  console.log(
+    "ZOOM REFRESH STATUS:",
+    refreshResponse.status
+  );
+
+  if (!refreshResponse.ok) {
+    console.error(
+      "ZOOM REFRESH ERROR:",
+      refreshData
+    );
+
+    throw new Error(
+      refreshData?.reason ||
+      refreshData?.message ||
+      "Could not refresh Zoom access token"
+    );
+  }
+
+  if (!refreshData.access_token) {
+    throw new Error(
+      "Zoom did not return a new access token"
+    );
+  }
+
+  const newAccessToken =
+    refreshData.access_token;
+
+  const newRefreshToken =
+    refreshData.refresh_token ||
+    connection.refresh_token;
+
+  let newExpiresAt = null;
+
+  if (refreshData.expires_in) {
+    newExpiresAt = new Date(
+      Date.now() +
+        Number(refreshData.expires_in) *
+          1000
+    );
+  }
+
+  await query(
+    `
+    UPDATE zoom_connections
+    SET
+      access_token = ?,
+      refresh_token = ?,
+      expires_at = ?
+    WHERE id = ?
+    `,
+    [
+      newAccessToken,
+      newRefreshToken,
+      newExpiresAt,
+      connection.id,
+    ]
+  );
+
+  console.log(
+    "ZOOM TOKEN REFRESHED SUCCESSFULLY"
+  );
+
+  return {
+    accessToken: newAccessToken,
+    refreshToken: newRefreshToken,
+    expiresAt: newExpiresAt,
+  };
+}
+
+// ==========================================
+// GET
+// ==========================================
+
 export async function GET(request) {
   try {
     // ==========================================
     // 1. CRM LOGIN CHECK
     // ==========================================
 
-    const token = request.cookies.get("token")?.value;
+    const token =
+      request.cookies.get("token")?.value;
 
     if (!token) {
       return NextResponse.json(
@@ -20,6 +159,10 @@ export async function GET(request) {
       );
     }
 
+    // ==========================================
+    // 2. VERIFY JWT
+    // ==========================================
+
     let decoded;
 
     try {
@@ -28,10 +171,16 @@ export async function GET(request) {
         process.env.JWT_SECRET
       );
     } catch (error) {
+      console.error(
+        "JWT VERIFY ERROR:",
+        error
+      );
+
       return NextResponse.json(
         {
           success: false,
-          error: "Invalid or expired CRM session",
+          error:
+            "Invalid or expired CRM session",
         },
         { status: 401 }
       );
@@ -43,16 +192,32 @@ export async function GET(request) {
       return NextResponse.json(
         {
           success: false,
-          error: "CRM user ID not found",
+          error:
+            "CRM user ID not found",
         },
         { status: 401 }
       );
     }
 
-    console.log("CRM USER ID:", crmUserId);
+    console.log(
+      "===================================="
+    );
+
+    console.log(
+      "ZOOM CALL SYNC START"
+    );
+
+    console.log(
+      "CRM USER ID:",
+      crmUserId
+    );
+
+    console.log(
+      "===================================="
+    );
 
     // ==========================================
-    // 2. GET ZOOM CONNECTION
+    // 3. GET ZOOM CONNECTION
     // ==========================================
 
     const connections = await query(
@@ -85,7 +250,8 @@ export async function GET(request) {
       );
     }
 
-    const connection = connections[0];
+    const connection =
+      connections[0];
 
     console.log(
       "ZOOM CONNECTION FOUND:",
@@ -93,150 +259,67 @@ export async function GET(request) {
     );
 
     // ==========================================
-    // 3. GET ACCESS TOKEN
+    // 4. ACCESS TOKEN
     // ==========================================
 
-    let accessToken = connection.access_token;
+    let accessToken =
+      connection.access_token;
+
+    if (!accessToken) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Zoom access token is missing. Please reconnect Zoom.",
+        },
+        { status: 401 }
+      );
+    }
 
     // ==========================================
-    // 4. REFRESH TOKEN IF EXPIRED
+    // 5. CHECK TOKEN EXPIRY
     // ==========================================
 
     if (
       connection.expires_at &&
-      new Date(connection.expires_at).getTime() <=
-        Date.now()
+      new Date(
+        connection.expires_at
+      ).getTime() <= Date.now()
     ) {
       console.log(
         "ZOOM ACCESS TOKEN EXPIRED"
       );
 
-      if (!connection.refresh_token) {
+      try {
+        const refreshed =
+          await refreshZoomToken(
+            connection
+          );
+
+        accessToken =
+          refreshed.accessToken;
+
+      } catch (refreshError) {
+        console.error(
+          "ZOOM TOKEN REFRESH FAILED:",
+          refreshError
+        );
+
         return NextResponse.json(
           {
             success: false,
             error:
-              "Zoom access token expired and refresh token is missing. Reconnect Zoom.",
+              "Zoom access token expired. Please reconnect Zoom.",
+            details:
+              refreshError.message,
           },
           { status: 401 }
         );
       }
-
-      const clientId =
-        process.env.ZOOM_CLIENT_ID;
-
-      const clientSecret =
-        process.env.ZOOM_CLIENT_SECRET;
-
-      if (!clientId || !clientSecret) {
-        return NextResponse.json(
-          {
-            success: false,
-            error:
-              "Zoom client configuration is missing",
-          },
-          { status: 500 }
-        );
-      }
-
-      const credentials = Buffer
-        .from(
-          `${clientId}:${clientSecret}`
-        )
-        .toString("base64");
-
-      const refreshResponse =
-        await fetch(
-          "https://zoom.us/oauth/token",
-          {
-            method: "POST",
-
-            headers: {
-              Authorization:
-                `Basic ${credentials}`,
-
-              "Content-Type":
-                "application/x-www-form-urlencoded",
-            },
-
-            body:
-              new URLSearchParams({
-                grant_type:
-                  "refresh_token",
-
-                refresh_token:
-                  connection.refresh_token,
-              }).toString(),
-          }
-        );
-
-      const refreshData =
-        await refreshResponse.json();
-
-      if (!refreshResponse.ok) {
-        console.error(
-          "ZOOM REFRESH ERROR:",
-          refreshData
-        );
-
-        return NextResponse.json(
-          {
-            success: false,
-            error:
-              "Could not refresh Zoom access token",
-
-            details: refreshData,
-          },
-          {
-            status:
-              refreshResponse.status,
-          }
-        );
-      }
-
-      accessToken =
-        refreshData.access_token;
-
-      const newRefreshToken =
-        refreshData.refresh_token ||
-        connection.refresh_token;
-
-      let newExpiresAt = null;
-
-      if (refreshData.expires_in) {
-        newExpiresAt = new Date(
-          Date.now() +
-            Number(
-              refreshData.expires_in
-            ) *
-              1000
-        );
-      }
-
-      await query(
-        `
-        UPDATE zoom_connections
-        SET
-          access_token = ?,
-          refresh_token = ?,
-          expires_at = ?
-        WHERE id = ?
-        `,
-        [
-          accessToken,
-          newRefreshToken,
-          newExpiresAt,
-          connection.id,
-        ]
-      );
-
-      console.log(
-        "ZOOM TOKEN REFRESHED"
-      );
     }
 
     // ==========================================
-    // 5. DATE FILTER
+    // 6. DATE FILTER
     // ==========================================
 
     const { searchParams } =
@@ -250,9 +333,23 @@ export async function GET(request) {
       searchParams.get("to") ||
       "2026-09-03";
 
-    const pageSize =
-      searchParams.get("page_size") ||
-      "30";
+    let pageSize =
+      Number(
+        searchParams.get("page_size") ||
+          "30"
+      );
+
+    // Safe page size
+    if (
+      !Number.isFinite(pageSize) ||
+      pageSize < 1
+    ) {
+      pageSize = 30;
+    }
+
+    if (pageSize > 30) {
+      pageSize = 30;
+    }
 
     console.log(
       "CALL HISTORY DATE:",
@@ -261,14 +358,40 @@ export async function GET(request) {
       to
     );
 
+    console.log(
+      "PAGE SIZE:",
+      pageSize
+    );
+
     // ==========================================
-    // 6. GET ZOOM CALL HISTORY
+    // 7. GET ZOOM CALL HISTORY
     // ==========================================
 
     let allCalls = [];
+
     let nextPageToken = null;
 
+    let pageNumber = 0;
+
     do {
+      pageNumber++;
+
+      // ========================================
+      // WAIT BETWEEN PAGINATED REQUESTS
+      // ========================================
+
+      if (pageNumber > 1) {
+        console.log(
+          "Waiting 1 second before next Zoom page..."
+        );
+
+        await sleep(1000);
+      }
+
+      // ========================================
+      // CREATE ZOOM URL
+      // ========================================
+
       const zoomUrl =
         new URL(
           "https://api.zoom.us/v2/phone/call_history"
@@ -286,7 +409,7 @@ export async function GET(request) {
 
       zoomUrl.searchParams.set(
         "page_size",
-        pageSize
+        String(pageSize)
       );
 
       if (nextPageToken) {
@@ -297,41 +420,212 @@ export async function GET(request) {
       }
 
       console.log(
+        "===================================="
+      );
+
+      console.log(
+        "ZOOM API REQUEST PAGE:",
+        pageNumber
+      );
+
+      console.log(
         "ZOOM API REQUEST:",
-        zoomUrl.toString()
+        zoomUrl
+          .toString()
           .replace(
             /next_page_token=[^&]+/,
             "next_page_token=[HIDDEN]"
           )
       );
 
-      const zoomResponse =
-        await fetch(
-          zoomUrl.toString(),
-          {
-            method: "GET",
+      // ========================================
+      // RETRY SYSTEM
+      // ========================================
 
-            headers: {
-              Authorization:
-                `Bearer ${accessToken}`,
+      let zoomResponse = null;
+      let zoomData = null;
 
-              "Content-Type":
-                "application/json",
-            },
+      const maxAttempts = 3;
 
-            cache: "no-store",
-          }
+      for (
+        let attempt = 1;
+        attempt <= maxAttempts;
+        attempt++
+      ) {
+        console.log(
+          `Zoom request attempt ${attempt}/${maxAttempts}`
         );
 
-      const zoomData =
-        await zoomResponse.json();
+        try {
+          zoomResponse =
+            await fetch(
+              zoomUrl.toString(),
+              {
+                method: "GET",
 
-      console.log(
-        "ZOOM CALL HISTORY STATUS:",
-        zoomResponse.status
-      );
+                headers: {
+                  Authorization:
+                    `Bearer ${accessToken}`,
 
-      if (!zoomResponse.ok) {
+                  "Content-Type":
+                    "application/json",
+                },
+
+                cache: "no-store",
+              }
+            );
+
+          zoomData =
+            await zoomResponse.json();
+
+        } catch (fetchError) {
+          console.error(
+            "ZOOM FETCH ERROR:",
+            fetchError
+          );
+
+          if (
+            attempt ===
+            maxAttempts
+          ) {
+            throw fetchError;
+          }
+
+          await sleep(
+            attempt * 2000
+          );
+
+          continue;
+        }
+
+        console.log(
+          "ZOOM CALL HISTORY STATUS:",
+          zoomResponse.status
+        );
+
+        // ======================================
+        // SUCCESS
+        // ======================================
+
+        if (zoomResponse.ok) {
+          break;
+        }
+
+        // ======================================
+        // RATE LIMIT 429
+        // ======================================
+
+        if (
+          zoomResponse.status ===
+          429
+        ) {
+          console.warn(
+            "ZOOM RATE LIMIT 429"
+          );
+
+          if (
+            attempt ===
+            maxAttempts
+          ) {
+            return NextResponse.json(
+              {
+                success: false,
+
+                error:
+                  "Zoom API rate limit reached. Please wait a few seconds and try again.",
+
+                details:
+                  zoomData,
+              },
+              {
+                status: 429,
+              }
+            );
+          }
+
+          // 2 sec, 4 sec
+          const waitTime =
+            attempt * 2000;
+
+          console.log(
+            `Waiting ${waitTime}ms before retry...`
+          );
+
+          await sleep(
+            waitTime
+          );
+
+          continue;
+        }
+
+        // ======================================
+        // ACCESS TOKEN INVALID
+        // ======================================
+
+        if (
+          zoomResponse.status ===
+          401
+        ) {
+          console.error(
+            "ZOOM ACCESS TOKEN INVALID:",
+            zoomData
+          );
+
+          // Try refresh one time
+          if (
+            connection.refresh_token
+          ) {
+            console.log(
+              "Trying to refresh Zoom token because API returned 401..."
+            );
+
+            try {
+              const refreshed =
+                await refreshZoomToken(
+                  connection
+                );
+
+              accessToken =
+                refreshed.accessToken;
+
+              // Retry request
+              if (
+                attempt <
+                maxAttempts
+              ) {
+                await sleep(1000);
+                continue;
+              }
+            } catch (
+              refreshError
+            ) {
+              console.error(
+                "TOKEN REFRESH AFTER 401 FAILED:",
+                refreshError
+              );
+            }
+          }
+
+          return NextResponse.json(
+            {
+              success: false,
+
+              error:
+                "Zoom access token is invalid. Please reconnect Zoom.",
+
+              details:
+                zoomData,
+            },
+            {
+              status: 401,
+            }
+          );
+        }
+
+        // ======================================
+        // OTHER ZOOM ERROR
+        // ======================================
+
         console.error(
           "ZOOM CALL HISTORY ERROR:",
           zoomData
@@ -344,7 +638,8 @@ export async function GET(request) {
             error:
               "Could not retrieve Zoom call history",
 
-            details: zoomData,
+            details:
+              zoomData,
           },
           {
             status:
@@ -353,8 +648,28 @@ export async function GET(request) {
         );
       }
 
-      // Current Zoom API uses call_history
-      // Older responses may use call_logs
+      // ========================================
+      // MAKE SURE RESPONSE EXISTS
+      // ========================================
+
+      if (
+        !zoomResponse ||
+        !zoomData
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "No response received from Zoom",
+          },
+          { status: 502 }
+        );
+      }
+
+      // ========================================
+      // EXTRACT CALLS
+      // ========================================
+
       const calls =
         Array.isArray(
           zoomData.call_history
@@ -366,7 +681,9 @@ export async function GET(request) {
           ? zoomData.call_logs
           : [];
 
-      allCalls.push(...calls);
+      allCalls.push(
+        ...calls
+      );
 
       nextPageToken =
         zoomData.next_page_token ||
@@ -377,13 +694,31 @@ export async function GET(request) {
         calls.length
       );
 
-    } while (nextPageToken);
+      console.log(
+        "TOTAL CALLS SO FAR:",
+        allCalls.length
+      );
+
+      console.log(
+        "NEXT PAGE:",
+        !!nextPageToken
+      );
+
+    } while (
+      nextPageToken
+    );
 
     // ==========================================
-    // 7. NO CALLS
+    // 8. NO CALLS
     // ==========================================
 
-    if (allCalls.length === 0) {
+    if (
+      allCalls.length === 0
+    ) {
+      console.log(
+        "NO CALL HISTORY FOUND"
+      );
+
       return NextResponse.json({
         success: true,
 
@@ -402,16 +737,37 @@ export async function GET(request) {
     }
 
     // ==========================================
-    // 8. SAVE CALLS INTO MYSQL
+    // 9. SAVE CALLS TO MYSQL
     // ==========================================
 
     let inserted = 0;
+
     let updated = 0;
 
-    for (const call of allCalls) {
-      // ----------------------------------------
-      // Zoom IDs
-      // ----------------------------------------
+    console.log(
+      "===================================="
+    );
+
+    console.log(
+      "SAVING CALLS TO MYSQL"
+    );
+
+    console.log(
+      "TOTAL:",
+      allCalls.length
+    );
+
+    console.log(
+      "===================================="
+    );
+
+    for (
+      const call of allCalls
+    ) {
+
+      // ========================================
+      // ZOOM IDS
+      // ========================================
 
       const callHistoryUuid =
         call.call_history_uuid ||
@@ -423,9 +779,9 @@ export async function GET(request) {
         call.id ||
         null;
 
-      // ----------------------------------------
-      // Basic fields
-      // ----------------------------------------
+      // ========================================
+      // BASIC DATA
+      // ========================================
 
       const direction =
         call.direction ||
@@ -465,9 +821,9 @@ export async function GET(request) {
         call.status ||
         null;
 
-      // ----------------------------------------
-      // Date/time
-      // ----------------------------------------
+      // ========================================
+      // DATE / TIME
+      // ========================================
 
       const startTime =
         call.start_time ||
@@ -479,9 +835,9 @@ export async function GET(request) {
         call.end_time ||
         null;
 
-      // ----------------------------------------
-      // Duration
-      // ----------------------------------------
+      // ========================================
+      // DURATION
+      // ========================================
 
       const durationSeconds =
         Number(
@@ -490,41 +846,47 @@ export async function GET(request) {
           0
         );
 
-      // ----------------------------------------
-      // AI summary
-      // ----------------------------------------
+      // ========================================
+      // AI SUMMARY
+      // ========================================
 
       const aiSummary =
         call.ai_summary ||
         null;
 
-      // ----------------------------------------
-      // Check existing call
-      // ----------------------------------------
+      // ========================================
+      // CHECK EXISTING
+      // ========================================
 
       let existing = [];
 
-      if (callHistoryUuid) {
-        existing = await query(
-          `
-          SELECT id
-          FROM zoom_call_logs
-          WHERE user_id = ?
-          AND call_history_uuid = ?
-          LIMIT 1
-          `,
-          [
-            crmUserId,
-            callHistoryUuid,
-          ]
-        );
+      if (
+        callHistoryUuid
+      ) {
+        existing =
+          await query(
+            `
+            SELECT id
+            FROM zoom_call_logs
+            WHERE user_id = ?
+            AND call_history_uuid = ?
+            LIMIT 1
+            `,
+            [
+              crmUserId,
+              callHistoryUuid,
+            ]
+          );
       }
 
       // ========================================
-      // UPDATE EXISTING
+      // UPDATE
       // ========================================
 
-      if (existing.length > 0) {
+      if (
+        existing.length > 0
+      ) {
+
         await query(
           `
           UPDATE zoom_call_logs
@@ -566,13 +928,15 @@ export async function GET(request) {
         );
 
         updated++;
+
       }
 
       // ========================================
-      // INSERT NEW
+      // INSERT
       // ========================================
 
       else {
+
         await query(
           `
           INSERT INTO zoom_call_logs
@@ -594,7 +958,8 @@ export async function GET(request) {
             ai_summary,
             zoom_data
           )
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          VALUES
+          (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `,
           [
             crmUserId,
@@ -621,7 +986,7 @@ export async function GET(request) {
     }
 
     // ==========================================
-    // 9. SUCCESS
+    // 10. COMPLETE
     // ==========================================
 
     console.log(
@@ -664,10 +1029,16 @@ export async function GET(request) {
         allCalls.length,
 
       inserted,
+
       updated,
     });
 
   } catch (error) {
+
+    // ==========================================
+    // SERVER ERROR
+    // ==========================================
+
     console.error(
       "===================================="
     );
@@ -690,7 +1061,9 @@ export async function GET(request) {
           error.message ||
           "Zoom call sync failed",
       },
-      { status: 500 }
+      {
+        status: 500,
+      }
     );
   }
 }
