@@ -1,4 +1,6 @@
 
+
+
 // import { NextResponse } from "next/server";
 // import bcrypt from "bcryptjs";
 // import jwt from "jsonwebtoken";
@@ -8,7 +10,10 @@
 //   try {
 //     const { email, password } = await request.json();
 
-//     // Check required fields
+//     // ==========================================
+//     // CHECK REQUIRED FIELDS
+//     // ==========================================
+
 //     if (!email || !password) {
 //       return NextResponse.json(
 //         {
@@ -19,9 +24,12 @@
 //       );
 //     }
 
-//     // Find user
+//     // ==========================================
+//     // FIND USER
+//     // ==========================================
+
 //     const [users] = await db.execute(
-//       `SELECT 
+//       `SELECT
 //         id,
 //         name,
 //         email,
@@ -46,7 +54,26 @@
 
 //     const user = users[0];
 
-//     // Check password
+//     // ==========================================
+//     // CHECK ACCOUNT STATUS
+//     // Active = can login
+//     // Inactive = blocked by admin
+//     // ==========================================
+
+//     if (user.status === "Inactive") {
+//       return NextResponse.json(
+//         {
+//           success: false,
+//           message: "Your account is inactive",
+//         },
+//         { status: 403 }
+//       );
+//     }
+
+//     // ==========================================
+//     // CHECK PASSWORD
+//     // ==========================================
+
 //     const passwordMatch = await bcrypt.compare(
 //       password,
 //       user.password_hash
@@ -63,22 +90,57 @@
 //     }
 
 //     // ==========================================
-//     // UPDATE LOGIN INFORMATION
+//     // GET IP ADDRESS
+//     // ==========================================
+
+//     const forwardedFor = request.headers.get("x-forwarded-for");
+
+//     const ipAddress = forwardedFor
+//       ? forwardedFor.split(",")[0].trim()
+//       : request.headers.get("x-real-ip") || null;
+
+//     const userAgent =
+//       request.headers.get("user-agent") || null;
+
+//     // ==========================================
+//     // UPDATE USER LOGIN INFORMATION
+//     // DO NOT CHANGE STATUS
 //     // ==========================================
 
 //     await db.execute(
 //       `UPDATE users
-//        SET 
+//        SET
 //          login_time = NOW(),
 //          last_login = NOW(),
-//          logout_time = NULL,
-//          status = 'Active'
+//          logout_time = NULL
 //        WHERE id = ?`,
 //       [user.id]
 //     );
 
 //     // ==========================================
-//     // CREATE JWT TOKEN
+//     // CREATE LOGIN HISTORY
+//     // EVERY LOGIN = NEW ROW
+//     // ==========================================
+
+//     await db.execute(
+//       `INSERT INTO login_history
+//        (
+//          user_id,
+//          login_time,
+//          logout_time,
+//          ip_address,
+//          user_agent
+//        )
+//        VALUES (?, NOW(), NULL, ?, ?)`,
+//       [
+//         user.id,
+//         ipAddress,
+//         userAgent,
+//       ]
+//     );
+
+//     // ==========================================
+//     // CREATE JWT
 //     // ==========================================
 
 //     const token = jwt.sign(
@@ -95,7 +157,7 @@
 //     );
 
 //     // ==========================================
-//     // CREATE RESPONSE
+//     // RESPONSE
 //     // ==========================================
 
 //     const response = NextResponse.json({
@@ -111,7 +173,7 @@
 //     });
 
 //     // ==========================================
-//     // SAVE JWT IN COOKIE
+//     // SAVE TOKEN COOKIE
 //     // ==========================================
 
 //     response.cookies.set("token", token, {
@@ -123,6 +185,7 @@
 //     });
 
 //     return response;
+
 //   } catch (error) {
 //     console.error("LOGIN ERROR:", error);
 
@@ -135,6 +198,9 @@
 //     );
 //   }
 // }
+
+
+
 
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
@@ -164,15 +230,16 @@ export async function POST(request) {
     // ==========================================
 
     const [users] = await db.execute(
-      `SELECT
-        id,
-        name,
-        email,
-        password_hash,
-        role,
-        status
-       FROM users
-       WHERE email = ?
+      `SELECT 
+        id, 
+        name, 
+        email, 
+        password_hash, 
+        role, 
+        status,
+        zoom_extension
+       FROM users 
+       WHERE email = ? 
        LIMIT 1`,
       [email]
     );
@@ -191,8 +258,6 @@ export async function POST(request) {
 
     // ==========================================
     // CHECK ACCOUNT STATUS
-    // Active = can login
-    // Inactive = blocked by admin
     // ==========================================
 
     if (user.status === "Inactive") {
@@ -239,11 +304,10 @@ export async function POST(request) {
 
     // ==========================================
     // UPDATE USER LOGIN INFORMATION
-    // DO NOT CHANGE STATUS
     // ==========================================
 
     await db.execute(
-      `UPDATE users
+      `UPDATE users 
        SET
          login_time = NOW(),
          last_login = NOW(),
@@ -254,7 +318,6 @@ export async function POST(request) {
 
     // ==========================================
     // CREATE LOGIN HISTORY
-    // EVERY LOGIN = NEW ROW
     // ==========================================
 
     await db.execute(
@@ -276,6 +339,8 @@ export async function POST(request) {
 
     // ==========================================
     // CREATE JWT
+    // IMPORTANT:
+    // zoom_extension is now included
     // ==========================================
 
     const token = jwt.sign(
@@ -284,6 +349,7 @@ export async function POST(request) {
         email: user.email,
         role: user.role,
         name: user.name,
+        zoom_extension: user.zoom_extension,
       },
       process.env.JWT_SECRET,
       {
@@ -304,6 +370,7 @@ export async function POST(request) {
         name: user.name,
         email: user.email,
         role: user.role,
+        zoom_extension: user.zoom_extension,
       },
     });
 
@@ -333,3 +400,4 @@ export async function POST(request) {
     );
   }
 }
+
