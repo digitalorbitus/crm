@@ -325,7 +325,14 @@ export default function Home() {
 </a> */}
 
 <a
-  href="zoommtg://zoom.us"
+  href="/api/zoom/auth"
+  target="_blank"
+  rel="noopener noreferrer"
+  onClick={() => {
+    setTimeout(() => {
+      window.location.href = "zoommtg://zoom.us";
+    }, 500);
+  }}
   className="group flex w-full items-center justify-center gap-2 rounded-xl bg-white px-5 py-3.5 text-sm font-bold text-[#050B1E] shadow-lg transition-all duration-200 hover:-translate-y-0.5 hover:bg-slate-100 hover:shadow-xl"
 >
   <Video size={18} />
