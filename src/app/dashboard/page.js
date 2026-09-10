@@ -695,6 +695,7 @@ export default function DashboardPage() {
   const [errorMessage, setErrorMessage] = useState("");
 
   const [staff, setStaff] = useState(null);
+  const [allStaff, setAllStaff] = useState([]);
   const [rawApiResponse, setRawApiResponse] = useState(null);
   const [numbers, setNumbers] = useState([]);
 
@@ -936,6 +937,18 @@ export default function DashboardPage() {
 
       setStaff(userData.user);
 
+
+      
+const staffListRes = await fetch("/api/staff/list", {
+  cache: "no-store",
+});
+
+const staffListData = await staffListRes.json();
+
+if (staffListData.success && Array.isArray(staffListData.users)) {
+  setAllStaff(staffListData.users);
+}
+
       // =====================================
       // 2. EXISTING DAILY DESK API
       // =====================================
@@ -1126,44 +1139,72 @@ export default function DashboardPage() {
   // =========================
   // TOP STAFF - DYNAMIC
   // =========================
-  const topStaff = useMemo(() => {
-    const staffMap = {};
+const normalizeExtension = (value) => {
+  if (value === undefined || value === null) return null;
 
-    normalizedCalls.forEach((call) => {
-      const name = call.staffName || "Unknown Staff";
+  const cleaned = String(value)
+    .trim()
+    .replace(/^Ext\.?/i, "");
 
-      if (!staffMap[name]) {
-        staffMap[name] = {
-          name,
-          total: 0,
-          answered: 0,
-          missed: 0,
-          talkSeconds: 0,
-        };
-      }
+  return cleaned || null;
+};
 
-      staffMap[name].total += 1;
+const getCallOwnerExtension = (call) => {
+  return (
+    normalizeExtension(call?.caller_extension) ||
+    normalizeExtension(call?.raw_zoom_data?.caller_ext_number) ||
+    normalizeExtension(call?.raw_zoom_data?.caller_ext_id) ||
+    normalizeExtension(call?.receiver_extension) ||
+    normalizeExtension(call?.raw_zoom_data?.callee_ext_number) ||
+    normalizeExtension(call?.raw_zoom_data?.callee_ext_id) ||
+    null
+  );
+};
 
-      if (call.status === "answered") {
-        staffMap[name].answered += 1;
-      }
+const topStaff = useMemo(() => {
+  return allStaff
+    .map((user) => {
+      const extension = normalizeExtension(user.zoom_extension);
 
-      if (call.status === "missed") {
-        staffMap[name].missed += 1;
-      }
+      const userCalls = normalizedCalls.filter(({ original }) => {
+        const ownerExtension = getCallOwnerExtension(original);
 
-      staffMap[name].talkSeconds += call.duration;
-    });
+        return (
+          extension &&
+          ownerExtension &&
+          extension === ownerExtension
+        );
+      });
 
-    return Object.values(staffMap)
-      .sort((a, b) => b.total - a.total)
-      .slice(0, 5)
-      .map((person) => ({
-        ...person,
-        talkTime: formatTalkTime(person.talkSeconds),
-      }));
-  }, [normalizedCalls]);
+      const total = userCalls.length;
 
+      const answered = userCalls.filter(
+        (call) => call.status === "answered"
+      ).length;
+
+      const missed = userCalls.filter(
+        (call) => call.status === "missed"
+      ).length;
+
+      const talkSeconds = userCalls.reduce(
+        (total, call) => total + call.duration,
+        0
+      );
+
+      return {
+        id: user.id,
+        name: user.name || "Unknown User",
+        email: user.email || "",
+        role: user.role || "",
+        extension,
+        total,
+        answered,
+        missed,
+        talkSeconds,
+      };
+    })
+    .sort((a, b) => b.total - a.total);
+}, [allStaff, normalizedCalls]);
   // =========================
   // LIVE ACTIVITY - DYNAMIC
   // =========================
@@ -1653,73 +1694,95 @@ export default function DashboardPage() {
               </button>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs text-left">
-                <thead>
-                  <tr className="text-slate-400 border-b border-slate-100 font-semibold">
-                    <th className="pb-3 font-medium">
-                      Staff
-                    </th>
+         <div className="overflow-x-auto">
+  <table className="w-full text-xs text-left">
+    <thead>
+      <tr className="text-slate-400 border-b border-slate-100 font-semibold">
+        <th className="pb-3 font-medium">
+          Staff
+        </th>
 
-                    <th className="pb-3 font-medium">
-                      Total Calls
-                    </th>
+        <th className="pb-3 font-medium">
+          Email
+        </th>
 
-                    <th className="pb-3 font-medium">
-                      Answered
-                    </th>
+        <th className="pb-3 font-medium">
+          Total Calls
+        </th>
 
-                    <th className="pb-3 font-medium">
-                      Missed
-                    </th>
+        <th className="pb-3 font-medium">
+          Answered
+        </th>
 
-                    <th className="pb-3 font-medium">
-                      Talk Time
-                    </th>
-                  </tr>
-                </thead>
+        <th className="pb-3 font-medium">
+          Missed
+        </th>
 
-                <tbody className="divide-y divide-slate-50">
-                  {topStaff.length > 0 ? (
-                    topStaff.map((person, i) => (
-                      <tr
-                        key={`${person.name}-${i}`}
-                        className="hover:bg-slate-50/80 transition-colors"
-                      >
-                        <td className="py-3 font-bold text-slate-800">
-                          {person.name}
-                        </td>
+        <th className="pb-3 font-medium">
+          Talk Time
+        </th>
+      </tr>
+    </thead>
 
-                        <td className="py-3 text-slate-600 font-semibold">
-                          {person.total}
-                        </td>
+    <tbody className="divide-y divide-slate-50">
+      {topStaff.length > 0 ? (
+        topStaff.map((person) => (
+          <tr
+            key={person.id}
+            className="hover:bg-slate-50/80 transition-colors"
+          >
+            {/* Staff */}
+            <td className="py-3">
+              <div className="font-bold text-slate-800">
+                {person.name}
+              </div>
 
-                        <td className="py-3 text-slate-600 font-semibold">
-                          {person.answered}
-                        </td>
+              <div className="text-[11px] text-slate-400 mt-1">
+                Ext. {person.extension || "--"}
+              </div>
+            </td>
 
-                        <td className="py-3 text-slate-600 font-semibold">
-                          {person.missed}
-                        </td>
+            {/* Email */}
+            <td className="py-3">
+              <span className="text-slate-500">
+                {person.email || "--"}
+              </span>
+            </td>
 
-                        <td className="py-3 text-slate-600 font-semibold">
-                          {person.talkTime}
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td
-                        colSpan="5"
-                        className="py-8 text-center text-slate-400"
-                      >
-                        No call data available
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+            {/* Total Calls */}
+            <td className="py-3 text-slate-600 font-semibold">
+              {person.total}
+            </td>
+
+            {/* Answered */}
+            <td className="py-3 text-slate-600 font-semibold">
+              {person.answered}
+            </td>
+
+            {/* Missed */}
+            <td className="py-3 text-slate-600 font-semibold">
+              {person.missed}
+            </td>
+
+            {/* Talk Time */}
+            <td className="py-3 text-slate-600 font-semibold">
+              {formatTalkTime(person.talkSeconds)}
+            </td>
+          </tr>
+        ))
+      ) : (
+        <tr>
+          <td
+            colSpan={6}
+            className="py-8 text-center text-slate-400"
+          >
+            No staff data available
+          </td>
+        </tr>
+      )}
+    </tbody>
+  </table>
+</div>
           </div>
 
           {/* Live Activity */}
