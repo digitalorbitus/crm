@@ -202,6 +202,213 @@
 
 
 
+// import { NextResponse } from "next/server";
+// import bcrypt from "bcryptjs";
+// import jwt from "jsonwebtoken";
+// import db from "../../lib/db";
+
+// export async function POST(request) {
+//   try {
+//     const { email, password } = await request.json();
+
+//     // ==========================================
+//     // CHECK REQUIRED FIELDS
+//     // ==========================================
+
+//     if (!email || !password) {
+//       return NextResponse.json(
+//         {
+//           success: false,
+//           message: "Email and password required",
+//         },
+//         { status: 400 }
+//       );
+//     }
+
+//     // ==========================================
+//     // FIND USER
+//     // ==========================================
+
+//     const [users] = await db.execute(
+//       `SELECT 
+//         id, 
+//         name, 
+//         email, 
+//         password_hash, 
+//         role, 
+//         status,
+//         zoom_extension
+//        FROM users 
+//        WHERE email = ? 
+//        LIMIT 1`,
+//       [email]
+//     );
+
+//     if (users.length === 0) {
+//       return NextResponse.json(
+//         {
+//           success: false,
+//           message: "Invalid email or password",
+//         },
+//         { status: 401 }
+//       );
+//     }
+
+//     const user = users[0];
+
+//     // ==========================================
+//     // CHECK ACCOUNT STATUS
+//     // ==========================================
+
+//     if (user.status === "Inactive") {
+//       return NextResponse.json(
+//         {
+//           success: false,
+//           message: "Your account is inactive",
+//         },
+//         { status: 403 }
+//       );
+//     }
+
+//     // ==========================================
+//     // CHECK PASSWORD
+//     // ==========================================
+
+//     const passwordMatch = await bcrypt.compare(
+//       password,
+//       user.password_hash
+//     );
+
+//     if (!passwordMatch) {
+//       return NextResponse.json(
+//         {
+//           success: false,
+//           message: "Invalid email or password",
+//         },
+//         { status: 401 }
+//       );
+//     }
+
+//     // ==========================================
+//     // GET IP ADDRESS
+//     // ==========================================
+
+//     const forwardedFor = request.headers.get("x-forwarded-for");
+
+//     const ipAddress = forwardedFor
+//       ? forwardedFor.split(",")[0].trim()
+//       : request.headers.get("x-real-ip") || null;
+
+//     const userAgent =
+//       request.headers.get("user-agent") || null;
+
+//     // ==========================================
+//     // UPDATE USER LOGIN INFORMATION
+//     // ==========================================
+
+//     await db.execute(
+//       `UPDATE users 
+//        SET
+//          login_time = NOW(),
+//          last_login = NOW(),
+//          logout_time = NULL
+//        WHERE id = ?`,
+//       [user.id]
+//     );
+
+//     // ==========================================
+//     // CREATE LOGIN HISTORY
+//     // ==========================================
+
+//     await db.execute(
+//       `INSERT INTO login_history
+//        (
+//          user_id,
+//          login_time,
+//          logout_time,
+//          ip_address,
+//          user_agent
+//        )
+//        VALUES (?, NOW(), NULL, ?, ?)`,
+//       [
+//         user.id,
+//         ipAddress,
+//         userAgent,
+//       ]
+//     );
+
+//     // ==========================================
+//     // CREATE JWT
+//     // IMPORTANT:
+//     // zoom_extension is now included
+//     // ==========================================
+
+//     const token = jwt.sign(
+//       {
+//         id: user.id,
+//         email: user.email,
+//         role: user.role,
+//         name: user.name,
+//         zoom_extension: user.zoom_extension,
+//       },
+//       process.env.JWT_SECRET,
+//       {
+//         expiresIn: "1d",
+//       }
+//     );
+
+//     // ==========================================
+//     // RESPONSE
+//     // ==========================================
+
+//     const response = NextResponse.json({
+//       success: true,
+//       message: "Login successful",
+
+//       user: {
+//         id: user.id,
+//         name: user.name,
+//         email: user.email,
+//         role: user.role,
+//         zoom_extension: user.zoom_extension,
+//       },
+//     });
+
+//     // ==========================================
+//     // SAVE TOKEN COOKIE
+//     // ==========================================
+
+//     response.cookies.set("token", token, {
+//       httpOnly: true,
+//       secure: process.env.NODE_ENV === "production",
+//       sameSite: "lax",
+//       maxAge: 60 * 60 * 24,
+//       path: "/",
+//     });
+
+//     return response;
+
+//   } catch (error) {
+//     console.error("LOGIN ERROR:", error);
+
+//     return NextResponse.json(
+//       {
+//         success: false,
+//         message: error.message || "Server error",
+//       },
+//       { status: 500 }
+//     );
+//   }
+// }
+
+
+
+
+
+
+
+
+
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
@@ -227,19 +434,21 @@ export async function POST(request) {
 
     // ==========================================
     // FIND USER
+    // login_ip ADDED HERE
     // ==========================================
 
     const [users] = await db.execute(
-      `SELECT 
-        id, 
-        name, 
-        email, 
-        password_hash, 
-        role, 
+      `SELECT
+        id,
+        name,
+        email,
+        password_hash,
+        role,
         status,
-        zoom_extension
-       FROM users 
-       WHERE email = ? 
+        zoom_extension,
+        login_ip
+       FROM users
+       WHERE email = ?
        LIMIT 1`,
       [email]
     );
@@ -290,7 +499,7 @@ export async function POST(request) {
     }
 
     // ==========================================
-    // GET IP ADDRESS
+    // GET CURRENT IP ADDRESS
     // ==========================================
 
     const forwardedFor = request.headers.get("x-forwarded-for");
@@ -303,11 +512,57 @@ export async function POST(request) {
       request.headers.get("user-agent") || null;
 
     // ==========================================
+    // IP RESTRICTION
+    //
+    // ADMIN = ANY COMPUTER/IP
+    //
+    // AGENT/STAFF = ONLY REGISTERED IP
+    // ==========================================
+
+    if (user.role !== "admin") {
+
+      // ------------------------------------------
+      // FIRST LOGIN
+      // No IP registered yet
+      // ------------------------------------------
+
+      if (!user.login_ip) {
+
+        await db.execute(
+          `UPDATE users
+           SET login_ip = ?
+           WHERE id = ?`,
+          [ipAddress, user.id]
+        );
+
+        user.login_ip = ipAddress;
+
+      } else {
+
+        // ------------------------------------------
+        // EXISTING USER
+        // CHECK IP
+        // ------------------------------------------
+
+        if (user.login_ip !== ipAddress) {
+          return NextResponse.json(
+            {
+              success: false,
+              message:
+                "Login denied. This account can only be used from its registered computer.",
+            },
+            { status: 403 }
+          );
+        }
+      }
+    }
+
+    // ==========================================
     // UPDATE USER LOGIN INFORMATION
     // ==========================================
 
     await db.execute(
-      `UPDATE users 
+      `UPDATE users
        SET
          login_time = NOW(),
          last_login = NOW(),
@@ -339,8 +594,6 @@ export async function POST(request) {
 
     // ==========================================
     // CREATE JWT
-    // IMPORTANT:
-    // zoom_extension is now included
     // ==========================================
 
     const token = jwt.sign(
@@ -400,4 +653,3 @@ export async function POST(request) {
     );
   }
 }
-

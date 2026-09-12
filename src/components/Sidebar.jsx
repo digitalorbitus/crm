@@ -328,15 +328,12 @@ export default function Sidebar({
     },
     
     {
-      name: "Leads",
+      name: "Attendance",
       icon: UserPlus,
-      href: "/leads",
-      hasDropdown: true,
-      roles: ["admin", "user", "agent"],
-      subItems: [
-        { name: "All Leads", href: "/leads" },
-        { name: "Add Lead", href: "/leads/new" },
-      ],
+      href: "/Attendance",
+      hasDropdown: false,
+      roles: ["admin",],
+    
     },
     {
       name: "Daily Tasks assign",
@@ -345,9 +342,9 @@ export default function Sidebar({
       roles: ["admin", ],
     },
     {
-      name: "Customers",
+      name: "Break",
       icon: Users,
-      href: "/customers",
+      href: "/Break",
       roles: ["admin", "user","staff",  "agent"],
     },
     {
