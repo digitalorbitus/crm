@@ -314,7 +314,7 @@ export default function Sidebar({
       icon: Phone,
       href: "/calls",
       hasDropdown: true,
-      roles: ["admin", "user", "agent"],
+      roles: ["admin", "user", "agent","staff"],
       subItems: [
         { name: "Call ", href: "/calls" },
         { name: "Recordings", href: "/calls/recordings" },
