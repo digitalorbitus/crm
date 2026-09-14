@@ -1237,7 +1237,37 @@ import CRMLoader from "@/components/CRMLoader";
 import DashboardTopBar from "@/components/DashboardTopBar";
 
 export default function DashboardPage() {
+
   const router = useRouter();
+
+
+   const handleConfirmLogout = async () => {
+    setLoggingOut(true);
+
+    try {
+      localStorage.removeItem("crm_login_time");
+
+      const response = await fetch("/api/logout", {
+        method: "POST",
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(data.message || "Logout failed");
+        setLoggingOut(false);
+        setShowLogoutModal(false);
+        return;
+      }
+
+      router.push("/login");
+    } catch (error) {
+      console.error("Logout error:", error);
+      alert("Something went wrong during logout.");
+      setLoggingOut(false);
+      setShowLogoutModal(false);
+    }
+  };
 
   // =========================================================
   // STATES
@@ -1257,6 +1287,7 @@ export default function DashboardPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  
 
   // =========================================================
   // HELPERS
@@ -2273,6 +2304,12 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-[#f7f8fa] text-[#171717]">
+
+            <Sidebar
+              sidebarOpen={sidebarOpen}
+              setSidebarOpen={setSidebarOpen}
+              setShowLogoutModal={setShowLogoutModal}
+            />
       {/* =====================================================
           MOBILE SIDEBAR OVERLAY
       ====================================================== */}
@@ -2879,7 +2916,7 @@ export default function DashboardPage() {
           LOGOUT MODAL
       ====================================================== */}
 
-      {showLogoutModal && (
+      {/* {showLogoutModal && (
         <LogoutModal
           open={showLogoutModal}
           loading={loggingOut}
@@ -2888,7 +2925,13 @@ export default function DashboardPage() {
           }
           onConfirm={handleLogout}
         />
-      )}
+      )} */}
+          <LogoutModal
+        show={showLogoutModal}
+        loggingOut={loggingOut}
+        onCancel={() => setShowLogoutModal(false)}
+        onConfirm={handleConfirmLogout}
+      />
     </div>
   );
 }
