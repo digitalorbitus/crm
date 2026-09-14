@@ -391,7 +391,7 @@ export default function Sidebar({
       {sidebarOpen && (
         <div
           onClick={() => setSidebarOpen && setSidebarOpen(false)}
-          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden transition-opacity"
+          className="fixed inset-0 z-40 bg-black backdrop-blur-sm lg:hidden transition-opacity"
         />
       )}
 
@@ -405,19 +405,23 @@ export default function Sidebar({
         <div className="flex flex-col flex-1 min-h-0">
           {/* Logo Header */}
           <div className="flex items-center gap-3 px-3 mb-4 shrink-0">
-            <div className="relative w-8 h-8 rounded-full bg-gradient-to-tr from-rose-500 to-indigo-600 p-[2px] flex items-center justify-center shadow-lg shadow-rose-500/20">
-              <div className="w-full h-full bg-[#050B1E] rounded-full flex items-center justify-center">
-                <div className="w-3.5 h-3.5 rounded-full border-2 border-rose-500 flex items-center justify-center">
-                  <div className="w-1 h-1 bg-white rounded-full" />
-                </div>
-              </div>
-            </div>
-
-            <span className="font-extrabold text-xl tracking-tight text-white">
-              CallCRM
+            <img
+    src="/Digital_Orbit_logo_in_white-removebg-preview-removebg-preview.webp"
+    alt="CallCRM Logo"
+    className="w-12 h-12 object-contain"
+  />
+            <span className="font-extrabold text-md tracking-tight text-[#ec3737]">
+                DIGITAL ORBIT
             </span>
           </div>
-
+{/* Logo Header */}
+{/* <div className="flex items-center justify-center px-3 mb-5 shrink-0">
+  <img
+    src="/Digital_Orbit_logo_in_white-removebg-preview-removebg-preview.webp"
+    alt="CallCRM Logo"
+    className="w-12 h-12 object-contain"
+  />
+</div> */}
           {/* Navigation Menu */}
           <nav className="flex-1 space-y-1 overflow-y-auto pr-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
             {filteredMenuItems.map((item) => {
