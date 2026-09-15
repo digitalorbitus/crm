@@ -13,580 +13,6 @@
 
 
 
-// "use client";
-
-// import { useState, useEffect, useRef } from "react";
-// import {
-//   Calendar,
-//   ChevronDown,
-//   User,
-//   Check,
-//   Circle,
-//   Phone,
-//   Coffee,
-//   Moon,
-//   Utensils,
-//   CircleOff,
-//   Bath,
-//   MoreHorizontal,
-// } from "lucide-react";
-
-// export default function DashboardTopBar() {
-//   const [currentUser, setCurrentUser] = useState({
-//     name: "",
-//     email: "",
-//     role: "",
-//     avatar: null,
-//   });
-
-//   const [loading, setLoading] = useState(true);
-//   const [imageError, setImageError] = useState(false);
-
-//   // ============================================================
-//   // USER STATUS
-//   // ============================================================
-
-//   const [userStatus, setUserStatus] = useState("Active");
-//   const [statusOpen, setStatusOpen] = useState(false);
-
-//   const statusRef = useRef(null);
-
-//   // ============================================================
-//   // LOGIN DETAILS
-//   // ============================================================
-
-//   const [loginDetails] = useState(() => {
-//     const now = new Date();
-
-//     return {
-//       day: now.toLocaleDateString("en-US", {
-//         weekday: "long",
-//       }),
-
-//       date: now.toLocaleDateString("en-US", {
-//         month: "short",
-//         day: "numeric",
-//         year: "numeric",
-//       }),
-
-//       time: now.toLocaleTimeString("en-US", {
-//         hour: "2-digit",
-//         minute: "2-digit",
-//         hour12: true,
-//       }),
-//     };
-//   });
-
-//   // ============================================================
-//   // STATUS OPTIONS
-//   // ============================================================
-
-//   const statusOptions = [
-//     {
-//       value: "Active",
-//       label: "Active",
-//       icon: Circle,
-//       color: "text-emerald-600",
-//       dot: "bg-emerald-500",
-//       bg: "bg-emerald-50",
-//     },
-
-//     {
-//       value: "Namaz Break",
-//       label: "Namaz Break",
-//       icon: Moon,
-//       color: "text-indigo-600",
-//       dot: "bg-indigo-500",
-//       bg: "bg-indigo-50",
-//     },
-
-//     {
-//       value: "Lunch Break",
-//       label: "Lunch Break",
-//       icon: Utensils,
-//       color: "text-orange-600",
-//       dot: "bg-orange-500",
-//       bg: "bg-orange-50",
-//     },
-
-//     {
-//       value: "Inactive",
-//       label: "Inactive",
-//       icon: CircleOff,
-//       color: "text-slate-500",
-//       dot: "bg-slate-400",
-//       bg: "bg-slate-100",
-//     },
-
-//     {
-//       value: "On Call",
-//       label: "On Call",
-//       icon: Phone,
-//       color: "text-blue-600",
-//       dot: "bg-blue-500",
-//       bg: "bg-blue-50",
-//     },
-
-//     {
-//       value: "Washroom Break",
-//       label: "Washroom Break",
-//       icon: Bath,
-//       color: "text-cyan-600",
-//       dot: "bg-cyan-500",
-//       bg: "bg-cyan-50",
-//     },
-
-//     {
-//       value: "Other",
-//       label: "Other",
-//       icon: MoreHorizontal,
-//       color: "text-purple-600",
-//       dot: "bg-purple-500",
-//       bg: "bg-purple-50",
-//     },
-//   ];
-
-//   // ============================================================
-//   // CURRENT STATUS
-//   // ============================================================
-
-//   const selectedStatus =
-//     statusOptions.find(
-//       (status) => status.value === userStatus
-//     ) || statusOptions[0];
-
-//   const StatusIcon = selectedStatus.icon;
-
-//   // ============================================================
-//   // FETCH USER
-//   // ============================================================
-
-//   useEffect(() => {
-//     async function fetchUserData() {
-//       try {
-//         const res = await fetch("/api/auth/me", {
-//           cache: "no-store",
-//         });
-
-//         const data = await res.json();
-
-//         const userObj =
-//           data.user ||
-//           data.data ||
-//           data;
-
-//         if (data.success || userObj) {
-//           const avatarUrl =
-//             userObj.avatar ||
-//             userObj.image ||
-//             userObj.profilePic ||
-//             userObj.avatarUrl ||
-//             userObj.profile_picture ||
-//             null;
-
-//           const userName =
-//             userObj.name ||
-//             userObj.username ||
-//             userObj.fullName ||
-//             "";
-
-//           setCurrentUser({
-//             name: userName,
-//             email: userObj.email || "",
-//             role: userObj.role || "user",
-//             avatar: avatarUrl,
-//           });
-
-//           // Agar future mein API se status aaye
-//           if (userObj.status) {
-//             setUserStatus(userObj.status);
-//           }
-//         }
-//       } catch (err) {
-//         console.error(
-//           "Failed to fetch user details:",
-//           err
-//         );
-//       } finally {
-//         setLoading(false);
-//       }
-//     }
-
-//     fetchUserData();
-//   }, []);
-
-//   // ============================================================
-//   // CLOSE STATUS DROPDOWN WHEN CLICK OUTSIDE
-//   // ============================================================
-
-//   useEffect(() => {
-//     function handleClickOutside(event) {
-//       if (
-//         statusRef.current &&
-//         !statusRef.current.contains(event.target)
-//       ) {
-//         setStatusOpen(false);
-//       }
-//     }
-
-//     document.addEventListener(
-//       "mousedown",
-//       handleClickOutside
-//     );
-
-//     return () => {
-//       document.removeEventListener(
-//         "mousedown",
-//         handleClickOutside
-//       );
-//     };
-//   }, []);
-
-//   // ============================================================
-//   // STATUS CHANGE
-//   // ============================================================
-
-//   const handleStatusChange = (status) => {
-//     setUserStatus(status);
-//     setStatusOpen(false);
-
-//     console.log("USER STATUS:", status);
-
-//     // ========================================================
-//     // FUTURE API
-//     // Yahan baad mein status database mein save kar sakte hain.
-//     // ========================================================
-//   };
-
-//   // ============================================================
-//   // INITIAL
-//   // ============================================================
-
-//   const userInitial = currentUser.name
-//     ? currentUser.name
-//         .trim()
-//         .charAt(0)
-//         .toUpperCase()
-//     : "";
-
-//   const isAdmin =
-//     currentUser.role?.toLowerCase() === "admin";
-
-//   // ============================================================
-//   // UI
-//   // ============================================================
-
-//   return (
-//     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white border border-slate-200/80 p-4 rounded-2xl shadow-sm">
-
-//       {/* ======================================================
-//           LEFT
-//       ======================================================= */}
-
-//       <div>
-//         <h1 className="text-xl font-extrabold text-slate-900">
-//           Dashboard
-//         </h1>
-
-//         <p className="text-xs text-slate-500 mt-0.5">
-//           Call Activity & Performance Analytics
-//         </p>
-//       </div>
-
-//       {/* ======================================================
-//           RIGHT
-//       ======================================================= */}
-
-//       <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-4">
-
-//         {/* ====================================================
-//             LOGIN BADGE
-//         ===================================================== */}
-
-//         <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-blue-50 border border-blue-100 text-xs text-blue-700 font-medium shadow-sm">
-
-//           <Calendar
-//             size={14}
-//             className="text-blue-600 shrink-0"
-//           />
-
-//           <span>
-//             Logged in:{" "}
-//             <strong>
-//               {loginDetails.day}
-//             </strong>
-//             , {loginDetails.date} at{" "}
-//             {loginDetails.time}
-//           </span>
-//         </div>
-
-//         {/* ====================================================
-//             PROFILE SECTION
-//         ===================================================== */}
-
-//         <div
-//           className="flex items-center gap-3 shrink-0 relative"
-//           ref={statusRef}
-//         >
-
-//           {/* ==================================================
-//               AVATAR
-//           =================================================== */}
-
-//           <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-sm shadow-md overflow-hidden shrink-0 relative">
-
-//             {loading ? (
-//               <div className="w-full h-full bg-slate-200 animate-pulse flex items-center justify-center">
-//                 <User
-//                   size={18}
-//                   className="text-slate-400"
-//                 />
-//               </div>
-//             ) : currentUser.avatar &&
-//               !imageError ? (
-//               <img
-//                 src={currentUser.avatar}
-//                 alt={
-//                   currentUser.name ||
-//                   "User Avatar"
-//                 }
-//                 className="w-full h-full object-cover"
-//                 onError={() =>
-//                   setImageError(true)
-//                 }
-//               />
-//             ) : userInitial ? (
-//               <span className="bg-gradient-to-tr from-amber-500 to-rose-500 w-full h-full rounded-full flex items-center justify-center uppercase font-black text-white">
-//                 {userInitial}
-//               </span>
-//             ) : (
-//               <div className="bg-slate-800 w-full h-full flex items-center justify-center">
-//                 <User
-//                   size={18}
-//                   className="text-slate-300"
-//                 />
-//               </div>
-//             )}
-//           </div>
-
-//           {/* ==================================================
-//               USER DETAILS
-//           =================================================== */}
-
-//           <div className="text-left hidden md:block">
-
-//             {/* ================================================
-//                 NAME + ROLE
-//             ================================================= */}
-
-//             <div className="flex items-center gap-2">
-
-//               <p className="text-xs sm:text-sm font-bold text-slate-900 leading-none capitalize">
-//                 {loading
-//                   ? "Loading..."
-//                   : currentUser.name ||
-//                     "Guest User"}
-//               </p>
-
-//               {!loading &&
-//                 currentUser.role && (
-//                   <span
-//                     className={`px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider rounded-md border ${
-//                       isAdmin
-//                         ? "bg-purple-50 text-purple-700 border-purple-200"
-//                         : "bg-emerald-50 text-emerald-700 border-emerald-200"
-//                     }`}
-//                   >
-//                     {currentUser.role}
-//                   </span>
-//                 )}
-//             </div>
-
-//             {/* ================================================
-//                 EMAIL
-//             ================================================= */}
-
-//             <p className="text-[11px] text-slate-400 font-medium mt-1">
-//               {loading
-//                 ? "fetching email..."
-//                 : currentUser.email ||
-//                   "No email available"}
-//             </p>
-
-//             {/* ================================================
-//                 STATUS BUTTON
-//             ================================================= */}
-
-//             {!loading && (
-//               <div className="relative mt-2">
-
-//                 <button
-//                   type="button"
-//                   onClick={() =>
-//                     setStatusOpen(
-//                       (prev) => !prev
-//                     )
-//                   }
-//                   className={`flex items-center gap-2 px-2.5 py-1 rounded-lg border ${selectedStatus.bg} ${selectedStatus.color} border-slate-200/70 hover:shadow-sm transition-all duration-200`}
-//                 >
-
-//                   {/* STATUS DOT */}
-
-//                   <span
-//                     className={`w-2 h-2 rounded-full ${selectedStatus.dot} ${
-//                       userStatus === "Active"
-//                         ? "animate-pulse"
-//                         : ""
-//                     }`}
-//                   />
-
-//                   <span className="text-[11px] font-bold whitespace-nowrap">
-//                     {selectedStatus.label}
-//                   </span>
-
-//                   <ChevronDown
-//                     size={12}
-//                     className={`transition-transform ${
-//                       statusOpen
-//                         ? "rotate-180"
-//                         : ""
-//                     }`}
-//                   />
-//                 </button>
-
-//                 {/* ============================================
-//                     STATUS DROPDOWN
-//                 ============================================= */}
-
-//                 {statusOpen && (
-//                   <div className="absolute right-0 top-full mt-2 w-52 bg-white rounded-xl border border-slate-200 shadow-xl shadow-slate-900/10 p-1.5 z-50">
-
-//                     <div className="px-2.5 py-2 mb-1">
-//                       <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
-//                         Set your status
-//                       </p>
-//                     </div>
-
-//                     {statusOptions.map(
-//                       (option) => {
-//                         const Icon =
-//                           option.icon;
-
-//                         const isSelected =
-//                           userStatus ===
-//                           option.value;
-
-//                         return (
-//                           <button
-//                             key={
-//                               option.value
-//                             }
-//                             type="button"
-//                             onClick={() =>
-//                               handleStatusChange(
-//                                 option.value
-//                               )
-//                             }
-//                             className={`w-full flex items-center gap-3 px-2.5 py-2 rounded-lg text-left transition-all ${
-//                               isSelected
-//                                 ? `${option.bg} ${option.color}`
-//                                 : "hover:bg-slate-50 text-slate-600"
-//                             }`}
-//                           >
-
-//                             {/* ICON */}
-
-//                             <div
-//                               className={`w-7 h-7 rounded-lg flex items-center justify-center ${
-//                                 isSelected
-//                                   ? option.bg
-//                                   : "bg-slate-100"
-//                               }`}
-//                             >
-//                               <Icon
-//                                 size={14}
-//                                 className={
-//                                   isSelected
-//                                     ? option.color
-//                                     : "text-slate-500"
-//                                 }
-//                               />
-//                             </div>
-
-//                             {/* LABEL */}
-
-//                             <span
-//                               className={`text-xs font-semibold flex-1 ${
-//                                 isSelected
-//                                   ? option.color
-//                                   : "text-slate-700"
-//                               }`}
-//                             >
-//                               {option.label}
-//                             </span>
-
-//                             {/* CHECK */}
-
-//                             {isSelected && (
-//                               <Check
-//                                 size={14}
-//                                 className={
-//                                   option.color
-//                                 }
-//                               />
-//                             )}
-//                           </button>
-//                         );
-//                       }
-//                     )}
-//                   </div>
-//                 )}
-//               </div>
-//             )}
-//           </div>
-
-//           {/* DESKTOP PROFILE ARROW */}
-
-//           <button
-//             type="button"
-//             onClick={() =>
-//               setStatusOpen(
-//                 (prev) => !prev
-//               )
-//             }
-//             className="hidden md:flex items-center justify-center"
-//           >
-//             <ChevronDown
-//               size={15}
-//               className={`text-slate-400 transition-transform ${
-//                 statusOpen
-//                   ? "rotate-180"
-//                   : ""
-//               }`}
-//             />
-//           </button>
-//         </div>
-//       </div>
-//     </div>
-//   );
-// }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -596,6 +22,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 
 import {
   Calendar,
@@ -609,7 +36,6 @@ import {
   CircleOff,
   Bath,
   MoreHorizontal,
-  X,
   Clock3,
 } from "lucide-react";
 
@@ -645,6 +71,10 @@ export default function DashboardTopBar() {
   const [timerOpen, setTimerOpen] = useState(false);
   const [timerStatus, setTimerStatus] = useState(null);
   const [timerSeconds, setTimerSeconds] = useState(0);
+
+  // DB STATUS START TIME
+  const [statusStartedAt, setStatusStartedAt] =
+    useState(null);
 
   // ============================================================
   // LOGIN DETAILS
@@ -755,13 +185,20 @@ export default function DashboardTopBar() {
   // ============================================================
 
   const formatTimer = (seconds) => {
-    const hrs = Math.floor(seconds / 3600);
-
-    const mins = Math.floor(
-      (seconds % 3600) / 60
+    const safeSeconds = Math.max(
+      0,
+      Number(seconds) || 0
     );
 
-    const secs = seconds % 60;
+    const hrs = Math.floor(
+      safeSeconds / 3600
+    );
+
+    const mins = Math.floor(
+      (safeSeconds % 3600) / 60
+    );
+
+    const secs = safeSeconds % 60;
 
     return [
       hrs.toString().padStart(2, "0"),
@@ -771,15 +208,50 @@ export default function DashboardTopBar() {
   };
 
   // ============================================================
-  // LOAD USER + SAVED TIMER
+  // CALCULATE TIMER FROM DATABASE START TIME
+  // ============================================================
+
+  const calculateElapsedTime = (
+    startedAt
+  ) => {
+    if (!startedAt) {
+      return 0;
+    }
+
+    const startTime =
+      new Date(startedAt).getTime();
+
+    if (Number.isNaN(startTime)) {
+      return 0;
+    }
+
+    const elapsed = Math.floor(
+      (Date.now() - startTime) / 1000
+    );
+
+    return Math.max(0, elapsed);
+  };
+
+  // ============================================================
+  // LOAD USER + STATUS FROM DATABASE
   // ============================================================
 
   useEffect(() => {
+    let mounted = true;
+
     async function fetchUserData() {
       try {
-        const res = await fetch("/api/auth/me", {
-          cache: "no-store",
-        });
+        // ======================================================
+        // GET CURRENT USER
+        // ======================================================
+
+        const res = await fetch(
+          "/api/auth/me",
+          {
+            cache: "no-store",
+            credentials: "include",
+          }
+        );
 
         const data = await res.json();
 
@@ -788,7 +260,10 @@ export default function DashboardTopBar() {
           data.data ||
           data;
 
-        if (data.success || userObj) {
+        if (
+          data.success ||
+          userObj
+        ) {
           const avatarUrl =
             userObj.avatar ||
             userObj.image ||
@@ -803,141 +278,168 @@ export default function DashboardTopBar() {
             userObj.fullName ||
             "";
 
+          if (!mounted) return;
+
           setCurrentUser({
             name: userName,
             email: userObj.email || "",
-            role: userObj.role || "user",
+            role:
+              userObj.role || "user",
             avatar: avatarUrl,
           });
+        }
 
-          // ====================================================
-          // LOAD STATUS FROM DATABASE
-          // ====================================================
+        // ======================================================
+        // GET CURRENT STATUS FROM DATABASE
+        // ======================================================
 
-          const dbStatus =
-            userObj.availability_status ||
-            userObj.status ||
-            "Active";
-
-          setUserStatus(dbStatus);
-
-          // ====================================================
-          // LOAD TIMER FROM LOCAL STORAGE
-          // ====================================================
-
-          try {
-            const savedTimer =
-              localStorage.getItem(
-                "crm_status_timer"
-              );
-
-            if (savedTimer) {
-              const parsed =
-                JSON.parse(savedTimer);
-
-              if (
-                parsed &&
-                parsed.status &&
-                parsed.startedAt
-              ) {
-                const elapsed = Math.floor(
-                  (Date.now() -
-                    Number(parsed.startedAt)) /
-                    1000
-                );
-
-                if (
-                  elapsed >= 0 &&
-                  parsed.status !== "Active"
-                ) {
-                  setTimerStatus(
-                    parsed.status
-                  );
-
-                  setTimerSeconds(elapsed);
-
-                  setTimerOpen(true);
-                }
-              }
-            }
-          } catch (storageError) {
-            console.error(
-              "Timer localStorage error:",
-              storageError
-            );
+        const statusRes = await fetch(
+          "/api/users/status",
+          {
+            cache: "no-store",
+            credentials: "include",
           }
+        );
+
+        const statusData =
+          await statusRes.json();
+
+        if (
+          !statusRes.ok ||
+          !statusData.success
+        ) {
+          throw new Error(
+            statusData.message ||
+              "Failed to load status"
+          );
+        }
+
+        const dbStatus =
+          statusData.status ||
+          statusData.user
+            ?.availability_status ||
+          "Active";
+
+        const dbStartedAt =
+          statusData.status_started_at ??
+          statusData.user
+            ?.status_started_at ??
+          null;
+
+        if (!mounted) return;
+
+        // ======================================================
+        // SET STATUS
+        // ======================================================
+
+        setUserStatus(dbStatus);
+
+        // ======================================================
+        // SET DATABASE START TIME
+        // ======================================================
+
+        setStatusStartedAt(
+          dbStartedAt
+        );
+
+        // ======================================================
+        // RESTORE TIMER FROM DATABASE
+        // ======================================================
+
+        if (
+          dbStatus !== "Active" &&
+          dbStartedAt
+        ) {
+          const elapsed =
+            calculateElapsedTime(
+              dbStartedAt
+            );
+
+          setTimerStatus(
+            dbStatus
+          );
+
+          setTimerSeconds(
+            elapsed
+          );
+
+          setTimerOpen(true);
+        } else {
+          setTimerStatus(null);
+          setTimerSeconds(0);
+          setTimerOpen(false);
         }
       } catch (err) {
         console.error(
-          "Failed to fetch user details:",
+          "Failed to fetch user/status:",
           err
         );
       } finally {
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     }
 
     fetchUserData();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   // ============================================================
   // TIMER TICK
+  // DATABASE BASED
   // ============================================================
 
   useEffect(() => {
     if (
       !timerOpen ||
-      !timerStatus
+      !timerStatus ||
+      !statusStartedAt
     ) {
       return;
     }
 
-    const interval = setInterval(() => {
-      try {
-        const savedTimer =
-          localStorage.getItem(
-            "crm_status_timer"
-          );
-
-        if (!savedTimer) {
-          return;
-        }
-
-        const parsed =
-          JSON.parse(savedTimer);
-
-        if (!parsed?.startedAt) {
-          return;
-        }
-
-        const elapsed = Math.floor(
-          (Date.now() -
-            Number(parsed.startedAt)) /
-            1000
+    const updateTimer = () => {
+      const elapsed =
+        calculateElapsedTime(
+          statusStartedAt
         );
 
-        setTimerSeconds(
-          Math.max(0, elapsed)
-        );
-      } catch (error) {
-        console.error(
-          "Timer update error:",
-          error
-        );
-      }
-    }, 1000);
+      setTimerSeconds(elapsed);
+    };
+
+    // Immediately calculate
+    updateTimer();
+
+    // Update every second
+    const interval =
+      setInterval(
+        updateTimer,
+        1000
+      );
 
     return () => {
-      clearInterval(interval);
+      clearInterval(
+        interval
+      );
     };
-  }, [timerOpen, timerStatus]);
+  }, [
+    timerOpen,
+    timerStatus,
+    statusStartedAt,
+  ]);
 
   // ============================================================
   // CLOSE DROPDOWN OUTSIDE
   // ============================================================
 
   useEffect(() => {
-    function handleClickOutside(event) {
+    function handleClickOutside(
+      event
+    ) {
       if (
         statusRef.current &&
         !statusRef.current.contains(
@@ -965,233 +467,333 @@ export default function DashboardTopBar() {
   // CHANGE STATUS
   // ============================================================
 
-  const handleStatusChange = async (
-    newStatus
-  ) => {
-    if (statusUpdating) return;
+  const handleStatusChange =
+    async (newStatus) => {
+      if (statusUpdating) {
+        return;
+      }
 
-    const oldStatus = userStatus;
+      const oldStatus =
+        userStatus;
 
-    setStatusOpen(false);
+      const oldStartedAt =
+        statusStartedAt;
 
-    // ========================================================
-    // ACTIVE
-    // ========================================================
+      setStatusOpen(false);
 
-    if (newStatus === "Active") {
+      // ========================================================
+      // ACTIVE
+      // ========================================================
+
+      if (newStatus === "Active") {
+        try {
+          setStatusUpdating(true);
+
+          const res =
+            await fetch(
+              "/api/users/status",
+              {
+                method: "PUT",
+
+                headers: {
+                  "Content-Type":
+                    "application/json",
+                },
+
+                credentials:
+                  "include",
+
+                body: JSON.stringify(
+                  {
+                    status:
+                      "Active",
+                  }
+                ),
+              }
+            );
+
+          const data =
+            await res.json();
+
+          if (
+            !res.ok ||
+            !data.success
+          ) {
+            throw new Error(
+              data.message ||
+                "Failed to update status"
+            );
+          }
+
+          // ====================================================
+          // DATABASE HAS CLOSED THE BREAK
+          // ====================================================
+
+          setUserStatus(
+            "Active"
+          );
+
+          setStatusStartedAt(
+            null
+          );
+
+          setTimerOpen(
+            false
+          );
+
+          setTimerStatus(
+            null
+          );
+
+          setTimerSeconds(
+            0
+          );
+        } catch (error) {
+          console.error(
+            "Status update error:",
+            error
+          );
+
+          setUserStatus(
+            oldStatus
+          );
+
+          setStatusStartedAt(
+            oldStartedAt
+          );
+
+          alert(
+            "Status update nahi ho saka."
+          );
+        } finally {
+          setStatusUpdating(
+            false
+          );
+        }
+
+        return;
+      }
+
+      // ========================================================
+      // NON ACTIVE STATUS
+      // ========================================================
+
       try {
         setStatusUpdating(true);
 
-        const res = await fetch(
-          "/api/users/status",
-          {
-            method: "PUT",
+        const res =
+          await fetch(
+            "/api/users/status",
+            {
+              method: "PUT",
 
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
 
-            credentials: "include",
+              credentials:
+                "include",
 
-            body: JSON.stringify({
-              status: "Active",
-            }),
-          }
-        );
+              body: JSON.stringify(
+                {
+                  status:
+                    newStatus,
+                }
+              ),
+            }
+          );
 
-        const data = await res.json();
+        const data =
+          await res.json();
 
-        if (!res.ok || !data.success) {
+        if (
+          !res.ok ||
+          !data.success
+        ) {
           throw new Error(
             data.message ||
               "Failed to update status"
           );
         }
 
-        setUserStatus("Active");
+        // ======================================================
+        // GET START TIME FROM DATABASE RESPONSE
+        // ======================================================
 
-        // Remove saved timer
-        localStorage.removeItem(
-          "crm_status_timer"
+        const dbStartedAt =
+          data.status_started_at ??
+          data.user
+            ?.status_started_at ??
+          null;
+
+        // ======================================================
+        // UPDATE STATE
+        // ======================================================
+
+        setUserStatus(
+          newStatus
         );
 
-        setTimerOpen(false);
-        setTimerStatus(null);
-        setTimerSeconds(0);
+        setStatusStartedAt(
+          dbStartedAt
+        );
+
+        setTimerStatus(
+          newStatus
+        );
+
+        // ======================================================
+        // START TIMER FROM DATABASE TIME
+        // ======================================================
+
+        const elapsed =
+          calculateElapsedTime(
+            dbStartedAt
+          );
+
+        setTimerSeconds(
+          elapsed
+        );
+
+        setTimerOpen(true);
       } catch (error) {
         console.error(
           "Status update error:",
           error
         );
 
-        setUserStatus(oldStatus);
+        setUserStatus(
+          oldStatus
+        );
+
+        setStatusStartedAt(
+          oldStartedAt
+        );
 
         alert(
           "Status update nahi ho saka."
         );
       } finally {
-        setStatusUpdating(false);
-      }
-
-      return;
-    }
-
-    // ========================================================
-    // NON ACTIVE STATUS
-    // ========================================================
-
-    try {
-      setStatusUpdating(true);
-
-      const res = await fetch(
-        "/api/users/status",
-        {
-          method: "PUT",
-
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-
-          credentials: "include",
-
-          body: JSON.stringify({
-            status: newStatus,
-          }),
-        }
-      );
-
-      const data = await res.json();
-
-      if (!res.ok || !data.success) {
-        throw new Error(
-          data.message ||
-            "Failed to update status"
+        setStatusUpdating(
+          false
         );
       }
-
-      // ======================================================
-      // UPDATE STATE
-      // ======================================================
-
-      setUserStatus(newStatus);
-
-      // ======================================================
-      // SAVE TIMER START TIME LOCALLY
-      // ======================================================
-
-      const timerData = {
-        status: newStatus,
-        startedAt: Date.now(),
-      };
-
-      localStorage.setItem(
-        "crm_status_timer",
-        JSON.stringify(timerData)
-      );
-
-      // ======================================================
-      // OPEN MODAL
-      // ======================================================
-
-      setTimerStatus(newStatus);
-      setTimerSeconds(0);
-      setTimerOpen(true);
-    } catch (error) {
-      console.error(
-        "Status update error:",
-        error
-      );
-
-      setUserStatus(oldStatus);
-
-      alert(
-        "Status update nahi ho saka."
-      );
-    } finally {
-      setStatusUpdating(false);
-    }
-  };
+    };
 
   // ============================================================
   // END BREAK / RETURN ACTIVE
   // ============================================================
 
-  const endStatusTimer = async () => {
-    if (statusUpdating) return;
-
-    try {
-      setStatusUpdating(true);
-
-      const res = await fetch(
-        "/api/users/status",
-        {
-          method: "PUT",
-
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-
-          credentials: "include",
-
-          body: JSON.stringify({
-            status: "Active",
-          }),
-        }
-      );
-
-      const data = await res.json();
-
-      if (!res.ok || !data.success) {
-        throw new Error(
-          data.message ||
-            "Failed to activate user"
-        );
+  const endStatusTimer =
+    async () => {
+      if (statusUpdating) {
+        return;
       }
 
-      // ======================================================
-      // RESET STATUS
-      // ======================================================
+      const oldStatus =
+        userStatus;
 
-      setUserStatus("Active");
+      const oldStartedAt =
+        statusStartedAt;
 
-      // ======================================================
-      // REMOVE TIMER
-      // ======================================================
+      try {
+        setStatusUpdating(true);
 
-      localStorage.removeItem(
-        "crm_status_timer"
-      );
+        const res =
+          await fetch(
+            "/api/users/status",
+            {
+              method: "PUT",
 
-      setTimerOpen(false);
-      setTimerStatus(null);
-      setTimerSeconds(0);
-    } catch (error) {
-      console.error(
-        "End status error:",
-        error
-      );
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
 
-      alert(
-        "Status change nahi ho saka."
-      );
-    } finally {
-      setStatusUpdating(false);
-    }
-  };
+              credentials:
+                "include",
+
+              body: JSON.stringify(
+                {
+                  status:
+                    "Active",
+                }
+              ),
+            }
+          );
+
+        const data =
+          await res.json();
+
+        if (
+          !res.ok ||
+          !data.success
+        ) {
+          throw new Error(
+            data.message ||
+              "Failed to activate user"
+          );
+        }
+
+        // ======================================================
+        // RESET STATUS
+        // ======================================================
+
+        setUserStatus(
+          "Active"
+        );
+
+        setStatusStartedAt(
+          null
+        );
+
+        setTimerOpen(
+          false
+        );
+
+        setTimerStatus(
+          null
+        );
+
+        setTimerSeconds(
+          0
+        );
+      } catch (error) {
+        console.error(
+          "End status error:",
+          error
+        );
+
+        setUserStatus(
+          oldStatus
+        );
+
+        setStatusStartedAt(
+          oldStartedAt
+        );
+
+        alert(
+          "Status change nahi ho saka."
+        );
+      } finally {
+        setStatusUpdating(
+          false
+        );
+      }
+    };
 
   // ============================================================
   // INITIAL
   // ============================================================
 
-  const userInitial = currentUser.name
-    ? currentUser.name
-        .trim()
-        .charAt(0)
-        .toUpperCase()
-    : "";
+  const userInitial =
+    currentUser.name
+      ? currentUser.name
+          .trim()
+          .charAt(0)
+          .toUpperCase()
+      : "";
 
   const isAdmin =
     currentUser.role?.toLowerCase() ===
@@ -1200,14 +802,17 @@ export default function DashboardTopBar() {
   const TimerIcon =
     statusOptions.find(
       (item) =>
-        item.value === timerStatus
+        item.value ===
+        timerStatus
     )?.icon || Clock3;
 
   const timerOption =
     statusOptions.find(
       (item) =>
-        item.value === timerStatus
-    ) || statusOptions[0];
+        item.value ===
+        timerStatus
+    ) ||
+    statusOptions[0];
 
   // ============================================================
   // UI
@@ -1231,7 +836,8 @@ export default function DashboardTopBar() {
           </h1>
 
           <p className="text-xs text-slate-500 mt-0.5">
-            Call Activity & Performance Analytics
+            Call Activity & Performance
+            Analytics
           </p>
         </div>
 
@@ -1257,7 +863,8 @@ export default function DashboardTopBar() {
               <strong>
                 {loginDetails.day}
               </strong>
-              , {loginDetails.date} at{" "}
+              , {loginDetails.date}{" "}
+              at{" "}
               {loginDetails.time}
             </span>
           </div>
@@ -1287,14 +894,18 @@ export default function DashboardTopBar() {
               ) : currentUser.avatar &&
                 !imageError ? (
                 <img
-                  src={currentUser.avatar}
+                  src={
+                    currentUser.avatar
+                  }
                   alt={
                     currentUser.name ||
                     "User Avatar"
                   }
                   className="w-full h-full object-cover"
                   onError={() =>
-                    setImageError(true)
+                    setImageError(
+                      true
+                    )
                   }
                 />
               ) : userInitial ? (
@@ -1337,7 +948,9 @@ export default function DashboardTopBar() {
                           : "bg-emerald-50 text-emerald-700 border-emerald-200"
                       }`}
                     >
-                      {currentUser.role}
+                      {
+                        currentUser.role
+                      }
                     </span>
                   )}
               </div>
@@ -1358,10 +971,13 @@ export default function DashboardTopBar() {
 
                   <button
                     type="button"
-                    disabled={statusUpdating}
+                    disabled={
+                      statusUpdating
+                    }
                     onClick={() =>
                       setStatusOpen(
-                        (prev) => !prev
+                        (prev) =>
+                          !prev
                       )
                     }
                     className={`flex items-center gap-2 px-2.5 py-1 rounded-lg border ${selectedStatus.bg} ${selectedStatus.color} border-slate-200/70 hover:shadow-sm transition-all duration-200 disabled:opacity-60`}
@@ -1369,14 +985,17 @@ export default function DashboardTopBar() {
 
                     <span
                       className={`w-2 h-2 rounded-full ${selectedStatus.dot} ${
-                        userStatus === "Active"
+                        userStatus ===
+                        "Active"
                           ? "animate-pulse"
                           : ""
                       }`}
                     />
 
                     <span className="text-[11px] font-bold whitespace-nowrap">
-                      {selectedStatus.label}
+                      {
+                        selectedStatus.label
+                      }
                     </span>
 
                     <ChevronDown
@@ -1401,7 +1020,9 @@ export default function DashboardTopBar() {
                       </div>
 
                       {statusOptions.map(
-                        (option) => {
+                        (
+                          option
+                        ) => {
                           const Icon =
                             option.icon;
 
@@ -1438,7 +1059,9 @@ export default function DashboardTopBar() {
                                 }`}
                               >
                                 <Icon
-                                  size={14}
+                                  size={
+                                    14
+                                  }
                                   className={
                                     isSelected
                                       ? option.color
@@ -1461,7 +1084,9 @@ export default function DashboardTopBar() {
 
                               {isSelected && (
                                 <Check
-                                  size={14}
+                                  size={
+                                    14
+                                  }
                                   className={
                                     option.color
                                   }
@@ -1483,7 +1108,8 @@ export default function DashboardTopBar() {
               type="button"
               onClick={() =>
                 setStatusOpen(
-                  (prev) => !prev
+                  (prev) =>
+                    !prev
                 )
               }
               className="hidden md:flex items-center justify-center"
@@ -1502,37 +1128,84 @@ export default function DashboardTopBar() {
       </div>
 
       {/* ======================================================
-          TIMER MODAL
+          LOCKED TIMER MODAL
       ======================================================= */}
-
-
 {/* ======================================================
-    LOCKED TIMER MODAL
+    PROFESSIONAL LOCKED STATUS TIMER
 ======================================================= */}
+
+{/* ============================================================
+    PROFESSIONAL LOCKED STATUS TIMER
+    - Portal to body
+    - Sidebar frozen
+    - Background frozen
+    - No outside click close
+    - No Escape close
+    - Only Return to Active works
+============================================================ */}
 
 {timerOpen &&
   timerStatus &&
-  timerStatus !== "Active" && (
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
+  timerStatus !== "Active" &&
+  typeof document !== "undefined" &&
+  createPortal(
+    <div
+      className="fixed inset-0 z-[2147483647] flex min-h-screen w-screen items-center justify-center p-4"
+      style={{
+        position: "fixed",
+        inset: 0,
+        width: "100vw",
+        height: "100vh",
+        pointerEvents: "auto",
+      }}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="status-timer-title"
+    >
 
-      {/* ==================================================
+      {/* ======================================================
           FULL SCREEN BACKDROP
-          No click close
-      =================================================== */}
-
-      <div className="absolute inset-0 bg-slate-950/55 backdrop-blur-sm" />
-
-      {/* ==================================================
-          CENTER MODAL
-      =================================================== */}
+          This blocks Sidebar + Dashboard completely
+      ======================================================= */}
 
       <div
-        className="relative w-full max-w-md rounded-3xl bg-white border border-slate-200 shadow-2xl overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
+        className="absolute inset-0 bg-slate-950/75 backdrop-blur-md"
+        style={{
+          pointerEvents: "auto",
+        }}
+        onMouseDown={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        }}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        }}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        }}
+      />
+
+      {/* ======================================================
+          TIMER CARD
+      ======================================================= */}
+
+      <div
+        className="relative z-[2147483647] w-full max-w-md overflow-hidden rounded-[28px] border border-white/10 bg-white shadow-[0_30px_100px_rgba(0,0,0,0.45)]"
+        style={{
+          pointerEvents: "auto",
+        }}
+        onMouseDown={(e) => {
+          e.stopPropagation();
+        }}
+        onClick={(e) => {
+          e.stopPropagation();
+        }}
       >
 
         {/* ==================================================
-            TOP STATUS LINE
+            TOP ACCENT
         =================================================== */}
 
         <div
@@ -1543,85 +1216,246 @@ export default function DashboardTopBar() {
             CONTENT
         =================================================== */}
 
-        <div className="px-6 sm:px-8 py-9 text-center">
+        <div className="px-5 py-7 sm:px-8 sm:py-8">
 
           {/* ==================================================
-              STATUS ICON
+              HEADER
           =================================================== */}
 
-          <div
-            className={`mx-auto w-20 h-20 rounded-3xl ${timerOption.bg} ${timerOption.color} flex items-center justify-center shadow-sm`}
-          >
-            <TimerIcon size={36} />
+          <div className="flex items-start justify-between gap-4">
+
+            {/* STATUS */}
+
+            <div className="min-w-0 text-left">
+
+              <p className="text-[10px] font-extrabold uppercase tracking-[0.22em] text-slate-400">
+                Current Status
+              </p>
+
+              <h2
+                id="status-timer-title"
+                className={`mt-1.5 truncate text-xl font-black sm:text-2xl ${timerOption.color}`}
+              >
+                {timerStatus}
+              </h2>
+
+            </div>
+
+            {/* LIVE BADGE */}
+
+            <div className="flex shrink-0 items-center gap-2 rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1.5">
+
+              <span className="relative flex h-2.5 w-2.5">
+
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+
+                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+
+              </span>
+
+              <span className="text-[10px] font-extrabold tracking-wide text-emerald-700">
+                LIVE
+              </span>
+
+            </div>
+
           </div>
 
           {/* ==================================================
-              STATUS LABEL
+              MAIN TIMER AREA
           =================================================== */}
 
-          <p className="mt-6 text-[10px] uppercase tracking-[0.25em] font-extrabold text-slate-400">
-            Current Status
-          </p>
+          <div className="relative mt-7 overflow-hidden rounded-[24px] border border-slate-100 bg-gradient-to-br from-slate-50 via-white to-slate-100 px-5 py-8 text-center shadow-sm">
 
-          <h2
-            className={`mt-1 text-2xl sm:text-3xl font-black ${timerOption.color}`}
-          >
-            {timerStatus}
-          </h2>
+            {/* Decorative circles */}
 
-          {/* ==================================================
-              TIMER BOX
-          =================================================== */}
+            <div
+              className={`pointer-events-none absolute -right-12 -top-12 h-32 w-32 rounded-full ${timerOption.bg} opacity-70 blur-2xl`}
+            />
 
-          <div className="mt-7 rounded-2xl bg-slate-50 border border-slate-200 px-5 py-7">
+            <div className="pointer-events-none absolute -bottom-12 -left-12 h-32 w-32 rounded-full bg-slate-200/50 blur-2xl" />
 
-            <div className="flex items-center justify-center gap-2 text-slate-400 mb-3">
-              <Clock3 size={16} />
+            {/* ICON */}
 
-              <span className="text-xs font-bold">
-                Time Elapsed
-              </span>
+            <div
+              className={`relative mx-auto flex h-16 w-16 items-center justify-center rounded-2xl ${timerOption.bg} ${timerOption.color} shadow-sm ring-1 ring-black/5`}
+            >
+              <TimerIcon
+                size={30}
+                strokeWidth={2}
+              />
             </div>
 
-            <div className="text-4xl sm:text-5xl font-black tracking-[0.08em] text-slate-900 tabular-nums">
+            {/* LABEL */}
+
+            <p className="relative mt-5 text-[10px] font-extrabold uppercase tracking-[0.25em] text-slate-400">
+              Time Elapsed
+            </p>
+
+            {/* TIMER */}
+
+            <div className="relative mt-2 font-mono text-5xl font-black tracking-[-0.04em] text-slate-900 tabular-nums sm:text-6xl">
               {formatTimer(timerSeconds)}
             </div>
 
+            {/* DESCRIPTION */}
+
+            <p className="relative mt-3 text-xs font-medium text-slate-500 sm:text-sm">
+              Your status timer is currently running
+            </p>
+
           </div>
 
           {/* ==================================================
-              LOCK MESSAGE
+              STATUS INFORMATION
           =================================================== */}
 
-          <div className="mt-5 flex items-center justify-center gap-2 text-xs text-slate-500">
-            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+          <div className="mt-5 rounded-2xl border border-slate-100 bg-slate-50/80 p-4">
 
-            <span>
-              Status is currently active
-            </span>
+            <div className="flex items-center gap-3">
+
+              {/* STATUS ICON */}
+
+              <div
+                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${timerOption.bg} ${timerOption.color}`}
+              >
+                <TimerIcon
+                  size={18}
+                  strokeWidth={2}
+                />
+              </div>
+
+              {/* STATUS */}
+
+              <div className="min-w-0 text-left">
+
+                <p className="text-[9px] font-extrabold uppercase tracking-[0.15em] text-slate-400">
+                  Status
+                </p>
+
+                <p className="mt-0.5 truncate text-sm font-bold text-slate-800">
+                  {timerStatus}
+                </p>
+
+              </div>
+
+              {/* DIVIDER */}
+
+              <div className="ml-auto h-9 w-px bg-slate-200" />
+
+              {/* DURATION */}
+
+              <div className="text-right">
+
+                <p className="text-[9px] font-extrabold uppercase tracking-[0.15em] text-slate-400">
+                  Duration
+                </p>
+
+                <p className="mt-0.5 font-mono text-sm font-bold text-slate-800 tabular-nums">
+                  {formatTimer(timerSeconds)}
+                </p>
+
+              </div>
+
+            </div>
+
           </div>
 
           {/* ==================================================
-              RETURN ACTIVE
+              LOCKED STATUS MESSAGE
+          =================================================== */}
+
+          <div className="mt-5 flex items-center justify-center gap-2">
+
+            <span className="relative flex h-2.5 w-2.5">
+
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-60" />
+
+              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-amber-500" />
+
+            </span>
+
+            <p className="text-xs font-medium text-slate-500">
+              Your status is currently active
+            </p>
+
+          </div>
+
+          {/* ==================================================
+              RETURN TO ACTIVE
+              ONLY INTERACTIVE ACTION
           =================================================== */}
 
           <button
             type="button"
             disabled={statusUpdating}
-            onClick={endStatusTimer}
-            className="mt-6 w-full rounded-xl bg-slate-900 hover:bg-slate-800 text-white py-3.5 px-5 text-sm font-bold transition-all shadow-lg shadow-slate-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+
+              endStatusTimer();
+            }}
+            className="group mt-6 flex w-full items-center justify-center gap-2.5 rounded-2xl bg-[#790214] px-5 py-4 text-sm font-bold text-white shadow-lg shadow-[#790214]/20 transition-all duration-200 hover:bg-[#650111] hover:shadow-xl hover:shadow-[#790214]/25 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {statusUpdating
-              ? "Updating..."
-              : "Return to Active"}
+
+            {statusUpdating ? (
+              <>
+
+                {/* LOADING */}
+
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+
+                <span>
+                  Updating...
+                </span>
+
+              </>
+            ) : (
+              <>
+
+                {/* CHECK ICON */}
+
+                <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-white/10 transition-colors group-hover:bg-white/20">
+
+                  <Check
+                    size={16}
+                    strokeWidth={2.5}
+                  />
+
+                </span>
+
+                <span>
+                  Return to Active
+                </span>
+
+              </>
+            )}
+
           </button>
+
+          {/* ==================================================
+              FOOTER
+          =================================================== */}
+
+          <div className="mt-4 flex items-center justify-center gap-1.5">
+
+            <Clock3
+              size={12}
+              className="text-slate-400"
+            />
+
+            <p className="text-[10px] font-medium text-slate-400">
+              Your status duration is automatically recorded.
+            </p>
+
+          </div>
 
         </div>
       </div>
-    </div>
+    </div>,
+
+    document.body
   )}
-
-
     </>
   );
 }
