@@ -362,7 +362,7 @@ export default function LoginPage() {
       <div className="w-full min-h-screen grid grid-cols-1 lg:grid-cols-12">
         
         {/* Left Section (Hero / Dashboard Preview - Full Height) */}
-        <div className="hidden lg:flex lg:col-span-5 bg-[#0B1536] p-12 flex-col justify-between relative overflow-hidden text-white min-h-screen">
+        <div className="hidden lg:flex lg:col-span-5 bg-black p-12 flex-col justify-between relative overflow-hidden text-white min-h-screen">
           {/* Background Decorative Patterns */}
           <div className="absolute top-8 right-8 opacity-20 text-[#2563EB]">
             <div className="grid grid-cols-3 gap-2">
@@ -382,37 +382,40 @@ export default function LoginPage() {
 
           {/* Logo Section */}
           <div className="flex items-center gap-3 z-10">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-lg">
-              <div className="w-5 h-5 border-2 border-white rounded-full border-t-transparent animate-spin-slow" />
-            </div>
-            <span className="font-extrabold text-2xl tracking-tight text-white">
-              CallCRM
+          <div className="flex items-center z-10"> <img src="/uploads/CRM-LOGO-removebg-preview.png" alt="Digital Orbitus" className="h-10 w-auto object-contain" /> </div>
+            <span className="font-extrabold text-2xl tracking-tight text-[#ec3737]">
+        Digital Orbit Innovation
             </span>
           </div>
 
           {/* Hero Content */}
-          <div className="my-auto z-10 max-w-lg">
-            <h2 className="text-4xl font-extrabold mb-4 tracking-tight">
-              Welcome Back!
-            </h2>
-            <p className="text-slate-300 text-base leading-relaxed mb-8 font-normal">
-              Sign in to your account and continue to manage your calls and leads.
-            </p>
+        
+<div className="my-auto z-10 max-w-lg">
+  <h2 className="text-4xl font-extrabold mb-4 tracking-tight">
+    Welcome Back
+  </h2>
 
-            {/* Dashboard Mockup Image */}
-            <div className="relative mt-4 transform -rotate-1 hover:rotate-0 transition-transform duration-500 ease-out">
-              <div className="absolute -inset-1 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-2xl blur opacity-30" />
-              <img
-                src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=800&q=80"
-                alt="Dashboard Preview"
-                className="relative rounded-2xl border border-white/10 shadow-2xl w-full object-cover h-64"
-              />
-            </div>
-          </div>
+  <p className="text-slate-300 text-base leading-relaxed mb-8 font-normal">
+ Sign in to access your workspace, collaborate with your team, and  stay updated on everything happening across your projects. Keep your tasks organized, stay connected, and make every workday more productive.
+
+  </p>
+
+  {/* Dashboard Mockup Image */}
+  <div className="relative mt-4 transform -rotate-1 hover:rotate-0 transition-transform duration-500 ease-out">
+    <div className="absolute -inset-1 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-2xl blur opacity-30" />
+
+    <img
+      src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=800&q=80"
+      alt="CallCRM Dashboard Preview"
+      className="relative rounded-2xl border border-white/10 shadow-2xl w-full object-cover h-64"
+    />
+  </div>
+</div>
+
 
           {/* Footer Copyright */}
           <div className="z-10 text-xs text-slate-400">
-            © 2026 CallCRM. All rights reserved.
+            2026 Digital ORBITUS . All rights reserved.
           </div>
         </div>
 
