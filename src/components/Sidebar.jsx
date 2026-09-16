@@ -332,7 +332,7 @@ export default function Sidebar({
       icon: UserPlus,
       href: "/Attendance",
       hasDropdown: false,
-      roles: ["admin","user","staff", "agent" ],
+      roles: ["admin","user","staff", "agent","Desgin","SMM","Sales","Developer"],
     
     },
     {
