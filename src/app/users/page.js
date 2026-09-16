@@ -13867,7 +13867,7 @@ export default function UsersPage() {
 
           {/* STATS */}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 mb-7">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-7">
             {/* TOTAL USERS */}
 
             <div className="bg-white border border-[#E4DEDA] rounded-2xl p-5 shadow-sm">
@@ -14107,134 +14107,116 @@ export default function UsersPage() {
               </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-3">
-              {/* SEARCH */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+  {/* SEARCH */}
+  <div className="relative xl:col-span-1">
+    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
 
-              <div className="relative sm:col-span-2 xl:col-span-2">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+    <input
+      type="text"
+      value={searchTerm}
+      onChange={(e) => setSearchTerm(e.target.value)}
+      placeholder="Search users..."
+      className="w-full h-11 rounded-xl border border-[#DDD6D2] bg-[#FCFBFA] pl-10 pr-3 text-sm text-gray-700 outline-none focus:bg-white focus:border-[#ec3737] focus:ring-4 focus:ring-[#ec3737]/10"
+    />
+  </div>
 
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) =>
-                    setSearchTerm(e.target.value)
-                  }
-                  placeholder="Search users..."
-                  className="w-full h-11 rounded-xl border border-[#DDD6D2] bg-[#FCFBFA] pl-10 pr-3 text-sm text-gray-700 outline-none focus:bg-white focus:border-[#ec3737] focus:ring-4 focus:ring-[#ec3737]/10"
-                />
-              </div>
+  {/* ROLE */}
+  <div className="relative">
+    <select
+      value={roleFilter}
+      onChange={(e) => setRoleFilter(e.target.value)}
+      className="appearance-none w-full h-11 rounded-xl border border-[#DDD6D2] bg-[#FCFBFA] px-3 pr-9 text-sm text-gray-700 outline-none focus:bg-white focus:border-[#ec3737] focus:ring-4 focus:ring-[#ec3737]/10"
+    >
+      <option>All Roles</option>
+      <option>Admin</option>
+      <option>Agent</option>
+      <option>Manager</option>
+    </select>
 
-              {/* ROLE */}
+    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+  </div>
 
-              <div className="relative">
-                <select
-                  value={roleFilter}
-                  onChange={(e) =>
-                    setRoleFilter(e.target.value)
-                  }
-                  className="appearance-none w-full h-11 rounded-xl border border-[#DDD6D2] bg-[#FCFBFA] px-3 pr-9 text-sm text-gray-700 outline-none focus:bg-white focus:border-[#ec3737] focus:ring-4 focus:ring-[#ec3737]/10"
-                >
-                  <option>All Roles</option>
-                  <option>Admin</option>
-                  <option>Agent</option>
-                  <option>Manager</option>
-                </select>
+  {/* STATUS */}
+  <div className="relative">
+    <select
+      value={statusFilter}
+      onChange={(e) => setStatusFilter(e.target.value)}
+      className="appearance-none w-full h-11 rounded-xl border border-[#DDD6D2] bg-[#FCFBFA] px-3 pr-9 text-sm text-gray-700 outline-none focus:bg-white focus:border-[#ec3737] focus:ring-4 focus:ring-[#ec3737]/10"
+    >
+      <option>All Status</option>
+      <option>Active</option>
+      <option>Inactive</option>
+      <option>Namaz Break</option>
+      <option>Lunch Break</option>
+      <option>Short Break</option>
+      <option>Meeting</option>
+      <option>On Call</option>
+      <option>Other</option>
+    </select>
 
-                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-              </div>
+    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+  </div>
 
-              {/* STATUS */}
+  {/* TEAM */}
+  <div className="relative">
+    <select
+      value={teamFilter}
+      onChange={(e) => setTeamFilter(e.target.value)}
+      className="appearance-none w-full h-11 rounded-xl border border-[#DDD6D2] bg-[#FCFBFA] px-3 pr-9 text-sm text-gray-700 outline-none focus:bg-white focus:border-[#ec3737] focus:ring-4 focus:ring-[#ec3737]/10"
+    >
+      <option>All Teams</option>
 
-              <div className="relative">
-                <select
-                  value={statusFilter}
-                  onChange={(e) =>
-                    setStatusFilter(e.target.value)
-                  }
-                  className="appearance-none w-full h-11 rounded-xl border border-[#DDD6D2] bg-[#FCFBFA] px-3 pr-9 text-sm text-gray-700 outline-none focus:bg-white focus:border-[#ec3737] focus:ring-4 focus:ring-[#ec3737]/10"
-                >
-                  <option>All Status</option>
-                  <option>Active</option>
-                  <option>Inactive</option>
-                  <option>Namaz Break</option>
-                  <option>Lunch Break</option>
-                  <option>Short Break</option>
-                  <option>Meeting</option>
-                  <option>On Call</option>
-                  <option>Other</option>
-                </select>
+      {teams.map((team) => (
+        <option key={team} value={team}>
+          {team}
+        </option>
+      ))}
+    </select>
 
-                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-              </div>
+    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+  </div>
 
-              {/* TEAM */}
+  {/* FROM DATE */}
+  <div className="relative">
+    <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
 
-              <div className="relative">
-                <select
-                  value={teamFilter}
-                  onChange={(e) =>
-                    setTeamFilter(e.target.value)
-                  }
-                  className="appearance-none w-full h-11 rounded-xl border border-[#DDD6D2] bg-[#FCFBFA] px-3 pr-9 text-sm text-gray-700 outline-none focus:bg-white focus:border-[#ec3737] focus:ring-4 focus:ring-[#ec3737]/10"
-                >
-                  <option>All Teams</option>
+    <input
+      type="date"
+      value={startDate}
+      onChange={(e) => setStartDate(e.target.value)}
+      aria-label="From Date"
+      title="From Date"
+      className="w-full h-11 rounded-xl border border-[#DDD6D2] bg-[#FCFBFA] pl-10 pr-2 text-sm text-gray-700 outline-none focus:bg-white focus:border-[#ec3737] focus:ring-4 focus:ring-[#ec3737]/10"
+    />
 
-                  {teams.map((team) => (
-                    <option key={team} value={team}>
-                      {team}
-                    </option>
-                  ))}
-                </select>
+    {!startDate && (
+      <span className="absolute left-10 top-1/2 -translate-y-1/2 text-sm text-gray-400 pointer-events-none">
+        From Date
+      </span>
+    )}
+  </div>
 
-                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-              </div>
+  {/* TO DATE */}
+  <div className="relative">
+    <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
 
-              {/* FROM DATE */}
+    <input
+      type="date"
+      value={endDate}
+      onChange={(e) => setEndDate(e.target.value)}
+      aria-label="To Date"
+      title="To Date"
+      className="w-full h-11 rounded-xl border border-[#DDD6D2] bg-[#FCFBFA] pl-10 pr-2 text-sm text-gray-700 outline-none focus:bg-white focus:border-[#ec3737] focus:ring-4 focus:ring-[#ec3737]/10"
+    />
 
-              <div className="relative">
-                <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) =>
-                    setStartDate(e.target.value)
-                  }
-                  aria-label="From Date"
-                  title="From Date"
-                  className="w-full h-11 rounded-xl border border-[#DDD6D2] bg-[#FCFBFA] pl-10 pr-2 text-sm text-gray-700 outline-none focus:bg-white focus:border-[#ec3737] focus:ring-4 focus:ring-[#ec3737]/10"
-                />
-
-                {!startDate && (
-                  <span className="absolute left-10 top-1/2 -translate-y-1/2 text-sm text-gray-400 pointer-events-none">
-                    From Date
-                  </span>
-                )}
-              </div>
-
-              {/* TO DATE */}
-
-              <div className="relative">
-                <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) =>
-                    setEndDate(e.target.value)
-                  }
-                  aria-label="To Date"
-                  title="To Date"
-                  className="w-full h-11 rounded-xl border border-[#DDD6D2] bg-[#FCFBFA] pl-10 pr-2 text-sm text-gray-700 outline-none focus:bg-white focus:border-[#ec3737] focus:ring-4 focus:ring-[#ec3737]/10"
-                />
-
-                {!endDate && (
-                  <span className="absolute left-10 top-1/2 -translate-y-1/2 text-sm text-gray-400 pointer-events-none">
-                    To Date
-                  </span>
-                )}
-              </div>
-            </div>
+    {!endDate && (
+      <span className="absolute left-10 top-1/2 -translate-y-1/2 text-sm text-gray-400 pointer-events-none">
+        To Date
+      </span>
+    )}
+  </div>
+</div>
           </div>
 
           {/* DIRECTORY HEADER */}

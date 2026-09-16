@@ -2866,110 +2866,217 @@ export default function DashboardTopBar() {
   // LOGIN DETAILS
   // ============================================================
 
-  const [loginDetails] = useState(() => {
-    const now = new Date();
+  // const [loginDetails] = useState(() => {
+  //   const now = new Date();
 
-    return {
-      day: now.toLocaleDateString("en-US", {
-        weekday: "long",
-      }),
+  //   return {
+  //     day: now.toLocaleDateString("en-US", {
+  //       weekday: "long",
+  //     }),
 
-      date: now.toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      }),
+  //     date: now.toLocaleDateString("en-US", {
+  //       month: "short",
+  //       day: "numeric",
+  //       year: "numeric",
+  //     }),
 
-      time: now.toLocaleTimeString("en-US", {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: true,
-      }),
-    };
-  });
+  //     time: now.toLocaleTimeString("en-US", {
+  //       hour: "2-digit",
+  //       minute: "2-digit",
+  //       hour12: true,
+  //     }),
+  //   };
+  // });
+  // ============================================================
+// LOGIN DETAILS — CALIFORNIA TIME
+// ============================================================
+
+const [loginDetails] = useState(() => {
+  const now = new Date();
+
+  const timeZone = "America/Los_Angeles";
+
+  return {
+    day: now.toLocaleDateString("en-US", {
+      weekday: "long",
+      timeZone,
+    }),
+
+    date: now.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      timeZone,
+    }),
+
+    time: now.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: true,
+      timeZone,
+    }),
+  };
+});
 
   // ============================================================
   // STATUS OPTIONS
   // ============================================================
 
+  // const statusOptions = [
+  //   {
+  //     value: "Active",
+  //     label: "Active",
+  //     icon: Circle,
+  //     color: "text-emerald-600",
+  //     dot: "bg-emerald-500",
+  //     bg: "bg-emerald-50",
+  //   },
+
+  //   {
+  //     value: "Namaz Break",
+  //     label: "Namaz Break",
+  //     icon: Moon,
+  //     color: "text-indigo-600",
+  //     dot: "bg-indigo-500",
+  //     bg: "bg-indigo-50",
+  //   },
+
+  //   {
+  //     value: "Lunch Break",
+  //     label: "Lunch Break",
+  //     icon: Utensils,
+  //     color: "text-orange-600",
+  //     dot: "bg-orange-500",
+  //     bg: "bg-orange-50",
+  //   },
+
+  //   // ==========================================================
+  //   // SHORT BREAK
+  //   // ==========================================================
+
+  //   {
+  //     value: "Short Break",
+  //     label: "Short Break",
+  //     icon: Clock3,
+  //     color: "text-teal-600",
+  //     dot: "bg-teal-500",
+  //     bg: "bg-teal-50",
+  //   },
+
+  //   {
+  //     value: "Inactive",
+  //     label: "Inactive",
+  //     icon: CircleOff,
+  //     color: "text-slate-500",
+  //     dot: "bg-slate-400",
+  //     bg: "bg-slate-100",
+  //   },
+
+  //   {
+  //     value: "On Call",
+  //     label: "On Call",
+  //     icon: Phone,
+  //     color: "text-blue-600",
+  //     dot: "bg-blue-500",
+  //     bg: "bg-blue-50",
+  //   },
+
+  //   {
+  //     value: "Meeting",
+  //     label: "Meeting",
+  //     icon: Bath,
+  //     color: "text-cyan-600",
+  //     dot: "bg-cyan-500",
+  //     bg: "bg-cyan-50",
+  //   },
+
+  //   {
+  //     value: "Other",
+  //     label: "Other",
+  //     icon: MoreHorizontal,
+  //     color: "text-purple-600",
+  //     dot: "bg-purple-500",
+  //     bg: "bg-purple-50",
+  //   },
+  // ];
+
+
   const statusOptions = [
-    {
-      value: "Active",
-      label: "Active",
-      icon: Circle,
-      color: "text-emerald-600",
-      dot: "bg-emerald-500",
-      bg: "bg-emerald-50",
-    },
+  {
+    value: "Active",
+    label: "Active",
+    icon: Circle,
+    color: "text-emerald-600",
+    dot: "bg-emerald-500",
+    bg: "bg-emerald-50",
+  },
 
-    {
-      value: "Namaz Break",
-      label: "Namaz Break",
-      icon: Moon,
-      color: "text-indigo-600",
-      dot: "bg-indigo-500",
-      bg: "bg-indigo-50",
-    },
+  {
+    value: "Namaz Break",
+    label: "Namaz Break",
+    icon: Moon,
+    color: "text-indigo-600",
+    dot: "bg-indigo-500",
+    bg: "bg-indigo-50",
+  },
 
-    {
-      value: "Lunch Break",
-      label: "Lunch Break",
-      icon: Utensils,
-      color: "text-orange-600",
-      dot: "bg-orange-500",
-      bg: "bg-orange-50",
-    },
+  {
+    value: "Lunch Break",
+    label: "Lunch Break",
+    icon: Utensils,
+    color: "text-orange-600",
+    dot: "bg-orange-500",
+    bg: "bg-orange-50",
+  },
 
-    // ==========================================================
-    // SHORT BREAK
-    // ==========================================================
+  {
+    value: "Short Break",
+    label: "Short Break",
+    icon: Clock3,
+    color: "text-teal-600",
+    dot: "bg-teal-500",
+    bg: "bg-teal-50",
+  },
 
-    {
-      value: "Short Break",
-      label: "Short Break",
-      icon: Clock3,
-      color: "text-teal-600",
-      dot: "bg-teal-500",
-      bg: "bg-teal-50",
-    },
+  {
+    value: "Inactive",
+    label: "Inactive",
+    icon: CircleOff,
+    color: "text-slate-500",
+    dot: "bg-slate-400",
+    bg: "bg-slate-100",
+    disabled: true, // 🔒 manually select nahi hoga
+  },
 
-    {
-      value: "Inactive",
-      label: "Inactive",
-      icon: CircleOff,
-      color: "text-slate-500",
-      dot: "bg-slate-400",
-      bg: "bg-slate-100",
-    },
+  {
+    value: "On Call",
+    label: "On Call",
+    icon: Phone,
+    color: "text-blue-600",
+    dot: "bg-blue-500",
+    bg: "bg-blue-50",
+    disabled: true, // 🔒 manually select nahi hoga
+  },
 
-    {
-      value: "On Call",
-      label: "On Call",
-      icon: Phone,
-      color: "text-blue-600",
-      dot: "bg-blue-500",
-      bg: "bg-blue-50",
-    },
+  {
+    value: "Meeting",
+    label: "Meeting",
+    icon: Bath,
+    color: "text-cyan-600",
+    dot: "bg-cyan-500",
+    bg: "bg-cyan-50",
+  },
 
-    {
-      value: "Meeting",
-      label: "Meeting",
-      icon: Bath,
-      color: "text-cyan-600",
-      dot: "bg-cyan-500",
-      bg: "bg-cyan-50",
-    },
-
-    {
-      value: "Other",
-      label: "Other",
-      icon: MoreHorizontal,
-      color: "text-purple-600",
-      dot: "bg-purple-500",
-      bg: "bg-purple-50",
-    },
-  ];
-
+  {
+    value: "Other",
+    label: "Other",
+    icon: MoreHorizontal,
+    color: "text-purple-600",
+    dot: "bg-purple-500",
+    bg: "bg-purple-50",
+  },
+];
   // ============================================================
   // SELECTED STATUS
   // ============================================================
@@ -3776,81 +3883,42 @@ export default function DashboardTopBar() {
                         </p>
                       </div>
 
-                      {statusOptions.map(
-                        (option) => {
-                          const Icon =
-                            option.icon;
+                     {statusOptions.map((option) => {
+  const Icon = option.icon;
 
-                          const isSelected =
-                            userStatus ===
-                            option.value;
+  return (
+    <button
+      key={option.value}
+      type="button"
+      disabled={option.disabled}
+      onClick={() => {
+        if (option.disabled) return;
+        handleStatusChange(option.value);
+      }}
+      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition
+        ${
+          option.disabled
+            ? "opacity-50 cursor-not-allowed"
+            : "hover:bg-gray-50 cursor-pointer"
+        }
+      `}
+    >
+      <div className={`w-8 h-8 rounded-lg ${option.bg} flex items-center justify-center`}>
+        <Icon className={`w-4 h-4 ${option.color}`} />
+      </div>
 
-                          return (
-                            <button
-                              key={
-                                option.value
-                              }
-                              type="button"
-                              disabled={
-                                statusUpdating
-                              }
-                              onClick={() =>
-                                handleStatusChange(
-                                  option.value
-                                )
-                              }
-                              className={`group w-full flex items-center gap-3 px-2.5 py-2 rounded-lg text-left transition-all duration-200 ${
-                                isSelected
-                                  ? `${option.bg} ${option.color}`
-                                  : "text-slate-600 hover:bg-[#ec3737] hover:text-white hover:shadow-sm"
-                              } disabled:opacity-50`}
-                            >
+      <span className="text-sm font-medium text-gray-700">
+        {option.label}
+      </span>
 
-                              {/* ICON */}
-
-                              <div
-                                className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all duration-200 ${
-                                  isSelected
-                                    ? option.bg
-                                    : "bg-slate-100 group-hover:bg-white/20"
-                                }`}
-                              >
-                                <Icon
-                                  size={14}
-                                  className={`transition-all duration-200 ${
-                                    isSelected
-                                      ? option.color
-                                      : "text-slate-500 group-hover:text-white group-hover:scale-110"
-                                  }`}
-                                />
-                              </div>
-
-                              {/* LABEL */}
-
-                              <span
-                                className={`text-xs font-semibold flex-1 transition-colors duration-200 ${
-                                  isSelected
-                                    ? option.color
-                                    : "text-slate-700 group-hover:text-white"
-                                }`}
-                              >
-                                {
-                                  option.label
-                                }
-                              </span>
-
-                              {/* SELECTED CHECK */}
-
-                              {isSelected && (
-                                <Check
-                                  size={14}
-                                  className={`${option.color} transition-all duration-200`}
-                                />
-                              )}
-                            </button>
-                          );
-                        }
-                      )}
+      {option.disabled && (
+        <span className="ml-auto text-[10px] text-gray-400 font-medium">
+          Auto
+        </span>
+      )}
+    </button>
+  );
+})}
                     </div>
                   )}
                 </div>
@@ -4092,9 +4160,9 @@ export default function DashboardTopBar() {
 
                   <span className="relative flex h-2.5 w-2.5">
 
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-60" />
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#ec3737] opacity-60" />
 
-                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-amber-500" />
+                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#ec3737]" />
 
                   </span>
 

@@ -1820,12 +1820,12 @@ const filteredConversations = useMemo(() => {
     return () => clearTimeout(timer);
   }, []);
 
-  if (loading) {
-    return < CRMLoader
-     subtitle="messages"
-        message="Loading dashboard..."
-        />;
-  }
+  // if (loading) {
+  //   return < CRMLoader
+  //    subtitle="messages"
+  //       message="Loading dashboard..."
+  //       />;
+  // }
 
 
 return (

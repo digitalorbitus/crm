@@ -2936,32 +2936,72 @@ const [endDate, setEndDate] = useState(
   // HANDLE LOGOUT
   // =========================================================
 
-  const handleLogout = async () => {
+ // =========================================================
+// HANDLE LOGOUT
+// =========================================================
+const handleLogout = async () => {
+  if (loggingOut) return;
+
+  try {
+    setLoggingOut(true);
+
+    const res = await fetch("/api/auth/logout", {
+      method: "POST",
+      credentials: "include",
+      cache: "no-store",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+    });
+
+    let data = null;
+
     try {
-      setLoggingOut(true);
-
-      await fetch(
-        "/api/auth/logout",
-        {
-          method: "POST",
-          credentials: "include",
-        }
-      );
-
-      router.push("/login");
-      router.refresh();
-    } catch (error) {
-      console.error(
-        "LOGOUT ERROR:",
-        error
-      );
-
-      router.push("/login");
-    } finally {
-      setLoggingOut(false);
-      setShowLogoutModal(false);
+      data = await res.json();
+    } catch {
+      data = null;
     }
-  };
+
+    console.log("LOGOUT RESPONSE:", {
+      status: res.status,
+      ok: res.ok,
+      data,
+    });
+
+    // Clear browser-side login/session data
+    try {
+      localStorage.removeItem("crm_login_time");
+      localStorage.removeItem("crm_status_timer");
+      sessionStorage.clear();
+    } catch (storageError) {
+      console.error("STORAGE CLEAR ERROR:", storageError);
+    }
+
+    // Clear dashboard state
+    setStaff(null);
+    setAllStaff([]);
+    setCalls([]);
+    setNumbers([]);
+
+    // Always go to login after logout request
+    window.location.replace("/login");
+  } catch (error) {
+    console.error("LOGOUT ERROR:", error);
+
+    // Even if API fails, don't keep user on dashboard
+    try {
+      localStorage.removeItem("crm_login_time");
+      localStorage.removeItem("crm_status_timer");
+      sessionStorage.clear();
+    } catch {}
+
+    window.location.replace("/login");
+  } finally {
+    setLoggingOut(false);
+    setShowLogoutModal(false);
+  }
+};
 
   // =========================================================
   // DASHBOARD
@@ -3001,12 +3041,9 @@ const [endDate, setEndDate] = useState(
         `}
       >
         <Sidebar
-          staff={staff}
-          allStaff={allStaff}
-          numbers={numbers}
-          onLogout={() =>
-            setShowLogoutModal(true)
-          }
+          sidebarOpen={sidebarOpen}
+          setSidebarOpen={setSidebarOpen}
+          setShowLogoutModal={setShowLogoutModal}
         />
       </div>
 
@@ -3761,8 +3798,8 @@ const [endDate, setEndDate] = useState(
 
       {showLogoutModal && (
         <LogoutModal
-          open={showLogoutModal}
-          loading={loggingOut}
+          show={showLogoutModal}
+          loggingOut={loggingOut}
           onCancel={() =>
             setShowLogoutModal(false)
           }

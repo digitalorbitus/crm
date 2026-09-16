@@ -22,6 +22,7 @@ export default function StaffDashboardPage() {
 
   const [numbers, setNumbers] = useState([]);
   const [staff, setStaff] = useState(null);
+  
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const [rawApiResponse, setRawApiResponse] = useState(null);
@@ -163,15 +164,15 @@ export default function StaffDashboardPage() {
   };
 
 // =========  loder start  ==========
-if (loading) {
-  return (
-    <CRMLoader
-      title="CRM"
- subtitle="Daily Task Assignments"
-      message="Loading admin workspace..."
-    />
-  );
-}
+// if (loading) {
+//   return (
+//     <CRMLoader
+//       title="CRM"
+//  subtitle="Daily Task Assignments"
+//       message="Loading admin workspace..."
+//     />
+//   );
+// }
 // =========  loder end  ==========
 
   // Task Status Logic

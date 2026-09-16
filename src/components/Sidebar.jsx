@@ -243,6 +243,8 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import LogoutModal from "@/components/LogoutModal";
 import {
   LayoutDashboard,
   Users,
@@ -265,8 +267,11 @@ export default function Sidebar({
   setSidebarOpen,
   setShowLogoutModal,
 }) {
+  const router = useRouter();
   const [openDropdown, setOpenDropdown] = useState(null);
   const [currentRole, setCurrentRole] = useState("user");
+  const [internalLogoutOpen, setInternalLogoutOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   // Fetch Role Securely from API Endpoint
   useEffect(() => {
@@ -288,6 +293,41 @@ export default function Sidebar({
 
   const toggleDropdown = (name) => {
     setOpenDropdown(openDropdown === name ? null : name);
+  };
+
+  const openLogoutModal = () => {
+    if (setSidebarOpen) setSidebarOpen(false);
+
+    if (setShowLogoutModal) {
+      setShowLogoutModal(true);
+      return;
+    }
+
+    setInternalLogoutOpen(true);
+  };
+
+  const confirmInternalLogout = async () => {
+    setLoggingOut(true);
+
+    try {
+      localStorage.removeItem("crm_login_time");
+      const response = await fetch("/api/logout", { method: "POST" });
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(data?.message || "Logout failed");
+        setLoggingOut(false);
+        setInternalLogoutOpen(false);
+        return;
+      }
+
+      router.push("/login");
+    } catch (error) {
+      console.error("Logout error:", error);
+      alert("Something went wrong during logout.");
+      setLoggingOut(false);
+      setInternalLogoutOpen(false);
+    }
   };
 
   const menuItems = [
@@ -321,18 +361,23 @@ export default function Sidebar({
       ],
     },
         {
-      name: "Daily staff task",
+      name: "Daily task",
       icon: Users,
       href: "/staff/task",
       roles: [ "staff",  "agent"],
     },
-    
+       {
+      name: " daily leads",
+      icon: Users,
+      href: "/staff/task",
+      roles: [ "staff", "agent"],
+    },
     {
       name: "Attendance",
       icon: UserPlus,
       href: "/Attendance",
       hasDropdown: false,
-      roles: ["admin"],
+      roles: ["admin","staff",  "agent"],
     
     },
     {
@@ -483,8 +528,7 @@ export default function Sidebar({
           <button
             type="button"
             onClick={() => {
-              if (setSidebarOpen) setSidebarOpen(false);
-              if (setShowLogoutModal) setShowLogoutModal(true);
+              openLogoutModal();
             }}
             className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-rose-500 hover:bg-rose-500/10 transition duration-200 cursor-pointer"
           >
@@ -529,7 +573,26 @@ export default function Sidebar({
           <User size={20} />
           <span className="text-[10px] font-medium">Profile</span>
         </Link>
+
+        <button
+          type="button"
+          onClick={openLogoutModal}
+          aria-label="Logout"
+          className="flex flex-col items-center gap-1 py-1 px-3 text-rose-500 hover:text-rose-400 transition-all duration-200"
+        >
+          <LogOut size={20} />
+          <span className="text-[10px] font-medium">Logout</span>
+        </button>
       </div>
+
+      {!setShowLogoutModal && (
+        <LogoutModal
+          show={internalLogoutOpen}
+          loggingOut={loggingOut}
+          onCancel={() => setInternalLogoutOpen(false)}
+          onConfirm={confirmInternalLogout}
+        />
+      )}
     </>
   );
 }
