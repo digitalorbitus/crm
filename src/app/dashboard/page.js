@@ -27,6 +27,61 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // "use client";
 
 // import {
@@ -40,11 +95,12 @@
 //   TrendingDown,
 // } from "lucide-react";
 
-// import LogoutModal from "@/components/LogoutModal";
+// import LogoutModal from "../../components/LogoutModal";
 // import { useState, useCallback, useEffect, useMemo } from "react";
 // import { useRouter } from "next/navigation";
 // import Sidebar from "@/components/Sidebar";
-// import CRMLoader from "@/components/CRMLoader";
+// // import CRMLoader from "@/components/CRMLoader";
+
 // import DashboardTopBar from "@/components/DashboardTopBar";
 
 // export default function DashboardPage() {
@@ -737,63 +793,107 @@
 //   // TOTAL CALLS
 //   // =========================================================
 
-//   const totalCalls = normalizedCalls.length;
+//   // const totalCalls = normalizedCalls.length;
+
+//   const todayCalls = useMemo(() => {
+//   const now = new Date();
+
+//   const startOfToday = new Date(now);
+//   startOfToday.setHours(0, 0, 0, 0);
+
+//   const endOfToday = new Date(now);
+//   endOfToday.setHours(23, 59, 59, 999);
+
+//   return normalizedCalls.filter(({ date }) => {
+//     if (!date) return false;
+
+//     return date >= startOfToday && date <= endOfToday;
+//   });
+// }, [normalizedCalls]);
+
+// const totalCalls = todayCalls.length;
 
 //   // =========================================================
 //   // ANSWERED CALLS
 //   // =========================================================
 
+//   // const answeredCalls = useMemo(() => {
+//   //   return normalizedCalls.filter(
+//   //     (call) =>
+//   //       call.status === "answered"
+//   //   );
+//   // }, [normalizedCalls]);
 //   const answeredCalls = useMemo(() => {
-//     return normalizedCalls.filter(
-//       (call) =>
-//         call.status === "answered"
-//     );
-//   }, [normalizedCalls]);
+//   return todayCalls.filter(
+//     (call) => call.status === "answered"
+//   );
+// }, [todayCalls]);
 
 //   // =========================================================
 //   // MISSED CALLS
 //   // =========================================================
 
-//   const missedCalls = useMemo(() => {
-//     return normalizedCalls.filter(
-//       (call) =>
-//         call.status === "missed"
-//     );
-//   }, [normalizedCalls]);
+//   // const missedCalls = useMemo(() => {
+//   //   return normalizedCalls.filter(
+//   //     (call) =>
+//   //       call.status === "missed"
+//   //   );
+//   // }, [normalizedCalls]);
 
+//   const missedCalls = useMemo(() => {
+//   return todayCalls.filter(
+//     (call) => call.status === "missed"
+//   );
+// }, [todayCalls]);
 //   // =========================================================
 //   // ANSWERED PERCENTAGE
 //   // =========================================================
 
+//   // const answeredPercentage = useMemo(() => {
+//   //   if (totalCalls === 0) return 0;
+
+//   //   return Math.round(
+//   //     (answeredCalls.length /
+//   //       totalCalls) *
+//   //       100
+//   //   );
+//   // }, [
+//   //   answeredCalls.length,
+//   //   totalCalls,
+//   // ]);
+
+
 //   const answeredPercentage = useMemo(() => {
-//     if (totalCalls === 0) return 0;
+//   if (totalCalls === 0) return 0;
 
-//     return Math.round(
-//       (answeredCalls.length /
-//         totalCalls) *
-//         100
-//     );
-//   }, [
-//     answeredCalls.length,
-//     totalCalls,
-//   ]);
+//   return Math.round(
+//     (answeredCalls.length / totalCalls) * 100
+//   );
+// }, [answeredCalls.length, totalCalls]);
 
+// const missedPercentage = useMemo(() => {
+//   if (totalCalls === 0) return 0;
+
+//   return Math.round(
+//     (missedCalls.length / totalCalls) * 100
+//   );
+// }, [missedCalls.length, totalCalls]);
 //   // =========================================================
 //   // MISSED PERCENTAGE
 //   // =========================================================
 
-//   const missedPercentage = useMemo(() => {
-//     if (totalCalls === 0) return 0;
+//   // const missedPercentage = useMemo(() => {
+//   //   if (totalCalls === 0) return 0;
 
-//     return Math.round(
-//       (missedCalls.length /
-//         totalCalls) *
-//         100
-//     );
-//   }, [
-//     missedCalls.length,
-//     totalCalls,
-//   ]);
+//   //   return Math.round(
+//   //     (missedCalls.length /
+//   //       totalCalls) *
+//   //       100
+//   //   );
+//   // }, [
+//   //   missedCalls.length,
+//   //   totalCalls,
+//   // ]);
 
 //   // =========================================================
 //   // TOTAL TALK TIME
@@ -1074,9 +1174,9 @@
 //   // LOADING
 //   // =========================================================
 
-//   if (loading) {
-//     return <CRMLoader />;
-//   }
+//   // if (loading) {
+//   //   return <CRMLoader />;
+//   // }
 
 //   // =========================================================
 //   // DASHBOARD
@@ -1710,85 +1810,6 @@
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 "use client";
 
 import {
@@ -1806,8 +1827,6 @@ import LogoutModal from "../../components/LogoutModal";
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
-// import CRMLoader from "@/components/CRMLoader";
-
 import DashboardTopBar from "@/components/DashboardTopBar";
 
 export default function DashboardPage() {
@@ -1829,8 +1848,26 @@ export default function DashboardPage() {
   const [calls, setCalls] = useState([]);
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
   const [loggingOut, setLoggingOut] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+
+  // =========================================================
+  // DATE FILTER
+  // =========================================================
+
+  const getTodayDate = () => {
+    const date = new Date();
+
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+
+    return `${year}-${month}-${day}`;
+  };
+
+  const [startDate, setStartDate] = useState(getTodayDate());
+  const [endDate, setEndDate] = useState(getTodayDate());
 
   // =========================================================
   // HELPERS
@@ -1850,13 +1887,11 @@ export default function DashboardPage() {
 
   // =========================================================
   // GET CALL LIST
-  // Handles multiple possible API response formats
   // =========================================================
 
   const getCallList = useCallback((data) => {
     if (!data) return [];
 
-    // Direct array
     if (Array.isArray(data)) {
       return data;
     }
@@ -1876,14 +1911,12 @@ export default function DashboardPage() {
       "data",
     ];
 
-    // Direct object keys
     for (const key of possibleKeys) {
       if (Array.isArray(data?.[key])) {
         return data[key];
       }
     }
 
-    // Nested data object
     if (data?.data && typeof data.data === "object") {
       if (Array.isArray(data.data)) {
         return data.data;
@@ -1896,7 +1929,6 @@ export default function DashboardPage() {
       }
     }
 
-    // Nested response object
     if (data?.response && typeof data.response === "object") {
       if (Array.isArray(data.response)) {
         return data.response;
@@ -1909,7 +1941,6 @@ export default function DashboardPage() {
       }
     }
 
-    // Nested result object
     if (data?.result && typeof data.result === "object") {
       if (Array.isArray(data.result)) {
         return data.result;
@@ -2005,7 +2036,7 @@ export default function DashboardPage() {
         );
       }
 
-      // "1h 20m 10s"
+      // 1h 20m 10s
       const hMatch = trimmed.match(/(\d+)\s*h/i);
       const mMatch = trimmed.match(/(\d+)\s*m/i);
       const sMatch = trimmed.match(/(\d+)\s*s/i);
@@ -2048,7 +2079,7 @@ export default function DashboardPage() {
 
       const status = String(raw).toLowerCase().trim();
 
-      // Missed / unanswered
+      // Missed
       if (
         status.includes("miss") ||
         status.includes("no answer") ||
@@ -2068,13 +2099,12 @@ export default function DashboardPage() {
         status.includes("answered") ||
         status.includes("completed") ||
         status.includes("connected") ||
-        status.includes("success") ||
-        status.includes("connected")
+        status.includes("success")
       ) {
         return "answered";
       }
 
-      // Duration is a strong fallback
+      // Duration fallback
       if (getDurationSeconds(call) > 0) {
         return "answered";
       }
@@ -2165,8 +2195,12 @@ export default function DashboardPage() {
         normalizeExtension(call?.extension_number) ||
         normalizeExtension(call?.owner_extension) ||
         normalizeExtension(call?.user_extension) ||
-        normalizeExtension(call?.raw_zoom_data?.caller_ext_number) ||
-        normalizeExtension(call?.raw_zoom_data?.caller_ext_id);
+        normalizeExtension(
+          call?.raw_zoom_data?.caller_ext_number
+        ) ||
+        normalizeExtension(
+          call?.raw_zoom_data?.caller_ext_id
+        );
 
       const receiverExtension =
         normalizeExtension(call?.receiver_extension) ||
@@ -2174,15 +2208,19 @@ export default function DashboardPage() {
         normalizeExtension(call?.receiverExtension) ||
         normalizeExtension(call?.callee_extension) ||
         normalizeExtension(call?.callee_ext_number) ||
-        normalizeExtension(call?.raw_zoom_data?.callee_ext_number) ||
-        normalizeExtension(call?.raw_zoom_data?.callee_ext_id);
+        normalizeExtension(
+          call?.raw_zoom_data?.callee_ext_number
+        ) ||
+        normalizeExtension(
+          call?.raw_zoom_data?.callee_ext_id
+        );
 
-      // Inbound call belongs to receiver/staff
+      // Inbound = receiver/staff
       if (direction === "inbound") {
         return receiverExtension || callerExtension || null;
       }
 
-      // Outbound call belongs to caller/staff
+      // Outbound = caller/staff
       if (direction === "outbound") {
         return callerExtension || receiverExtension || null;
       }
@@ -2221,7 +2259,7 @@ export default function DashboardPage() {
   );
 
   // =========================================================
-  // LOAD ALL DASHBOARD DATA
+  // LOAD DASHBOARD DATA
   // =========================================================
 
   const loadStaffData = useCallback(async () => {
@@ -2259,9 +2297,12 @@ export default function DashboardPage() {
       // =====================================================
 
       try {
-        const staffRes = await fetch("/api/staffes/list", {
-          cache: "no-store",
-        });
+        const staffRes = await fetch(
+          "/api/staffes/list",
+          {
+            cache: "no-store",
+          }
+        );
 
         const staffData = await staffRes.json();
 
@@ -2344,10 +2385,13 @@ export default function DashboardPage() {
       console.log(
         "===================================="
       );
+
       console.log(
         "ZOOM CALL HISTORY FULL RESPONSE:"
       );
+
       console.log(callData);
+
       console.log(
         "===================================="
       );
@@ -2454,6 +2498,7 @@ export default function DashboardPage() {
         const date = getCallDate(call);
         const status = getCallStatus(call);
         const staffName = getStaffName(call);
+
         const duration =
           getDurationSeconds(call);
 
@@ -2497,110 +2542,106 @@ export default function DashboardPage() {
   ]);
 
   // =========================================================
+  // SELECTED DATE RANGE CALLS
+  // =========================================================
+
+  const filteredCalls = useMemo(() => {
+    if (!startDate || !endDate) {
+      return normalizedCalls;
+    }
+
+    const start = new Date(
+      `${startDate}T00:00:00`
+    );
+
+    const end = new Date(
+      `${endDate}T23:59:59.999`
+    );
+
+    if (
+      Number.isNaN(start.getTime()) ||
+      Number.isNaN(end.getTime())
+    ) {
+      return normalizedCalls;
+    }
+
+    return normalizedCalls.filter(
+      ({ date }) => {
+        if (!date) return false;
+
+        return (
+          date >= start &&
+          date <= end
+        );
+      }
+    );
+  }, [
+    normalizedCalls,
+    startDate,
+    endDate,
+  ]);
+
+  // =========================================================
   // TOTAL CALLS
   // =========================================================
 
-  // const totalCalls = normalizedCalls.length;
-
-  const todayCalls = useMemo(() => {
-  const now = new Date();
-
-  const startOfToday = new Date(now);
-  startOfToday.setHours(0, 0, 0, 0);
-
-  const endOfToday = new Date(now);
-  endOfToday.setHours(23, 59, 59, 999);
-
-  return normalizedCalls.filter(({ date }) => {
-    if (!date) return false;
-
-    return date >= startOfToday && date <= endOfToday;
-  });
-}, [normalizedCalls]);
-
-const totalCalls = todayCalls.length;
+  const totalCalls = filteredCalls.length;
 
   // =========================================================
   // ANSWERED CALLS
   // =========================================================
 
-  // const answeredCalls = useMemo(() => {
-  //   return normalizedCalls.filter(
-  //     (call) =>
-  //       call.status === "answered"
-  //   );
-  // }, [normalizedCalls]);
   const answeredCalls = useMemo(() => {
-  return todayCalls.filter(
-    (call) => call.status === "answered"
-  );
-}, [todayCalls]);
+    return filteredCalls.filter(
+      (call) =>
+        call.status === "answered"
+    );
+  }, [filteredCalls]);
 
   // =========================================================
   // MISSED CALLS
   // =========================================================
 
-  // const missedCalls = useMemo(() => {
-  //   return normalizedCalls.filter(
-  //     (call) =>
-  //       call.status === "missed"
-  //   );
-  // }, [normalizedCalls]);
-
   const missedCalls = useMemo(() => {
-  return todayCalls.filter(
-    (call) => call.status === "missed"
-  );
-}, [todayCalls]);
+    return filteredCalls.filter(
+      (call) =>
+        call.status === "missed"
+    );
+  }, [filteredCalls]);
+
   // =========================================================
   // ANSWERED PERCENTAGE
   // =========================================================
 
-  // const answeredPercentage = useMemo(() => {
-  //   if (totalCalls === 0) return 0;
-
-  //   return Math.round(
-  //     (answeredCalls.length /
-  //       totalCalls) *
-  //       100
-  //   );
-  // }, [
-  //   answeredCalls.length,
-  //   totalCalls,
-  // ]);
-
-
   const answeredPercentage = useMemo(() => {
-  if (totalCalls === 0) return 0;
+    if (totalCalls === 0) return 0;
 
-  return Math.round(
-    (answeredCalls.length / totalCalls) * 100
-  );
-}, [answeredCalls.length, totalCalls]);
+    return Math.round(
+      (answeredCalls.length /
+        totalCalls) *
+        100
+    );
+  }, [
+    answeredCalls.length,
+    totalCalls,
+  ]);
 
-const missedPercentage = useMemo(() => {
-  if (totalCalls === 0) return 0;
-
-  return Math.round(
-    (missedCalls.length / totalCalls) * 100
-  );
-}, [missedCalls.length, totalCalls]);
   // =========================================================
   // MISSED PERCENTAGE
   // =========================================================
 
-  // const missedPercentage = useMemo(() => {
-  //   if (totalCalls === 0) return 0;
+  const missedPercentage = useMemo(() => {
+    if (totalCalls === 0) return 0;
 
-  //   return Math.round(
-  //     (missedCalls.length /
-  //       totalCalls) *
-  //       100
-  //   );
-  // }, [
-  //   missedCalls.length,
-  //   totalCalls,
-  // ]);
+    return Math.round(
+      (missedCalls.length /
+        totalCalls) *
+        100
+    );
+  }, [
+    missedCalls.length,
+    totalCalls,
+  ]);
 
   // =========================================================
   // TOTAL TALK TIME
@@ -2663,7 +2704,7 @@ const missedPercentage = useMemo(() => {
           );
 
         const userCalls =
-          normalizedCalls.filter(
+          filteredCalls.filter(
             ({ ownerExtension }) => {
               return (
                 extension &&
@@ -2679,21 +2720,24 @@ const missedPercentage = useMemo(() => {
         const answered =
           userCalls.filter(
             (call) =>
-              call.status === "answered"
+              call.status ===
+              "answered"
           ).length;
 
         const missed =
           userCalls.filter(
             (call) =>
-              call.status === "missed"
+              call.status ===
+              "missed"
           ).length;
 
         const talkTime =
           userCalls.reduce(
             (total, call) =>
               total +
-              (Number(call.duration) ||
-                0),
+              (Number(
+                call.duration
+              ) || 0),
             0
           );
 
@@ -2719,17 +2763,18 @@ const missedPercentage = useMemo(() => {
       .slice(0, 5);
   }, [
     allStaff,
-    normalizedCalls,
+    filteredCalls,
   ]);
 
   // =========================================================
-  // LAST 7 DAYS CHART
+  // CHART DATA
   // =========================================================
 
   const chartData = useMemo(() => {
     return lastSevenDays.map(
       (day) => {
-        const start = new Date(day);
+        const start =
+          new Date(day);
 
         start.setHours(
           0,
@@ -2738,7 +2783,8 @@ const missedPercentage = useMemo(() => {
           0
         );
 
-        const end = new Date(day);
+        const end =
+          new Date(day);
 
         end.setHours(
           23,
@@ -2748,7 +2794,7 @@ const missedPercentage = useMemo(() => {
         );
 
         const dayCalls =
-          normalizedCalls.filter(
+          filteredCalls.filter(
             ({ date }) =>
               date >= start &&
               date <= end
@@ -2770,21 +2816,23 @@ const missedPercentage = useMemo(() => {
 
         return {
           date: day,
-          total: dayCalls.length,
+          total:
+            dayCalls.length,
           answered,
           missed,
-          label: day.toLocaleDateString(
-            "en-US",
-            {
-              weekday: "short",
-            }
-          ),
+          label:
+            day.toLocaleDateString(
+              "en-US",
+              {
+                weekday: "short",
+              }
+            ),
         };
       }
     );
   }, [
     lastSevenDays,
-    normalizedCalls,
+    filteredCalls,
   ]);
 
   const chartMax = Math.max(
@@ -2799,7 +2847,7 @@ const missedPercentage = useMemo(() => {
   // =========================================================
 
   const liveActivities = useMemo(() => {
-    return [...normalizedCalls]
+    return [...filteredCalls]
       .sort(
         (a, b) =>
           b.date.getTime() -
@@ -2827,24 +2875,31 @@ const missedPercentage = useMemo(() => {
             original?.zoom_call_id ||
             original?.call_history_uuid ||
             index,
+
           name:
             call.staffName ||
             "Unknown Staff",
+
           extension:
             call.ownerExtension ||
             "-",
+
           phone,
+
           status:
             call.status,
+
           direction:
             call.direction,
+
           duration:
             call.duration,
+
           date:
             call.date,
         };
       });
-  }, [normalizedCalls]);
+  }, [filteredCalls]);
 
   // =========================================================
   // HANDLE LOGOUT
@@ -2878,22 +2933,13 @@ const missedPercentage = useMemo(() => {
   };
 
   // =========================================================
-  // LOADING
-  // =========================================================
-
-  // if (loading) {
-  //   return <CRMLoader />;
-  // }
-
-  // =========================================================
   // DASHBOARD
   // =========================================================
 
   return (
     <div className="min-h-screen bg-[#f7f8fa] text-[#171717]">
-      {/* =====================================================
-          MOBILE SIDEBAR OVERLAY
-      ====================================================== */}
+
+      {/* MOBILE SIDEBAR OVERLAY */}
 
       {sidebarOpen && (
         <div
@@ -2904,9 +2950,7 @@ const missedPercentage = useMemo(() => {
         />
       )}
 
-      {/* =====================================================
-          SIDEBAR
-      ====================================================== */}
+      {/* SIDEBAR */}
 
       <div
         className={`
@@ -2935,17 +2979,16 @@ const missedPercentage = useMemo(() => {
         />
       </div>
 
-      {/* =====================================================
-          MAIN
-      ====================================================== */}
+      {/* MAIN */}
 
       <main className="min-h-screen lg:pl-[270px]">
-        {/* ===================================================
-            TOP BAR
-        ==================================================== */}
+
+        {/* TOP BAR */}
 
         <div className="sticky top-0 z-30 bg-[#f7f8fa]/95 backdrop-blur">
+
           <div className="flex items-center gap-3 px-4 py-3 lg:hidden">
+
             <button
               type="button"
               onClick={() =>
@@ -2961,6 +3004,7 @@ const missedPercentage = useMemo(() => {
                 <Menu size={20} />
               )}
             </button>
+
           </div>
 
           <DashboardTopBar
@@ -2969,19 +3013,18 @@ const missedPercentage = useMemo(() => {
               setShowLogoutModal(true)
             }
           />
+
         </div>
 
-        {/* ===================================================
-            CONTENT
-        ==================================================== */}
+        {/* CONTENT */}
 
         <div className="px-4 pb-10 pt-4 sm:px-6 lg:px-8">
-          {/* =================================================
-              ERROR
-          ================================================== */}
+
+          {/* ERROR */}
 
           {errorMessage && (
             <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+
               <div className="font-semibold">
                 Dashboard data issue
               </div>
@@ -2989,15 +3032,16 @@ const missedPercentage = useMemo(() => {
               <div className="mt-1">
                 {errorMessage}
               </div>
+
             </div>
           )}
 
-          {/* =================================================
-              HEADER
-          ================================================== */}
+          {/* HEADER */}
 
           <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+
             <div>
+
               <p className="text-sm font-medium text-[#790214]">
                 Call Analytics
               </p>
@@ -3010,28 +3054,95 @@ const missedPercentage = useMemo(() => {
                 Monitor your team's Zoom
                 call activity.
               </p>
+
             </div>
 
-            <div className="rounded-xl bg-white px-4 py-2 text-sm shadow-sm ring-1 ring-black/5">
-              <span className="text-gray-500">
-                Total records:
-              </span>{" "}
-              <span className="font-semibold text-[#790214]">
-                {totalCalls}
-              </span>
+            {/* DATE FILTERS */}
+
+            <div className="flex flex-wrap items-center gap-3">
+
+              {/* START DATE */}
+
+              <div className="rounded-xl bg-white px-4 py-2 shadow-sm ring-1 ring-black/5">
+
+                <div className="flex items-center gap-2">
+
+                  <span className="whitespace-nowrap text-sm text-gray-500">
+                    Start Date:
+                  </span>
+
+                  <input
+                    type="date"
+                    value={startDate}
+                    max={endDate}
+                    onChange={(e) =>
+                      setStartDate(
+                        e.target.value
+                      )
+                    }
+                    className="cursor-pointer bg-transparent text-sm font-semibold text-gray-700 outline-none"
+                  />
+
+                </div>
+
+              </div>
+
+              {/* END DATE */}
+
+              <div className="rounded-xl bg-white px-4 py-2 shadow-sm ring-1 ring-black/5">
+
+                <div className="flex items-center gap-2">
+
+                  <span className="whitespace-nowrap text-sm text-gray-500">
+                    End Date:
+                  </span>
+
+                  <input
+                    type="date"
+                    value={endDate}
+                    min={startDate}
+                    onChange={(e) =>
+                      setEndDate(
+                        e.target.value
+                      )
+                    }
+                    className="cursor-pointer bg-transparent text-sm font-semibold text-gray-700 outline-none"
+                  />
+
+                </div>
+
+              </div>
+
+              {/* TOTAL RECORDS */}
+
+              <div className="rounded-xl bg-white px-4 py-2 text-sm shadow-sm ring-1 ring-black/5">
+
+                <span className="text-gray-500">
+                  Total records:
+                </span>{" "}
+
+                <span className="font-semibold text-[#790214]">
+                  {totalCalls}
+                </span>
+
+              </div>
+
             </div>
+
           </div>
 
-          {/* =================================================
-              STATS
-          ================================================== */}
+          {/* STATS */}
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+
             {/* TOTAL CALLS */}
 
             <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
+
               <div className="flex items-start justify-between">
+
                 <div>
+
                   <p className="text-sm font-medium text-gray-500">
                     Total Calls
                   </p>
@@ -3039,29 +3150,35 @@ const missedPercentage = useMemo(() => {
                   <h2 className="mt-2 text-3xl font-bold">
                     {totalCalls}
                   </h2>
+
                 </div>
 
                 <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#790214]/10 text-[#790214]">
                   <Phone size={21} />
                 </div>
+
               </div>
 
               <div className="mt-4 flex items-center gap-2 text-xs text-gray-500">
-                <TrendingUp
-                  size={14}
-                />
+
+                <TrendingUp size={14} />
 
                 <span>
-                  Live call history
+                  Selected date range
                 </span>
+
               </div>
+
             </div>
 
             {/* ANSWERED */}
 
             <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
+
               <div className="flex items-start justify-between">
+
                 <div>
+
                   <p className="text-sm font-medium text-gray-500">
                     Answered
                   </p>
@@ -3069,6 +3186,7 @@ const missedPercentage = useMemo(() => {
                   <h2 className="mt-2 text-3xl font-bold text-green-600">
                     {answeredCalls.length}
                   </h2>
+
                 </div>
 
                 <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-green-50 text-green-600">
@@ -3076,21 +3194,28 @@ const missedPercentage = useMemo(() => {
                     size={21}
                   />
                 </div>
+
               </div>
 
               <div className="mt-4 flex items-center gap-2 text-xs text-gray-500">
+
                 <span>
                   {answeredPercentage}% answer
                   rate
                 </span>
+
               </div>
+
             </div>
 
             {/* MISSED */}
 
             <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
+
               <div className="flex items-start justify-between">
+
                 <div>
+
                   <p className="text-sm font-medium text-gray-500">
                     Missed
                   </p>
@@ -3098,14 +3223,17 @@ const missedPercentage = useMemo(() => {
                   <h2 className="mt-2 text-3xl font-bold text-red-600">
                     {missedCalls.length}
                   </h2>
+
                 </div>
 
                 <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-red-50 text-red-600">
                   <PhoneOff size={21} />
                 </div>
+
               </div>
 
               <div className="mt-4 flex items-center gap-2 text-xs text-gray-500">
+
                 <TrendingDown
                   size={14}
                 />
@@ -3114,14 +3242,19 @@ const missedPercentage = useMemo(() => {
                   {missedPercentage}% missed
                   rate
                 </span>
+
               </div>
+
             </div>
 
             {/* TALK TIME */}
 
             <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
+
               <div className="flex items-start justify-between">
+
                 <div>
+
                   <p className="text-sm font-medium text-gray-500">
                     Talk Time
                   </p>
@@ -3131,50 +3264,64 @@ const missedPercentage = useMemo(() => {
                       totalTalkSeconds
                     )}
                   </h2>
+
                 </div>
 
                 <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
                   <Clock size={21} />
                 </div>
+
               </div>
 
               <div className="mt-4 text-xs text-gray-500">
                 Total answered-call duration
               </div>
+
             </div>
+
           </div>
 
-          {/* =================================================
-              CHART + DONUT
-          ================================================== */}
+          {/* CHART + DONUT */}
 
           <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-3">
+
             {/* CHART */}
 
             <div className="xl:col-span-2 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5 sm:p-6">
+
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+
                 <div>
+
                   <h2 className="text-lg font-bold">
                     Call Activity
                   </h2>
 
                   <p className="text-sm text-gray-500">
-                    Last 7 days
+                    Selected date range
                   </p>
+
                 </div>
 
                 <div className="text-sm text-gray-500">
+
                   Peak:
+
                   <span className="ml-1 font-semibold text-[#790214]">
                     {chartMax}
                   </span>
+
                 </div>
+
               </div>
 
               <div className="mt-7">
+
                 <div className="flex h-[180px] items-end gap-2 sm:gap-4">
+
                   {chartData.map(
                     (item, index) => {
+
                       const height =
                         Math.max(
                           (item.total /
@@ -3190,7 +3337,9 @@ const missedPercentage = useMemo(() => {
                           key={index}
                           className="flex h-full flex-1 flex-col justify-end"
                         >
+
                           <div className="flex h-full items-end justify-center">
+
                             <div
                               title={`${item.total} calls`}
                               className="w-full max-w-[42px] rounded-t-xl bg-[#790214] transition-all duration-300 hover:opacity-80"
@@ -3198,6 +3347,7 @@ const missedPercentage = useMemo(() => {
                                 height: `${height}%`,
                               }}
                             />
+
                           </div>
 
                           <div className="mt-3 text-center text-[11px] font-medium text-gray-500">
@@ -3207,17 +3357,22 @@ const missedPercentage = useMemo(() => {
                           <div className="mt-1 text-center text-xs font-bold text-gray-700">
                             {item.total}
                           </div>
+
                         </div>
                       );
                     }
                   )}
+
                 </div>
+
               </div>
+
             </div>
 
             {/* DONUT */}
 
             <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5 sm:p-6">
+
               <h2 className="text-lg font-bold">
                 Call Outcome
               </h2>
@@ -3227,7 +3382,9 @@ const missedPercentage = useMemo(() => {
               </p>
 
               <div className="mt-7 flex items-center justify-center">
+
                 <div className="relative h-48 w-48">
+
                   <div
                     className="absolute inset-0 rounded-full"
                     style={{
@@ -3239,6 +3396,7 @@ const missedPercentage = useMemo(() => {
                   />
 
                   <div className="absolute inset-[22px] flex flex-col items-center justify-center rounded-full bg-white">
+
                     <div className="text-3xl font-bold">
                       {answeredPercentage}%
                     </div>
@@ -3246,12 +3404,17 @@ const missedPercentage = useMemo(() => {
                     <div className="text-xs text-gray-500">
                       Answered
                     </div>
+
                   </div>
+
                 </div>
+
               </div>
 
               <div className="mt-7 grid grid-cols-2 gap-3">
+
                 <div className="rounded-xl bg-green-50 p-3">
+
                   <div className="text-xs text-green-700">
                     Answered
                   </div>
@@ -3259,9 +3422,11 @@ const missedPercentage = useMemo(() => {
                   <div className="mt-1 text-lg font-bold text-green-700">
                     {answeredCalls.length}
                   </div>
+
                 </div>
 
                 <div className="rounded-xl bg-red-50 p-3">
+
                   <div className="text-xs text-red-700">
                     Missed
                   </div>
@@ -3269,21 +3434,27 @@ const missedPercentage = useMemo(() => {
                   <div className="mt-1 text-lg font-bold text-red-700">
                     {missedCalls.length}
                   </div>
+
                 </div>
+
               </div>
+
             </div>
+
           </div>
 
-          {/* =================================================
-              STAFF + LIVE ACTIVITY
-          ================================================== */}
+          {/* STAFF + LIVE ACTIVITY */}
 
           <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
+
             {/* TOP STAFF */}
 
             <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5 sm:p-6">
+
               <div className="flex items-center justify-between">
+
                 <div>
+
                   <h2 className="text-lg font-bold">
                     Top Staff
                   </h2>
@@ -3291,22 +3462,29 @@ const missedPercentage = useMemo(() => {
                   <p className="text-sm text-gray-500">
                     Calls by extension
                   </p>
+
                 </div>
 
                 <Phone
                   size={20}
                   className="text-[#790214]"
                 />
+
               </div>
 
               <div className="mt-5 space-y-3">
+
                 {topStaff.length === 0 ? (
+
                   <div className="rounded-xl bg-gray-50 p-5 text-center text-sm text-gray-500">
                     No staff call data found.
                   </div>
+
                 ) : (
+
                   topStaff.map(
                     (user, index) => (
+
                       <div
                         key={
                           user?.id ||
@@ -3315,8 +3493,11 @@ const missedPercentage = useMemo(() => {
                         }
                         className="flex items-center justify-between rounded-xl border border-gray-100 p-3 transition hover:bg-gray-50"
                       >
+
                         <div className="flex min-w-0 items-center gap-3">
+
                           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#790214]/10 text-sm font-bold text-[#790214]">
+
                             {String(
                               user?.name ||
                                 user?.full_name ||
@@ -3324,9 +3505,11 @@ const missedPercentage = useMemo(() => {
                             )
                               .charAt(0)
                               .toUpperCase()}
+
                           </div>
 
                           <div className="min-w-0">
+
                             <div className="truncate text-sm font-semibold">
                               {user?.name ||
                                 user?.full_name ||
@@ -3339,10 +3522,13 @@ const missedPercentage = useMemo(() => {
                               {user.extension ||
                                 "-"}
                             </div>
+
                           </div>
+
                         </div>
 
                         <div className="text-right">
+
                           <div className="text-sm font-bold">
                             {user.totalCalls}
                           </div>
@@ -3350,19 +3536,28 @@ const missedPercentage = useMemo(() => {
                           <div className="text-[11px] text-gray-500">
                             {user.answered} answered
                           </div>
+
                         </div>
+
                       </div>
+
                     )
                   )
+
                 )}
+
               </div>
+
             </div>
 
             {/* LIVE ACTIVITY */}
 
             <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5 sm:p-6">
+
               <div className="flex items-center justify-between">
+
                 <div>
+
                   <h2 className="text-lg font-bold">
                     Recent Calls
                   </h2>
@@ -3370,27 +3565,39 @@ const missedPercentage = useMemo(() => {
                   <p className="text-sm text-gray-500">
                     Latest Zoom call activity
                   </p>
+
                 </div>
 
                 <div className="flex items-center gap-2 text-xs font-medium text-green-600">
+
                   <span className="h-2 w-2 animate-pulse rounded-full bg-green-500" />
+
                   Live
+
                 </div>
+
               </div>
 
               <div className="mt-5 space-y-2">
+
                 {liveActivities.length === 0 ? (
+
                   <div className="rounded-xl bg-gray-50 p-5 text-center text-sm text-gray-500">
                     No call activity found.
                   </div>
+
                 ) : (
+
                   liveActivities.map(
                     (activity) => (
+
                       <div
                         key={activity.id}
                         className="flex items-center justify-between gap-3 rounded-xl border border-gray-100 p-3"
                       >
+
                         <div className="flex min-w-0 items-center gap-3">
+
                           <div
                             className={`
                               flex h-9 w-9 shrink-0
@@ -3404,6 +3611,7 @@ const missedPercentage = useMemo(() => {
                               }
                             `}
                           >
+
                             {activity.status ===
                             "answered" ? (
                               <PhoneIncoming
@@ -3414,9 +3622,11 @@ const missedPercentage = useMemo(() => {
                                 size={16}
                               />
                             )}
+
                           </div>
 
                           <div className="min-w-0">
+
                             <div className="truncate text-sm font-semibold">
                               {activity.name}
                             </div>
@@ -3427,10 +3637,13 @@ const missedPercentage = useMemo(() => {
                               {" • "}
                               {activity.phone}
                             </div>
+
                           </div>
+
                         </div>
 
                         <div className="shrink-0 text-right">
+
                           <div
                             className={`
                               text-xs font-semibold
@@ -3442,10 +3655,12 @@ const missedPercentage = useMemo(() => {
                               }
                             `}
                           >
+
                             {activity.status ===
                             "answered"
                               ? "Answered"
                               : "Missed"}
+
                           </div>
 
                           <div className="mt-1 text-[11px] text-gray-500">
@@ -3453,23 +3668,30 @@ const missedPercentage = useMemo(() => {
                               activity.duration
                             )}
                           </div>
+
                         </div>
+
                       </div>
+
                     )
                   )
+
                 )}
+
               </div>
+
             </div>
+
           </div>
 
-          {/* =================================================
-              DEBUG INFORMATION
-              Remove after everything works
-          ================================================== */}
+          {/* DEBUG */}
 
           <div className="mt-6 rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-4">
+
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+
               <div>
+
                 <p className="text-sm font-semibold text-gray-700">
                   API Debug
                 </p>
@@ -3479,23 +3701,32 @@ const missedPercentage = useMemo(() => {
                   {" "}
                   {calls.length}
                 </p>
+
               </div>
 
               <div className="text-xs text-gray-500">
-                Answered:{" "}
+
+                Answered:
+                {" "}
                 {answeredCalls.length}
+
                 {" • "}
-                Missed:{" "}
+
+                Missed:
+                {" "}
                 {missedCalls.length}
+
               </div>
+
             </div>
+
           </div>
+
         </div>
+
       </main>
 
-      {/* =====================================================
-          LOGOUT MODAL
-      ====================================================== */}
+      {/* LOGOUT MODAL */}
 
       {showLogoutModal && (
         <LogoutModal
@@ -3507,14 +3738,10 @@ const missedPercentage = useMemo(() => {
           onConfirm={handleLogout}
         />
       )}
+
     </div>
   );
 }
-
-
-
-
-
 
 
 
