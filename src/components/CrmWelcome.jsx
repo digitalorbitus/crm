@@ -136,6 +136,79 @@
 
 
 
+// "use client";
+
+// import Image from "next/image";
+
+// export default function CRMLoader({
+//   subtitle = "Customer Relationship Management",
+//   // message = "Loading your workspace...",
+// }) {
+//   return (
+//     <div className="fixed inset-0 z-[9999] flex min-h-screen items-center justify-center overflow-hidden bg-[#07111f]">
+
+//       {/* Lightweight background */}
+//       <div className="pointer-events-none absolute inset-0">
+//         <div className="absolute left-0 top-0 h-64 w-64 rounded-full bg-[#ec3737]" />
+//         <div className="absolute bottom-0 right-0 h-64 w-64 rounded-full bg-[#ec3737]" />
+//       </div>
+
+//       {/* Content */}
+//       <div className="relative z-10 flex flex-col items-center text-center">
+
+//         {/* Logo */}
+//         <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-2xl border border-white/10 bg-white/5 p-3 shadow-xl">
+//           <Image
+//             src="/uploads/CRM-LOGO-removebg-preview.png"
+//             alt="CallCRM"
+//             width={64}
+//             height={64}
+//             priority
+//             loading="eager"
+//             className="h-full w-full object-contain"
+//           />
+//         </div>
+
+//         {/* Brand */}
+//         <h1 className="text-2xl font-black tracking-tight text-white">
+//            Digital Orbit Innovations
+//         </h1>
+
+//         {/* Subtitle */}
+//         {/* {subtitle && (
+//           <p className="mt-1.5 text-xs font-medium text-slate-400">
+//             {subtitle}
+//           </p>
+//         )} */}
+
+//         {/* Fast loading dots */}
+//         <div className="mt-6 flex items-center gap-1.5">
+//           <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#ec3737]" />
+//           <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#ec3737] [animation-delay:100ms]" />
+//           <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#ec3737] [animation-delay:200ms]" />
+//         </div>
+//       </div>
+
+//       {/* Bottom branding */}
+//       <div className="absolute bottom-6 left-0 right-0 z-10 text-center">
+//         <p className="text-[9px] font-semibold uppercase tracking-[0.22em] text-slate-600">
+//           Digital Orbitus
+//         </p>
+//       </div>
+//     </div>
+//   );
+// }
+
+
+
+
+
+
+
+
+
+
+
 "use client";
 
 import Image from "next/image";
@@ -145,56 +218,65 @@ export default function CRMLoader({
   // message = "Loading your workspace...",
 }) {
   return (
-    <div className="fixed inset-0 z-[9999] flex min-h-screen items-center justify-center overflow-hidden bg-[#07111f]">
+<div className="fixed inset-0 z-[9999] flex min-h-screen items-center justify-center overflow-hidden bg-[#07111f]">
 
-      {/* Lightweight background */}
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute left-0 top-0 h-64 w-64 rounded-full bg-blue-600/10" />
-        <div className="absolute bottom-0 right-0 h-64 w-64 rounded-full bg-indigo-600/10" />
-      </div>
+  {/* Background Image */}
+  <div className="pointer-events-none absolute inset-0">
+    <Image
+      src="/crmxgfxfg.jpg"
+      alt=""
+      fill
+      priority
+      sizes="100vw"
+      className="object-cover"
+    />
 
-      {/* Content */}
-      <div className="relative z-10 flex flex-col items-center text-center">
+    {/* Keep background dark */}
+    <div className="absolute inset-0 bg-[#07111f]/50" />
+  </div>
 
-        {/* Logo */}
-        <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-2xl border border-white/10 bg-white/5 p-3 shadow-xl">
-          <Image
-            src="/uploads/CRM-LOGO-removebg-preview.png"
-            alt="CallCRM"
-            width={64}
-            height={64}
-            priority
-            loading="eager"
-            className="h-full w-full object-contain"
-          />
-        </div>
+  {/* Content */}
+  <div className="relative z-10 flex flex-col items-center text-center">
 
-        {/* Brand */}
-        <h1 className="text-2xl font-black tracking-tight text-white">
-           Digital Orbitus
-        </h1>
-
-        {/* Subtitle */}
-        {/* {subtitle && (
-          <p className="mt-1.5 text-xs font-medium text-slate-400">
-            {subtitle}
-          </p>
-        )} */}
-
-        {/* Fast loading dots */}
-        <div className="mt-6 flex items-center gap-1.5">
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-blue-500" />
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-blue-500 [animation-delay:100ms]" />
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-blue-500 [animation-delay:200ms]" />
-        </div>
-      </div>
-
-      {/* Bottom branding */}
-      <div className="absolute bottom-6 left-0 right-0 z-10 text-center">
-        <p className="text-[9px] font-semibold uppercase tracking-[0.22em] text-slate-600">
-          Digital Orbitus
-        </p>
-      </div>
+    {/* Logo */}
+    <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-2xl border border-white/10 bg-white/5 p-3 shadow-xl">
+      <Image
+        src="/uploads/CRM-LOGO-removebg-preview.png"
+        alt="CallCRM"
+        width={64}
+        height={64}
+        priority
+        loading="eager"
+        className="h-full w-full object-contain"
+      />
     </div>
+
+    {/* Brand */}
+    <h1 className="text-2xl font-black tracking-tight text-[#ec3737]">
+      Digital Orbit Innovations
+    </h1>
+
+    {/* Subtitle */}
+    {/* {subtitle && (
+      <p className="mt-1.5 text-xs font-medium text-slate-400">
+        {subtitle}
+      </p>
+    )} */}
+
+    {/* Fast loading dots */}
+    <div className="mt-6 flex items-center gap-1.5">
+      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#ec3737]" />
+      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#ec3737] [animation-delay:100ms]" />
+      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#ec3737] [animation-delay:200ms]" />
+    </div>
+  </div>
+
+  {/* Bottom branding */}
+  <div className="absolute bottom-6 left-0 right-0 z-10 text-center">
+    <p className="text-[9px] font-semibold uppercase tracking-[0.22em] text-slate-600">
+      Digital Orbitus
+    </p>
+  </div>
+</div>
   );
 }

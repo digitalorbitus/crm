@@ -362,62 +362,91 @@ export default function LoginPage() {
       <div className="w-full min-h-screen grid grid-cols-1 lg:grid-cols-12">
         
         {/* Left Section (Hero / Dashboard Preview - Full Height) */}
-        <div className="hidden lg:flex lg:col-span-5 bg-black p-12 flex-col justify-between relative overflow-hidden text-white min-h-screen">
-          {/* Background Decorative Patterns */}
-          <div className="absolute top-8 right-8 opacity-20 text-[#2563EB]">
-            <div className="grid grid-cols-3 gap-2">
-              {[...Array(9)].map((_, i) => (
-                <div key={i} className="w-2 h-2 bg-current rounded-full" />
-              ))}
-            </div>
-          </div>
+<div className="hidden lg:flex lg:col-span-5 bg-black p-12 flex-col justify-between relative overflow-hidden text-white min-h-screen">
 
-          <div className="absolute bottom-8 left-8 opacity-20 text-[#2563EB]">
-            <div className="grid grid-cols-3 gap-2">
-              {[...Array(9)].map((_, i) => (
-                <div key={i} className="w-2 h-2 bg-current rounded-full" />
-              ))}
-            </div>
-          </div>
-
-          {/* Logo Section */}
-          <div className="flex items-center gap-3 z-10">
-          <div className="flex items-center z-10"> <img src="/uploads/CRM-LOGO-removebg-preview.png" alt="Digital Orbitus" className="h-10 w-auto object-contain" /> </div>
-            <span className="font-extrabold text-2xl tracking-tight text-[#ec3737]">
-        Digital Orbit Innovation
-            </span>
-          </div>
-
-          {/* Hero Content */}
-        
-<div className="my-auto z-10 max-w-lg">
-  <h2 className="text-4xl font-extrabold mb-4 tracking-tight">
-    Welcome Back
-  </h2>
-
-  <p className="text-slate-300 text-base leading-relaxed mb-8 font-normal">
- Sign in to access your workspace, collaborate with your team, and  stay updated on everything happening across your projects. Keep your tasks organized, stay connected, and make every workday more productive.
-
-  </p>
-
-  {/* Dashboard Mockup Image */}
-  <div className="relative mt-4 transform -rotate-1 hover:rotate-0 transition-transform duration-500 ease-out">
-    <div className="absolute -inset-1 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-2xl blur opacity-30" />
-
+  {/* Background Image */}
+  <div className="absolute inset-0 z-0">
     <img
-      src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=800&q=80"
-      alt="CallCRM Dashboard Preview"
-      className="relative rounded-2xl border border-white/10 shadow-2xl w-full object-cover h-64"
+      src="/crmxgfxfg.jpg"
+      alt=""
+      className="h-full w-full object-cover"
     />
+
+    {/* Dark Overlay */}
+    <div className="absolute inset-0 bg-black/60" />
   </div>
+
+  {/* Background Decorative Patterns */}
+  <div className="absolute top-8 right-8 opacity-20 text-[#ec3737] z-10">
+    <div className="grid grid-cols-3 gap-2">
+      {[...Array(9)].map((_, i) => (
+        <div
+          key={i}
+          className="w-2 h-2 bg-current rounded-full"
+        />
+      ))}
+    </div>
+  </div>
+
+  <div className="absolute bottom-8 left-8 opacity-20 text-[#ec3737] z-10">
+    <div className="grid grid-cols-3 gap-2">
+      {[...Array(9)].map((_, i) => (
+        <div
+          key={i}
+          className="w-2 h-2 bg-current rounded-full"
+        />
+      ))}
+    </div>
+  </div>
+
+  {/* Logo Section */}
+  <div className="flex items-center gap-3 z-10">
+    <div className="flex items-center z-10">
+      <img
+        src="/uploads/CRM-LOGO-removebg-preview.png"
+        alt="Digital Orbit Innovations"
+        className="h-10 w-auto object-contain"
+      />
+    </div>
+
+    <span className="font-extrabold text-2xl tracking-tight text-[#ec3737]">
+      Digital Orbit Innovations
+    </span>
+  </div>
+
+  {/* Hero Content */}
+  <div className="my-auto z-10 max-w-lg">
+
+    <h2 className="text-4xl font-extrabold mb-4 tracking-tight">
+      Welcome Back
+    </h2>
+
+    <p className="text-slate-300 text-base leading-relaxed mb-8 font-normal">
+      Sign in to access your workspace, collaborate with your team, and stay
+      updated on everything happening across your projects. Keep your tasks
+      organized, stay connected, and make every workday more productive.
+    </p>
+
+    {/* Dashboard Mockup Image */}
+    <div className="relative mt-4 transform -rotate-1 hover:rotate-0 transition-transform duration-500 ease-out">
+
+      <div className="absolute -inset-1 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-2xl blur opacity-30" />
+
+      <img
+        src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=800&q=80"
+        alt="CallCRM Dashboard Preview"
+        className="relative rounded-2xl border border-white/10 shadow-2xl w-full object-cover h-64"
+      />
+
+    </div>
+  </div>
+
+  {/* Footer Copyright */}
+  <div className="z-10 text-xs text-slate-400">
+    © 2026 Digital Orbit Innovations. All rights reserved.
+  </div>
+
 </div>
-
-
-          {/* Footer Copyright */}
-          <div className="z-10 text-xs text-slate-400">
-            2026 Digital ORBITUS . All rights reserved.
-          </div>
-        </div>
 
         {/* Right Section (Login Form - Full Height Centered) */}
         <div className="lg:col-span-7 p-6 sm:p-12 md:p-16 flex flex-col justify-center items-center bg-white min-h-screen">
@@ -459,7 +488,7 @@ export default function LoginPage() {
                     onChange={(e) =>
                       setFormData({ ...formData, email: e.target.value })
                     }
-                    className="w-full pl-10 pr-4 py-3 text-sm text-slate-800 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white transition-all duration-200"
+                    className="w-full pl-10 pr-4 py-3 text-sm text-slate-800 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#ec3737] focus:bg-white transition-all duration-200"
                   />
                 </div>
               </div>
@@ -481,7 +510,7 @@ export default function LoginPage() {
                     onChange={(e) =>
                       setFormData({ ...formData, password: e.target.value })
                     }
-                    className="w-full pl-10 pr-10 py-3 text-sm text-slate-800 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white transition-all duration-200"
+                    className="w-full pl-10 pr-10 py-3 text-sm text-slate-800 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#ec3737] focus:bg-white transition-all duration-200"
                   />
                   <button
                     type="button"
@@ -497,7 +526,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-3.5 px-4 rounded-xl shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2 transition-all active:scale-[0.99] cursor-pointer text-sm"
+                className="w-full bg-[#ec3737] hover:bg-[#ec3737] disabled:bg-blue-400 text-white font-semibold py-3.5 px-4 rounded-xl shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2 transition-all active:scale-[0.99] cursor-pointer text-sm"
               >
                 {loading ? (
                   <Loader2 size={18} className="animate-spin" />
