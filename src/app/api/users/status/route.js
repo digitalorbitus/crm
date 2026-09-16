@@ -281,7 +281,7 @@ const ALLOWED_STATUSES = [
   "Short Break",
   "Inactive",
   "On Call",
-  "Washroom Break",
+  "Meeting",
   "Other",
 ];
 

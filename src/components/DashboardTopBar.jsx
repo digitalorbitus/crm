@@ -2952,8 +2952,8 @@ export default function DashboardTopBar() {
     },
 
     {
-      value: "Washroom Break",
-      label: "Washroom Break",
+      value: "Meeting",
+      label: "Meeting",
       icon: Bath,
       color: "text-cyan-600",
       dot: "bg-cyan-500",

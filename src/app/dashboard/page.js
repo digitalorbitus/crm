@@ -1856,18 +1856,49 @@ export default function DashboardPage() {
   // DATE FILTER
   // =========================================================
 
+  // const getTodayDate = () => {
+  //   const date = new Date();
+
+  //   const year = date.getFullYear();
+  //   const month = String(date.getMonth() + 1).padStart(2, "0");
+  //   const day = String(date.getDate()).padStart(2, "0");
+
+  //   return `${year}-${month}-${day}`;
+  // };
+
+
   const getTodayDate = () => {
-    const date = new Date();
+  const date = new Date();
 
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
 
-    return `${year}-${month}-${day}`;
-  };
+  return `${year}-${month}-${day}`;
+};
 
-  const [startDate, setStartDate] = useState(getTodayDate());
-  const [endDate, setEndDate] = useState(getTodayDate());
+const getPrevious7DaysDate = () => {
+  const date = new Date();
+
+  date.setDate(date.getDate() - 7);
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+};
+
+const [startDate, setStartDate] = useState(
+  getPrevious7DaysDate()
+);
+
+const [endDate, setEndDate] = useState(
+  getTodayDate()
+);
+
+  // const [startDate, setStartDate] = useState(getTodayDate());
+  // const [endDate, setEndDate] = useState(getTodayDate());
 
   // =========================================================
   // HELPERS
