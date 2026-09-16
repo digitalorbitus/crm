@@ -2745,14 +2745,21 @@ export default function BreaksPage() {
   const [currentUser, setCurrentUser] = useState(null);
 
   const [breakHistory, setBreakHistory] = useState([]);
-  const [breakStats, setBreakStats] = useState({
-    total: 0,
-    namaz: 0,
-    lunch: 0,
-    washroom: 0,
-    other: 0,
-  });
-
+  // const [breakStats, setBreakStats] = useState({
+  //   total: 0,
+  //   namaz: 0,
+  //   lunch: 0,
+  //   washroom: 0,
+  //   other: 0,
+  // });
+const [breakStats, setBreakStats] = useState({
+  total: 0,
+  namaz: 0,
+  lunch: 0,
+  shortBreak: 0,
+  washroom: 0,
+  other: 0,
+});
   const [loading, setLoading] = useState(true);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -2832,13 +2839,14 @@ export default function BreaksPage() {
       if (data?.success) {
         setBreakHistory(Array.isArray(data.breaks) ? data.breaks : []);
 
-        setBreakStats({
-          total: Number(data?.stats?.total || 0),
-          namaz: Number(data?.stats?.namaz || 0),
-          lunch: Number(data?.stats?.lunch || 0),
-          washroom: Number(data?.stats?.washroom || 0),
-          other: Number(data?.stats?.other || 0),
-        });
+   setBreakStats({
+  total: Number(data?.stats?.total || 0),
+  namaz: Number(data?.stats?.namaz || 0),
+  lunch: Number(data?.stats?.lunch || 0),
+  shortBreak: Number(data?.stats?.shortBreak || 0),
+  washroom: Number(data?.stats?.washroom || 0),
+  other: Number(data?.stats?.other || 0),
+});
       } else {
         setBreakHistory([]);
       }
@@ -2936,73 +2944,166 @@ export default function BreaksPage() {
   // BREAK TYPE ICON
   // =========================================================
 
+  // const getTypeIcon = (type) => {
+  //   const value = String(type || "").toLowerCase();
+
+  //   if (value.includes("namaz") || value.includes("prayer")) {
+  //     return Moon;
+  //   }
+
+  //   if (value.includes("lunch") || value.includes("meal")) {
+  //     return Utensils;
+  //   }
+
+  //   if (value.includes("washroom") || value.includes("bathroom")) {
+  //     return Bath;
+  //   }
+
+  //   if (value.includes("coffee") || value.includes("tea")) {
+  //     return Coffee;
+  //   }
+
+  //   return Timer;
+  // };
+
   const getTypeIcon = (type) => {
-    const value = String(type || "").toLowerCase();
+  const value = String(type || "").toLowerCase();
 
-    if (value.includes("namaz") || value.includes("prayer")) {
-      return Moon;
-    }
+  if (value.includes("namaz") || value.includes("prayer")) {
+    return Moon;
+  }
 
-    if (value.includes("lunch") || value.includes("meal")) {
-      return Utensils;
-    }
+  if (value.includes("lunch") || value.includes("meal")) {
+    return Utensils;
+  }
 
-    if (value.includes("washroom") || value.includes("bathroom")) {
-      return Bath;
-    }
+  if (
+    value.includes("short break") ||
+    value.includes("shortbreak")
+  ) {
+    return Clock3;
+  }
 
-    if (value.includes("coffee") || value.includes("tea")) {
-      return Coffee;
-    }
+  if (
+    value.includes("washroom") ||
+    value.includes("bathroom")
+  ) {
+    return Bath;
+  }
 
-    return Timer;
-  };
+  if (
+    value.includes("coffee") ||
+    value.includes("tea")
+  ) {
+    return Coffee;
+  }
+
+  return Timer;
+};
 
   // =========================================================
   // BREAK TYPE STYLE
   // =========================================================
 
+  // const getTypeStyles = (type) => {
+  //   const value = String(type || "").toLowerCase();
+
+  //   if (value.includes("namaz") || value.includes("prayer")) {
+  //     return {
+  //       bg: "bg-indigo-50",
+  //       text: "text-indigo-700",
+  //       border: "border-indigo-100",
+  //     };
+  //   }
+
+  //   if (value.includes("lunch") || value.includes("meal")) {
+  //     return {
+  //       bg: "bg-orange-50",
+  //       text: "text-orange-700",
+  //       border: "border-orange-100",
+  //     };
+  //   }
+
+  //   if (value.includes("washroom") || value.includes("bathroom")) {
+  //     return {
+  //       bg: "bg-cyan-50",
+  //       text: "text-cyan-700",
+  //       border: "border-cyan-100",
+  //     };
+  //   }
+
+  //   if (value.includes("coffee") || value.includes("tea")) {
+  //     return {
+  //       bg: "bg-amber-50",
+  //       text: "text-amber-700",
+  //       border: "border-amber-100",
+  //     };
+  //   }
+
+  //   return {
+  //     bg: "bg-slate-50",
+  //     text: "text-slate-700",
+  //     border: "border-slate-200",
+  //   };
+  // };
   const getTypeStyles = (type) => {
-    const value = String(type || "").toLowerCase();
+  const value = String(type || "").toLowerCase();
 
-    if (value.includes("namaz") || value.includes("prayer")) {
-      return {
-        bg: "bg-indigo-50",
-        text: "text-indigo-700",
-        border: "border-indigo-100",
-      };
-    }
-
-    if (value.includes("lunch") || value.includes("meal")) {
-      return {
-        bg: "bg-orange-50",
-        text: "text-orange-700",
-        border: "border-orange-100",
-      };
-    }
-
-    if (value.includes("washroom") || value.includes("bathroom")) {
-      return {
-        bg: "bg-cyan-50",
-        text: "text-cyan-700",
-        border: "border-cyan-100",
-      };
-    }
-
-    if (value.includes("coffee") || value.includes("tea")) {
-      return {
-        bg: "bg-amber-50",
-        text: "text-amber-700",
-        border: "border-amber-100",
-      };
-    }
-
+  if (value.includes("namaz") || value.includes("prayer")) {
     return {
-      bg: "bg-slate-50",
-      text: "text-slate-700",
-      border: "border-slate-200",
+      bg: "bg-indigo-50",
+      text: "text-indigo-700",
+      border: "border-indigo-100",
     };
+  }
+
+  if (value.includes("lunch") || value.includes("meal")) {
+    return {
+      bg: "bg-orange-50",
+      text: "text-orange-700",
+      border: "border-orange-100",
+    };
+  }
+
+  if (
+    value.includes("short break") ||
+    value.includes("shortbreak")
+  ) {
+    return {
+      bg: "bg-teal-50",
+      text: "text-teal-700",
+      border: "border-teal-100",
+    };
+  }
+
+  if (
+    value.includes("washroom") ||
+    value.includes("bathroom")
+  ) {
+    return {
+      bg: "bg-cyan-50",
+      text: "text-cyan-700",
+      border: "border-cyan-100",
+    };
+  }
+
+  if (
+    value.includes("coffee") ||
+    value.includes("tea")
+  ) {
+    return {
+      bg: "bg-amber-50",
+      text: "text-amber-700",
+      border: "border-amber-100",
+    };
+  }
+
+  return {
+    bg: "bg-slate-50",
+    text: "text-slate-700",
+    border: "border-slate-200",
   };
+};
 
   // =========================================================
   // ACTIVE BREAK
@@ -3272,60 +3373,55 @@ export default function BreaksPage() {
               STATS
           ================================================== */}
 
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6 mb-6">
-            <StatCard
-              title="Total Breaks"
-              value={breakStats.total}
-              icon={Activity}
-              description="All break records"
-              iconClass="bg-rose-50 text-rose-600"
-            />
+   <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6 mb-6">
+  <StatCard
+    title="Total Breaks"
+    value={breakStats.total}
+    icon={Activity}
+    description="All break records"
+    iconClass="bg-rose-50 text-rose-600"
+  />
 
-            <StatCard
-              title="Namaz"
-              value={breakStats.namaz}
-              icon={Moon}
-              description="Prayer breaks"
-              iconClass="bg-indigo-50 text-indigo-600"
-            />
+  <StatCard
+    title="Namaz"
+    value={breakStats.namaz}
+    icon={Moon}
+    description="Prayer breaks"
+    iconClass="bg-indigo-50 text-indigo-600"
+  />
 
-            <StatCard
-              title="Lunch"
-              value={breakStats.lunch}
-              icon={Utensils}
-              description="Lunch breaks"
-              iconClass="bg-orange-50 text-orange-600"
-            />
+  <StatCard
+    title="Lunch"
+    value={breakStats.lunch}
+    icon={Utensils}
+    description="Lunch breaks"
+    iconClass="bg-orange-50 text-orange-600"
+  />
 
-            <StatCard
-              title="Washroom"
-              value={breakStats.washroom}
-              icon={Bath}
-              description="Washroom breaks"
-              iconClass="bg-cyan-50 text-cyan-600"
-            />
+  <StatCard
+    title="Short Break"
+    value={breakStats.shortBreak}
+    icon={Clock3}
+    description="Short breaks"
+    iconClass="bg-teal-50 text-teal-600"
+  />
 
-            <StatCard
-              title="Other"
-              value={breakStats.other}
-              icon={Coffee}
-              description="Other breaks"
-              iconClass="bg-amber-50 text-amber-600"
-            />
+  <StatCard
+    title="Washroom"
+    value={breakStats.washroom}
+    icon={Bath}
+    description="Washroom breaks"
+    iconClass="bg-cyan-50 text-cyan-600"
+  />
 
-            {/* TOTAL HOURS */}
-            <StatCard
-              title="Total Hours"
-              value={totalFilteredHours}
-              icon={Clock3}
-              description={
-                startDate || endDate
-                  ? "Selected date range"
-                  : "All break records"
-              }
-              iconClass="bg-emerald-50 text-emerald-600"
-            />
-          </div>
+  <StatCard
+    title="Other"
+    value={breakStats.other}
+    icon={Coffee}
+    description="Other breaks"
+    iconClass="bg-amber-50 text-amber-600"
+  />
+</div>
 
           {/* =================================================
               FILTER BAR
@@ -3386,6 +3482,7 @@ export default function BreaksPage() {
                       </option>
                       <option value="Namaz">Namaz</option>
                       <option value="Lunch">Lunch</option>
+                      <option value="Short Break">Short Break</option>
                       <option value="Washroom">
                         Washroom
                       </option>

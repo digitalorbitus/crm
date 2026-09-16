@@ -332,7 +332,7 @@ export default function Sidebar({
       icon: UserPlus,
       href: "/Attendance",
       hasDropdown: false,
-      roles: ["admin", ],
+      roles: ["admin","user","staff", "agent" ],
     
     },
     {
@@ -398,7 +398,7 @@ export default function Sidebar({
       {/* Sidebar Container */}
       <aside
         className={`
-          fixed left-0 top-0 z-50 h-screen w-64 bg-[#050B1E] text-slate-200 flex flex-col justify-between py-4 px-3 transition-transform duration-300 lg:translate-x-0 border-r border-slate-800/50 select-none
+          fixed left-0 top-0 z-50 h-screen w-64 bg-black text-slate-200 flex flex-col justify-between py-4 px-3 transition-transform duration-300 lg:translate-x-0 border-r border-slate-800/50 select-none
           ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
         `}
       >
@@ -406,9 +406,9 @@ export default function Sidebar({
           {/* Logo Header */}
           <div className="flex items-center gap-3 px-3 mb-4 shrink-0">
             <img
-    src="/Digital_Orbit_logo_in_white-removebg-preview-removebg-preview.webp"
+    src="/uploads/CRM-LOGO-removebg-preview.png"
     alt="CallCRM Logo"
-    className="w-12 h-12 object-contain"
+    className="w-12 h-12 object-contain "
   />
             <span className="font-extrabold text-md tracking-tight text-[#ec3737]">
                 DIGITAL ORBIT

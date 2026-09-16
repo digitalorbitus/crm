@@ -278,6 +278,7 @@ const ALLOWED_STATUSES = [
   "Active",
   "Namaz Break",
   "Lunch Break",
+  "Short Break",
   "Inactive",
   "On Call",
   "Washroom Break",

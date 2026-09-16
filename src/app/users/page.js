@@ -3929,6 +3929,2224 @@
 
 
 
+// "use client";
+
+// import {
+//   Users,
+//   UserCheck,
+//   UserX,
+//   ShieldCheck,
+//   Clock3,
+//   Search,
+//   Filter,
+//   CalendarDays,
+//   Phone,
+//   Mail,
+//   Edit3,
+//   Trash2,
+//   Menu,
+//   X,
+//   Coffee,
+//   LogOut,
+//   AlertCircle,
+//   RefreshCw,
+//   ChevronDown,
+//   UserRound,
+//   Building2,
+//   Activity,
+// } from "lucide-react";
+
+// import {
+//   useState,
+//   useCallback,
+//   useEffect,
+//   useMemo,
+// } from "react";
+
+// import { useRouter } from "next/navigation";
+// import Sidebar from "@/components/Sidebar";
+// import Link from "next/link";
+
+// export default function UsersPage() {
+//   const router = useRouter();
+
+//   // =========================================================
+//   // THEME
+//   // =========================================================
+
+//   const MAROON = "#741C29";
+//   const MAROON_DARK = "#5C1520";
+
+//   // =========================================================
+//   // STATES
+//   // =========================================================
+
+//   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+//   const [usersList, setUsersList] = useState([]);
+//   const [loginHistory, setLoginHistory] = useState([]);
+
+//   const [loading, setLoading] = useState(true);
+//   const [error, setError] = useState("");
+
+//   const [searchTerm, setSearchTerm] = useState("");
+//   const [roleFilter, setRoleFilter] = useState("All Roles");
+//   const [statusFilter, setStatusFilter] = useState("All Status");
+//   const [teamFilter, setTeamFilter] = useState("All Teams");
+
+//   const [startDate, setStartDate] = useState("");
+//   const [endDate, setEndDate] = useState("");
+
+//   const [logoutModalOpen, setLogoutModalOpen] =
+//     useState(false);
+
+//   const [breakModalOpen, setBreakModalOpen] =
+//     useState(false);
+
+//   const [selectedUser, setSelectedUser] =
+//     useState(null);
+
+//   const [breakStart, setBreakStart] = useState("");
+//   const [breakEnd, setBreakEnd] = useState("");
+
+//   const [adminBreakModalOpen, setAdminBreakModalOpen] =
+//     useState(false);
+
+//   const [adminBreakStart, setAdminBreakStart] =
+//     useState("");
+
+//   const [adminBreakEnd, setAdminBreakEnd] =
+//     useState("");
+
+//   const [savingBreak, setSavingBreak] =
+//     useState(false);
+
+//   const [deletingUserId, setDeletingUserId] =
+//     useState(null);
+
+//   // =========================================================
+//   // DATE HELPERS
+//   // =========================================================
+
+//   const formatDisplayDateTime = (value) => {
+//     if (!value) return "Never";
+
+//     const date = new Date(value);
+
+//     if (Number.isNaN(date.getTime())) {
+//       return "Never";
+//     }
+
+//     return date.toLocaleString("en-US", {
+//       month: "short",
+//       day: "numeric",
+//       year: "numeric",
+//       hour: "numeric",
+//       minute: "2-digit",
+//     });
+//   };
+
+//   const toDateTimeLocalValue = (value) => {
+//     if (!value) return "";
+
+//     const date = new Date(value);
+
+//     if (Number.isNaN(date.getTime())) {
+//       return "";
+//     }
+
+//     const year = date.getFullYear();
+
+//     const month = String(
+//       date.getMonth() + 1
+//     ).padStart(2, "0");
+
+//     const day = String(
+//       date.getDate()
+//     ).padStart(2, "0");
+
+//     const hours = String(
+//       date.getHours()
+//     ).padStart(2, "0");
+
+//     const minutes = String(
+//       date.getMinutes()
+//     ).padStart(2, "0");
+
+//     return `${year}-${month}-${day}T${hours}:${minutes}`;
+//   };
+
+//   const normalizeDateTimeForDb = (value) => {
+//     if (!value) return null;
+
+//     const date = new Date(value);
+
+//     if (Number.isNaN(date.getTime())) {
+//       return null;
+//     }
+
+//     const year = date.getFullYear();
+
+//     const month = String(
+//       date.getMonth() + 1
+//     ).padStart(2, "0");
+
+//     const day = String(
+//       date.getDate()
+//     ).padStart(2, "0");
+
+//     const hours = String(
+//       date.getHours()
+//     ).padStart(2, "0");
+
+//     const minutes = String(
+//       date.getMinutes()
+//     ).padStart(2, "0");
+
+//     const seconds = String(
+//       date.getSeconds()
+//     ).padStart(2, "0");
+
+//     return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+//   };
+
+//   // =========================================================
+//   // STATUS HELPERS
+//   // =========================================================
+
+//   const getUserStatus = useCallback((user) => {
+//     return (
+//       user?.availability_status ||
+//       user?.status ||
+//       "Active"
+//     )
+//       .toString()
+//       .trim();
+//   }, []);
+
+//   // =========================================================
+//   // FETCH USERS
+//   // =========================================================
+
+//   const fetchUsers = useCallback(async () => {
+//     try {
+//       setLoading(true);
+//       setError("");
+
+//       const usersResponse = await fetch(
+//         "/api/new-users",
+//         {
+//           method: "GET",
+//           credentials: "include",
+//           cache: "no-store",
+//         }
+//       );
+
+//       if (!usersResponse.ok) {
+//         throw new Error(
+//           "Failed to fetch users"
+//         );
+//       }
+
+//       const usersData =
+//         await usersResponse.json();
+
+//       let users = [];
+
+//       if (Array.isArray(usersData)) {
+//         users = usersData;
+//       } else if (
+//         Array.isArray(usersData?.users)
+//       ) {
+//         users = usersData.users;
+//       } else if (
+//         Array.isArray(usersData?.data)
+//       ) {
+//         users = usersData.data;
+//       }
+
+//       setUsersList(users);
+
+//       // -------------------------------------------------------
+//       // LOGIN HISTORY
+//       // -------------------------------------------------------
+
+//       try {
+//         const historyResponse =
+//           await fetch(
+//             "/api/login-history",
+//             {
+//               method: "GET",
+//               credentials: "include",
+//               cache: "no-store",
+//             }
+//           );
+
+//         if (historyResponse.ok) {
+//           const historyData =
+//             await historyResponse.json();
+
+//           if (Array.isArray(historyData)) {
+//             setLoginHistory(historyData);
+//           } else if (
+//             Array.isArray(
+//               historyData?.history
+//             )
+//           ) {
+//             setLoginHistory(
+//               historyData.history
+//             );
+//           } else if (
+//             Array.isArray(
+//               historyData?.data
+//             )
+//           ) {
+//             setLoginHistory(
+//               historyData.data
+//             );
+//           } else {
+//             setLoginHistory([]);
+//           }
+//         } else {
+//           setLoginHistory([]);
+//         }
+//       } catch (historyError) {
+//         console.error(
+//           "Login history error:",
+//           historyError
+//         );
+
+//         setLoginHistory([]);
+//       }
+//     } catch (err) {
+//       console.error(
+//         "Users fetch error:",
+//         err
+//       );
+
+//       setError(
+//         err.message ||
+//           "Failed to load users"
+//       );
+
+//       setUsersList([]);
+//     } finally {
+//       setLoading(false);
+//     }
+//   }, []);
+
+//   // =========================================================
+//   // INITIAL LOAD
+//   // =========================================================
+
+//   useEffect(() => {
+//     fetchUsers();
+//   }, [fetchUsers]);
+
+//   // =========================================================
+//   // TEAMS
+//   // =========================================================
+
+//   const teams = useMemo(() => {
+//     const uniqueTeams = new Set();
+
+//     usersList.forEach((user) => {
+//       if (user?.team) {
+//         uniqueTeams.add(user.team);
+//       }
+//     });
+
+//     return Array.from(uniqueTeams).sort();
+//   }, [usersList]);
+
+//   // =========================================================
+//   // FILTERED USERS
+//   // =========================================================
+
+//   const filteredUsers = useMemo(() => {
+//     const search =
+//       searchTerm
+//         .trim()
+//         .toLowerCase();
+
+//     const selectedRole =
+//       roleFilter
+//         .trim()
+//         .toLowerCase();
+
+//     const selectedStatus =
+//       statusFilter
+//         .trim()
+//         .toLowerCase();
+
+//     const selectedTeam =
+//       teamFilter
+//         .trim()
+//         .toLowerCase();
+
+//     return usersList.filter(
+//       (usr) => {
+//         // ---------------------------------------------------
+//         // SEARCH
+//         // ---------------------------------------------------
+
+//         let matchesSearch = true;
+
+//         if (search) {
+//           const name =
+//             (usr.name || "")
+//               .toLowerCase();
+
+//           const email =
+//             (usr.email || "")
+//               .toLowerCase();
+
+//           const phone =
+//             (usr.phone || "")
+//               .toLowerCase();
+
+//           matchesSearch =
+//             name.includes(search) ||
+//             email.includes(search) ||
+//             phone.includes(search);
+//         }
+
+//         // ---------------------------------------------------
+//         // ROLE
+//         // ---------------------------------------------------
+
+//         let matchesRole = true;
+
+//         if (
+//           roleFilter !== "All Roles"
+//         ) {
+//           matchesRole =
+//             (
+//               usr.role || ""
+//             )
+//               .trim()
+//               .toLowerCase() ===
+//             selectedRole;
+//         }
+
+//         // ---------------------------------------------------
+//         // STATUS
+//         // ---------------------------------------------------
+
+//         const userStatus = (
+//           usr.availability_status ||
+//           usr.status ||
+//           ""
+//         )
+//           .trim()
+//           .toLowerCase();
+
+//         let matchesStatus = true;
+
+//         if (
+//           statusFilter !==
+//           "All Status"
+//         ) {
+//           if (
+//             selectedStatus ===
+//             "active"
+//           ) {
+//             matchesStatus =
+//               userStatus ===
+//               "active";
+//           } else if (
+//             selectedStatus ===
+//             "inactive"
+//           ) {
+//             // IMPORTANT:
+//             // Everything except Active
+//             // is treated as unavailable/inactive.
+//             matchesStatus =
+//               userStatus !==
+//               "active";
+//           } else {
+//             matchesStatus =
+//               userStatus ===
+//               selectedStatus;
+//           }
+//         }
+
+//         // ---------------------------------------------------
+//         // TEAM
+//         // ---------------------------------------------------
+
+//         let matchesTeam = true;
+
+//         if (
+//           teamFilter !== "All Teams"
+//         ) {
+//           matchesTeam =
+//             (
+//               usr.team || ""
+//             )
+//               .trim()
+//               .toLowerCase() ===
+//             selectedTeam;
+//         }
+
+//         // ---------------------------------------------------
+//         // DATE
+//         // ---------------------------------------------------
+
+//         let matchesDate = true;
+
+//         const userDate =
+//           usr.created_at ||
+//           usr.last_login ||
+//           usr.login_time;
+
+//         if (startDate || endDate) {
+//           if (!userDate) {
+//             matchesDate = false;
+//           } else {
+//             const date =
+//               new Date(userDate);
+
+//             if (
+//               Number.isNaN(
+//                 date.getTime()
+//               )
+//             ) {
+//               matchesDate = false;
+//             } else {
+//               if (startDate) {
+//                 const start =
+//                   new Date(
+//                     `${startDate}T00:00:00`
+//                   );
+
+//                 if (date < start) {
+//                   matchesDate = false;
+//                 }
+//               }
+
+//               if (endDate) {
+//                 const end =
+//                   new Date(
+//                     `${endDate}T23:59:59`
+//                   );
+
+//                 if (date > end) {
+//                   matchesDate = false;
+//                 }
+//               }
+//             }
+//           }
+//         }
+
+//         return (
+//           matchesSearch &&
+//           matchesRole &&
+//           matchesStatus &&
+//           matchesTeam &&
+//           matchesDate
+//         );
+//       }
+//     );
+//   }, [
+//     usersList,
+//     searchTerm,
+//     roleFilter,
+//     statusFilter,
+//     teamFilter,
+//     startDate,
+//     endDate,
+//   ]);
+
+//   // =========================================================
+//   // STATS
+//   // =========================================================
+
+//   const stats = useMemo(() => {
+//     const total =
+//       usersList.length;
+
+//     const active =
+//       usersList.filter(
+//         (user) => {
+//           const status = (
+//             user?.availability_status ||
+//             user?.status ||
+//             ""
+//           )
+//             .trim()
+//             .toLowerCase();
+
+//           return (
+//             status === "active"
+//           );
+//         }
+//       ).length;
+
+//     const inactive =
+//       usersList.filter(
+//         (user) => {
+//           const status = (
+//             user?.availability_status ||
+//             user?.status ||
+//             ""
+//           )
+//             .trim()
+//             .toLowerCase();
+
+//           return (
+//             status !== "active"
+//           );
+//         }
+//       ).length;
+
+//     const admins =
+//       usersList.filter(
+//         (user) =>
+//           (
+//             user?.role || ""
+//           )
+//             .trim()
+//             .toLowerCase() ===
+//           "admin"
+//       ).length;
+
+//     return [
+//       {
+//         key: "total",
+//         label: "Total Users",
+//         value: total,
+//         icon: Users,
+//         small: "All registered users",
+//       },
+//       {
+//         key: "active",
+//         label: "Active Users",
+//         value: active,
+//         icon: UserCheck,
+//         small: "Currently active",
+//       },
+//       {
+//         key: "inactive",
+//         label: "Inactive Users",
+//         value: inactive,
+//         icon: UserX,
+//         small: "Unavailable users",
+//       },
+//       {
+//         key: "logged",
+//         label: "Logged In Now",
+//         value: active,
+//         icon: Clock3,
+//         small: "Currently online",
+//       },
+//       {
+//         key: "admins",
+//         label: "Total Admins",
+//         value: admins,
+//         icon: ShieldCheck,
+//         small: "Administrator accounts",
+//       },
+//     ];
+//   }, [usersList]);
+
+//   // =========================================================
+//   // TABLE ROWS
+//   // =========================================================
+
+//   const tableRows = useMemo(() => {
+//     return filteredUsers.map(
+//       (user) => ({
+//         ...user,
+//         displayStatus:
+//           getUserStatus(user),
+//       })
+//     );
+//   }, [
+//     filteredUsers,
+//     getUserStatus,
+//   ]);
+
+//   // =========================================================
+//   // STATUS STYLE
+//   // =========================================================
+
+//   const getStatusStyle = (status) => {
+//     const normalized = (
+//       status || ""
+//     )
+//       .trim()
+//       .toLowerCase();
+
+//     if (
+//       normalized === "active"
+//     ) {
+//       return {
+//         wrapper:
+//           "bg-[#741C29]/8 border-[#741C29]/20 text-[#741C29]",
+//         dot:
+//           "bg-[#741C29]",
+//       };
+//     }
+
+//     if (
+//       normalized === "inactive"
+//     ) {
+//       return {
+//         wrapper:
+//           "bg-gray-100 border-gray-200 text-gray-700",
+//         dot:
+//           "bg-gray-700",
+//       };
+//     }
+
+//     return {
+//       wrapper:
+//         "bg-[#F4F1EF] border-[#D9D0CC] text-[#5E4B4F]",
+//       dot:
+//         "bg-[#741C29]",
+//     };
+//   };
+
+//   // =========================================================
+//   // ROLE STYLE
+//   // =========================================================
+
+//   const getRoleStyle = (role) => {
+//     const normalized = (
+//       role || ""
+//     )
+//       .trim()
+//       .toLowerCase();
+
+//     if (
+//       normalized === "admin"
+//     ) {
+//       return "bg-[#741C29] text-white border-[#741C29]";
+//     }
+
+//     if (
+//       normalized === "manager"
+//     ) {
+//       return "bg-[#F4F1EF] text-[#741C29] border-[#DCCFD0]";
+//     }
+
+//     return "bg-white text-gray-700 border-gray-200";
+//   };
+
+//   // =========================================================
+//   // OPEN BREAK MODAL
+//   // =========================================================
+
+//   const openBreakModal = (
+//     user
+//   ) => {
+//     setSelectedUser(user);
+
+//     setBreakStart(
+//       toDateTimeLocalValue(
+//         user?.break_start
+//       )
+//     );
+
+//     setBreakEnd(
+//       toDateTimeLocalValue(
+//         user?.break_end
+//       )
+//     );
+
+//     setBreakModalOpen(true);
+//   };
+
+//   // =========================================================
+//   // SAVE BREAK
+//   // =========================================================
+
+//   const handleSaveBreakTime =
+//     async () => {
+//       if (!selectedUser) return;
+
+//       try {
+//         setSavingBreak(true);
+
+//         const response =
+//           await fetch(
+//             "/api/new-users",
+//             {
+//               method: "PATCH",
+//               headers: {
+//                 "Content-Type":
+//                   "application/json",
+//               },
+//               credentials:
+//                 "include",
+//               body: JSON.stringify({
+//                 userId:
+//                   selectedUser.id,
+//                 applyAll: false,
+//                 break_start:
+//                   normalizeDateTimeForDb(
+//                     breakStart
+//                   ),
+//                 break_end:
+//                   normalizeDateTimeForDb(
+//                     breakEnd
+//                   ),
+//               }),
+//             }
+//           );
+
+//         const data =
+//           await response.json();
+
+//         if (!response.ok) {
+//           throw new Error(
+//             data?.error ||
+//               "Failed to save break time"
+//           );
+//         }
+
+//         setBreakModalOpen(
+//           false
+//         );
+
+//         setSelectedUser(
+//           null
+//         );
+
+//         setBreakStart("");
+//         setBreakEnd("");
+
+//         await fetchUsers();
+//       } catch (err) {
+//         console.error(
+//           "Save break error:",
+//           err
+//         );
+
+//         alert(
+//           err.message ||
+//             "Failed to save break time"
+//         );
+//       } finally {
+//         setSavingBreak(false);
+//       }
+//     };
+
+//   // =========================================================
+//   // SAVE ADMIN BREAK
+//   // =========================================================
+
+//   const handleSaveAdminBreakTime =
+//     async () => {
+//       try {
+//         setSavingBreak(true);
+
+//         const response =
+//           await fetch(
+//             "/api/new-users",
+//             {
+//               method: "PATCH",
+//               headers: {
+//                 "Content-Type":
+//                   "application/json",
+//               },
+//               credentials:
+//                 "include",
+//               body: JSON.stringify({
+//                 applyAll: true,
+//                 break_start:
+//                   normalizeDateTimeForDb(
+//                     adminBreakStart
+//                   ),
+//                 break_end:
+//                   normalizeDateTimeForDb(
+//                     adminBreakEnd
+//                   ),
+//               }),
+//             }
+//           );
+
+//         const data =
+//           await response.json();
+
+//         if (!response.ok) {
+//           throw new Error(
+//             data?.error ||
+//               "Failed to save break time"
+//           );
+//         }
+
+//         setAdminBreakModalOpen(
+//           false
+//         );
+
+//         setAdminBreakStart("");
+//         setAdminBreakEnd("");
+
+//         await fetchUsers();
+//       } catch (err) {
+//         console.error(
+//           "Admin break error:",
+//           err
+//         );
+
+//         alert(
+//           err.message ||
+//             "Failed to save break time"
+//         );
+//       } finally {
+//         setSavingBreak(false);
+//       }
+//     };
+
+//   // =========================================================
+//   // DELETE USER
+//   // =========================================================
+
+//   const handleDeleteUser =
+//     async (userId) => {
+//       if (!userId) return;
+
+//       const confirmed =
+//         window.confirm(
+//           "Are you sure you want to delete this user?"
+//         );
+
+//       if (!confirmed) return;
+
+//       try {
+//         setDeletingUserId(
+//           userId
+//         );
+
+//         const response =
+//           await fetch(
+//             "/api/new-users",
+//             {
+//               method: "DELETE",
+//               headers: {
+//                 "Content-Type":
+//                   "application/json",
+//               },
+//               credentials:
+//                 "include",
+//               body: JSON.stringify({
+//                 userId,
+//               }),
+//             }
+//           );
+
+//         const data =
+//           await response.json();
+
+//         if (!response.ok) {
+//           throw new Error(
+//             data?.error ||
+//               "Failed to delete user"
+//           );
+//         }
+
+//         setUsersList(
+//           (prev) =>
+//             prev.filter(
+//               (user) =>
+//                 String(user.id) !==
+//                 String(userId)
+//             )
+//         );
+//       } catch (err) {
+//         console.error(
+//           "Delete user error:",
+//           err
+//         );
+
+//         alert(
+//           err.message ||
+//             "Failed to delete user"
+//         );
+//       } finally {
+//         setDeletingUserId(
+//           null
+//         );
+//       }
+//     };
+
+//   // =========================================================
+//   // CLEAR FILTERS
+//   // =========================================================
+
+//   const clearFilters = () => {
+//     setSearchTerm("");
+//     setRoleFilter(
+//       "All Roles"
+//     );
+//     setStatusFilter(
+//       "All Status"
+//     );
+//     setTeamFilter(
+//       "All Teams"
+//     );
+//     setStartDate("");
+//     setEndDate("");
+//   };
+
+//   // =========================================================
+//   // LOADING
+//   // =========================================================
+
+//   if (loading) {
+//     return (
+//       <div className="min-h-screen bg-[#F7F5F3]">
+//         <Sidebar
+//           sidebarOpen={
+//             sidebarOpen
+//           }
+//           setSidebarOpen={
+//             setSidebarOpen
+//           }
+//         />
+
+//         <main className="lg:ml-[260px] min-h-screen flex items-center justify-center">
+//           <div className="text-center">
+//             <div className="w-14 h-14 rounded-2xl bg-[#741C29] flex items-center justify-center mx-auto shadow-lg shadow-[#741C29]/20">
+//               <RefreshCw className="w-6 h-6 text-white animate-spin" />
+//             </div>
+
+//             <h2 className="mt-5 text-lg font-semibold text-gray-900">
+//               Loading Users
+//             </h2>
+
+//             <p className="mt-1 text-sm text-gray-500">
+//               Please wait...
+//             </p>
+//           </div>
+//         </main>
+//       </div>
+//     );
+//   }
+
+//   // =========================================================
+//   // MAIN
+//   // =========================================================
+
+//   return (
+//     <div className="min-h-screen bg-[#F7F5F3] text-gray-900">
+//       {/* MOBILE OVERLAY */}
+
+//       {sidebarOpen && (
+//         <div
+//           className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+//           onClick={() =>
+//             setSidebarOpen(false)
+//           }
+//         />
+//       )}
+
+//       <Sidebar
+//         sidebarOpen={
+//           sidebarOpen
+//         }
+//         setSidebarOpen={
+//           setSidebarOpen
+//         }
+//       />
+
+//       <main className="lg:ml-[260px] min-h-screen">
+//         {/* =====================================================
+//             HEADER
+//         ===================================================== */}
+
+//         <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-xl border-b border-[#E6E0DC]">
+//           <div className="px-4 sm:px-6 lg:px-8 py-4">
+//             <div className="flex items-center justify-between gap-4">
+//               <div className="flex items-center gap-3">
+//                 <button
+//                   type="button"
+//                   onClick={() =>
+//                     setSidebarOpen(
+//                       true
+//                     )
+//                   }
+//                   className="lg:hidden w-10 h-10 rounded-xl border border-[#E5DEDA] bg-white flex items-center justify-center hover:bg-[#F7F5F3]"
+//                 >
+//                   <Menu className="w-5 h-5 text-gray-800" />
+//                 </button>
+
+//                 <div>
+//                   <div className="flex items-center gap-2">
+//                     <div className="hidden sm:block w-1 h-6 rounded-full bg-[#741C29]" />
+
+//                     <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#111111]">
+//                       EMP ID
+//                     </h1>
+//                   </div>
+
+//                   <p className="text-sm text-gray-500 mt-1">
+//                     Manage users, roles and availability
+//                   </p>
+//                 </div>
+//               </div>
+
+//               <div className="flex items-center gap-2">
+//                 <button
+//                   type="button"
+//                   onClick={
+//                     fetchUsers
+//                   }
+//                   className="h-10 sm:h-11 px-3 sm:px-4 rounded-xl border border-[#DED7D3] bg-white hover:bg-[#F7F5F3] text-sm font-semibold text-gray-800 flex items-center gap-2 transition"
+//                 >
+//                   <RefreshCw className="w-4 h-4" />
+
+//                   <span className="hidden sm:inline">
+//                     Refresh
+//                   </span>
+//                 </button>
+
+//                 <Link
+//                   href="/add-new-users"
+//                   className="h-10 sm:h-11 px-3 sm:px-5 rounded-xl bg-[#741C29] hover:bg-[#5C1520] text-white text-sm font-semibold flex items-center gap-2 shadow-lg shadow-[#741C29]/15 transition"
+//                 >
+//                   <Users className="w-4 h-4" />
+
+//                   <span>
+//                     <span className="hidden sm:inline">
+//                       Add User
+//                     </span>
+
+//                     <span className="sm:hidden">
+//                       Add
+//                     </span>
+//                   </span>
+//                 </Link>
+//               </div>
+//             </div>
+//           </div>
+//         </header>
+
+//         <div className="p-4 sm:p-6 lg:p-8 max-w-[1800px] mx-auto">
+//           {/* =====================================================
+//               ERROR
+//           ===================================================== */}
+
+//           {error && (
+//             <div className="mb-6 bg-white border border-[#D9BFC3] rounded-2xl p-4 flex items-start gap-3 shadow-sm">
+//               <div className="w-9 h-9 rounded-xl bg-[#741C29]/10 flex items-center justify-center shrink-0">
+//                 <AlertCircle className="w-5 h-5 text-[#741C29]" />
+//               </div>
+
+//               <div className="flex-1">
+//                 <p className="font-semibold text-gray-900">
+//                   Failed to load users
+//                 </p>
+
+//                 <p className="text-sm text-gray-500 mt-1">
+//                   {error}
+//                 </p>
+//               </div>
+
+//               <button
+//                 type="button"
+//                 onClick={
+//                   fetchUsers
+//                 }
+//                 className="text-sm font-semibold text-[#741C29] hover:text-[#5C1520]"
+//               >
+//                 Retry
+//               </button>
+//             </div>
+//           )}
+
+//           {/* =====================================================
+//               STATS
+//           ===================================================== */}
+
+//           <div className="grid grid-cols-2 xl:grid-cols-5 gap-3 sm:gap-4 mb-7">
+//             {stats.map(
+//               (stat, index) => {
+//                 const Icon =
+//                   stat.icon;
+
+//                 const isMain =
+//                   index === 0;
+
+//                 return (
+//                   <div
+//                     key={
+//                       stat.key
+//                     }
+//                     className={`group relative overflow-hidden rounded-2xl border bg-white p-4 sm:p-5 transition-all duration-200 hover:-translate-y-0.5 ${
+//                       isMain
+//                         ? "border-[#741C29]/20 shadow-[0_10px_35px_rgba(116,28,41,0.08)]"
+//                         : "border-[#E4DEDA] shadow-sm hover:shadow-md"
+//                     }`}
+//                   >
+//                     {isMain && (
+//                       <div className="absolute top-0 left-0 right-0 h-1 bg-[#741C29]" />
+//                     )}
+
+//                     <div className="flex items-start justify-between gap-3">
+//                       <div>
+//                         <p className="text-[11px] sm:text-xs font-bold uppercase tracking-[0.08em] text-gray-500">
+//                           {stat.label}
+//                         </p>
+
+//                         <p className="text-2xl sm:text-3xl font-bold text-[#111111] mt-2">
+//                           {stat.value}
+//                         </p>
+
+//                         <p className="text-[11px] sm:text-xs text-gray-400 mt-1">
+//                           {stat.small}
+//                         </p>
+//                       </div>
+
+//                       <div
+//                         className={`w-10 h-10 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center shrink-0 ${
+//                           isMain
+//                             ? "bg-[#741C29] text-white"
+//                             : "bg-[#F5F1EF] text-[#741C29]"
+//                         }`}
+//                       >
+//                         <Icon className="w-5 h-5" />
+//                       </div>
+//                     </div>
+//                   </div>
+//                 );
+//               }
+//             )}
+//           </div>
+
+//           {/* =====================================================
+//               FILTER PANEL
+//           ===================================================== */}
+
+//           <div className="bg-white border border-[#E4DEDA] rounded-2xl shadow-sm overflow-hidden mb-7">
+//             <div className="px-4 sm:px-5 py-4 border-b border-[#ECE7E4] flex items-center justify-between">
+//               <div className="flex items-center gap-3">
+//                 <div className="w-9 h-9 rounded-xl bg-[#741C29]/10 flex items-center justify-center">
+//                   <Filter className="w-4 h-4 text-[#741C29]" />
+//                 </div>
+
+//                 <div>
+//                   <h2 className="font-bold text-gray-900">
+//                     Filters
+//                   </h2>
+
+//                   <p className="text-xs text-gray-400">
+//                     Find users quickly
+//                   </p>
+//                 </div>
+//               </div>
+
+//               <button
+//                 type="button"
+//                 onClick={
+//                   clearFilters
+//                 }
+//                 className="text-xs sm:text-sm font-semibold text-[#741C29] hover:text-[#5C1520]"
+//               >
+//                 Clear Filters
+//               </button>
+//             </div>
+
+//             <div className="p-4 sm:p-5">
+//               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
+//                 {/* SEARCH */}
+
+//                 <div className="lg:col-span-2 relative">
+//                   <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+
+//                   <input
+//                     type="text"
+//                     value={
+//                       searchTerm
+//                     }
+//                     onChange={(e) =>
+//                       setSearchTerm(
+//                         e.target
+//                           .value
+//                       )
+//                     }
+//                     placeholder="Search name, email or phone..."
+//                     className="w-full h-11 rounded-xl border border-[#DDD6D2] bg-[#FCFBFA] pl-10 pr-4 text-sm text-gray-900 placeholder:text-gray-400 outline-none transition focus:bg-white focus:border-[#741C29] focus:ring-4 focus:ring-[#741C29]/8"
+//                   />
+//                 </div>
+
+//                 {/* ROLE */}
+
+//                 <div className="relative">
+//                   <UserRound className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+
+//                   <select
+//                     value={
+//                       roleFilter
+//                     }
+//                     onChange={(e) =>
+//                       setRoleFilter(
+//                         e.target
+//                           .value
+//                       )
+//                     }
+//                     className="appearance-none w-full h-11 rounded-xl border border-[#DDD6D2] bg-[#FCFBFA] pl-10 pr-9 text-sm text-gray-700 outline-none focus:bg-white focus:border-[#741C29] focus:ring-4 focus:ring-[#741C29]/8"
+//                   >
+//                     <option>
+//                       All Roles
+//                     </option>
+//                     <option>
+//                       Admin
+//                     </option>
+//                     <option>
+//                       Manager
+//                     </option>
+//                     <option>
+//                       Agent
+//                     </option>
+//                   </select>
+
+//                   <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+//                 </div>
+
+//                 {/* STATUS */}
+
+//                 <div className="relative">
+//                   <Activity className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+
+//                   <select
+//                     value={
+//                       statusFilter
+//                     }
+//                     onChange={(e) =>
+//                       setStatusFilter(
+//                         e.target
+//                           .value
+//                       )
+//                     }
+//                     className="appearance-none w-full h-11 rounded-xl border border-[#DDD6D2] bg-[#FCFBFA] pl-10 pr-9 text-sm text-gray-700 outline-none focus:bg-white focus:border-[#741C29] focus:ring-4 focus:ring-[#741C29]/8"
+//                   >
+//                     <option>
+//                       All Status
+//                     </option>
+//                     <option>
+//                       Active
+//                     </option>
+//                     <option>
+//                       Inactive
+//                     </option>
+//                   </select>
+
+//                   <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+//                 </div>
+
+//                 {/* TEAM */}
+
+//                 <div className="relative">
+//                   <Building2 className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+
+//                   <select
+//                     value={
+//                       teamFilter
+//                     }
+//                     onChange={(e) =>
+//                       setTeamFilter(
+//                         e.target
+//                           .value
+//                       )
+//                     }
+//                     className="appearance-none w-full h-11 rounded-xl border border-[#DDD6D2] bg-[#FCFBFA] pl-10 pr-9 text-sm text-gray-700 outline-none focus:bg-white focus:border-[#741C29] focus:ring-4 focus:ring-[#741C29]/8"
+//                   >
+//                     <option>
+//                       All Teams
+//                     </option>
+
+//                     {teams.map(
+//                       (
+//                         team
+//                       ) => (
+//                         <option
+//                           key={
+//                             team
+//                           }
+//                           value={
+//                             team
+//                           }
+//                         >
+//                           {
+//                             team
+//                           }
+//                         </option>
+//                       )
+//                     )}
+//                   </select>
+
+//                   <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+//                 </div>
+
+//                 {/* DATES */}
+
+//                 <div className="grid grid-cols-2 gap-2">
+//                   <div className="relative">
+//                     <CalendarDays className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+
+//                     <input
+//                       type="date"
+//                       value={
+//                         startDate
+//                       }
+//                       onChange={(e) =>
+//                         setStartDate(
+//                           e.target
+//                             .value
+//                         )
+//                       }
+//                       className="w-full h-11 rounded-xl border border-[#DDD6D2] bg-[#FCFBFA] pl-9 pr-1 text-xs text-gray-700 outline-none focus:bg-white focus:border-[#741C29]"
+//                     />
+//                   </div>
+
+//                   <div>
+//                     <input
+//                       type="date"
+//                       value={
+//                         endDate
+//                       }
+//                       onChange={(e) =>
+//                         setEndDate(
+//                           e.target
+//                             .value
+//                         )
+//                       }
+//                       className="w-full h-11 rounded-xl border border-[#DDD6D2] bg-[#FCFBFA] px-2 text-xs text-gray-700 outline-none focus:bg-white focus:border-[#741C29]"
+//                     />
+//                   </div>
+//                 </div>
+//               </div>
+//             </div>
+//           </div>
+
+//           {/* =====================================================
+//               TABLE HEADER
+//           ===================================================== */}
+
+//           <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-4">
+//             <div>
+//               <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#741C29]">
+//                 User Directory
+//               </p>
+
+//               <h2 className="text-xl font-bold text-[#111111] mt-1">
+//                 All Users
+//               </h2>
+
+//               <p className="text-sm text-gray-500 mt-1">
+//                 Showing{" "}
+//                 <span className="font-semibold text-gray-800">
+//                   {
+//                     filteredUsers.length
+//                   }
+//                 </span>{" "}
+//                 of{" "}
+//                 <span className="font-semibold text-gray-800">
+//                   {
+//                     usersList.length
+//                   }
+//                 </span>{" "}
+//                 EMP ID
+//               </p>
+//             </div>
+
+//             <div className="flex items-center gap-2 text-xs font-medium text-gray-500">
+//               <span className="w-2 h-2 rounded-full bg-[#741C29]" />
+//               Live availability
+//             </div>
+//           </div>
+
+//           {/* =====================================================
+//               USERS TABLE
+//           ===================================================== */}
+
+//           <div className="bg-white border border-[#E4DEDA] rounded-2xl shadow-sm overflow-hidden">
+//             {tableRows.length ===
+//             0 ? (
+//               <div className="py-20 px-6 text-center">
+//                 <div className="w-16 h-16 rounded-2xl bg-[#F5F1EF] flex items-center justify-center mx-auto">
+//                   <Users className="w-7 h-7 text-[#741C29]" />
+//                 </div>
+
+//                 <h3 className="font-bold text-gray-900 mt-5">
+//                   No users found
+//                 </h3>
+
+//                 <p className="text-sm text-gray-500 mt-1">
+//                   Try changing your search or filters.
+//                 </p>
+
+//                 <button
+//                   type="button"
+//                   onClick={
+//                     clearFilters
+//                   }
+//                   className="mt-5 px-4 py-2.5 rounded-xl bg-[#741C29] text-white text-sm font-semibold hover:bg-[#5C1520]"
+//                 >
+//                   Clear Filters
+//                 </button>
+//               </div>
+//             ) : (
+//               <>
+//                 {/* =================================================
+//                     DESKTOP TABLE
+//                 ================================================= */}
+
+//                 <div className="hidden lg:block overflow-x-auto">
+//                   <table className="w-full">
+//                     <thead>
+//                       <tr className="bg-[#FAF9F8] border-b border-[#E8E2DE]">
+//                         <th className="text-left px-5 py-4 text-[11px] font-bold uppercase tracking-[0.1em] text-gray-500">
+//                           User
+//                         </th>
+
+//                         <th className="text-left px-5 py-4 text-[11px] font-bold uppercase tracking-[0.1em] text-gray-500">
+//                           Contact
+//                         </th>
+
+//                         <th className="text-left px-5 py-4 text-[11px] font-bold uppercase tracking-[0.1em] text-gray-500">
+//                           Role
+//                         </th>
+
+//                         <th className="text-left px-5 py-4 text-[11px] font-bold uppercase tracking-[0.1em] text-gray-500">
+//                           Team
+//                         </th>
+
+//                         <th className="text-left px-5 py-4 text-[11px] font-bold uppercase tracking-[0.1em] text-gray-500">
+//                           Status
+//                         </th>
+
+//                         <th className="text-left px-5 py-4 text-[11px] font-bold uppercase tracking-[0.1em] text-gray-500">
+//                           Last Login
+//                         </th>
+
+//                         <th className="text-right px-5 py-4 text-[11px] font-bold uppercase tracking-[0.1em] text-gray-500">
+//                           Actions
+//                         </th>
+//                       </tr>
+//                     </thead>
+
+//                     <tbody>
+//                       {tableRows.map(
+//                         (user) => {
+//                           const statusStyle =
+//                             getStatusStyle(
+//                               user.displayStatus
+//                             );
+
+//                           return (
+//                             <tr
+//                               key={
+//                                 user.id
+//                               }
+//                               className="border-b border-[#F0ECE9] last:border-0 hover:bg-[#FCFAF9] transition-colors"
+//                             >
+//                               {/* USER */}
+
+//                               <td className="px-5 py-4">
+//                                 <div className="flex items-center gap-3">
+//                                   <div className="relative w-11 h-11 rounded-xl bg-[#741C29] text-white flex items-center justify-center font-bold overflow-hidden shrink-0 shadow-sm">
+//                                     {user.avatar ? (
+//                                       <img
+//                                         src={
+//                                           user.avatar
+//                                         }
+//                                         alt={
+//                                           user.name ||
+//                                           "User"
+//                                         }
+//                                         className="w-full h-full object-cover"
+//                                       />
+//                                     ) : (
+//                                       (
+//                                         user.name ||
+//                                         "U"
+//                                       )
+//                                         .charAt(
+//                                           0
+//                                         )
+//                                         .toUpperCase()
+//                                     )}
+//                                   </div>
+
+//                                   <div className="min-w-0">
+//                                     <p className="font-bold text-gray-900 truncate max-w-[180px]">
+//                                       {user.name ||
+//                                         "-"}
+//                                     </p>
+
+//                                     <p className="text-xs text-gray-400 mt-0.5">
+//                                       EMP ID #
+//                                       {
+//                                         user.id
+//                                       }
+//                                     </p>
+//                                   </div>
+//                                 </div>
+//                               </td>
+
+//                               {/* CONTACT */}
+
+//                               <td className="px-5 py-4">
+//                                 <div className="space-y-1.5">
+//                                   <div className="flex items-center gap-2 text-sm text-gray-700">
+//                                     <Mail className="w-3.5 h-3.5 text-[#741C29]" />
+
+//                                     <span className="truncate max-w-[220px]">
+//                                       {user.email ||
+//                                         "-"}
+//                                     </span>
+//                                   </div>
+
+//                                   {user.phone && (
+//                                     <div className="flex items-center gap-2 text-xs text-gray-500">
+//                                       <Phone className="w-3.5 h-3.5 text-gray-400" />
+
+//                                       {
+//                                         user.phone
+//                                       }
+//                                     </div>
+//                                   )}
+//                                 </div>
+//                               </td>
+
+//                               {/* ROLE */}
+
+//                               <td className="px-5 py-4">
+//                                 <span
+//                                   className={`inline-flex items-center px-2.5 py-1.5 rounded-lg border text-[11px] font-bold capitalize ${getRoleStyle(
+//                                     user.role
+//                                   )}`}
+//                                 >
+//                                   {
+//                                     user.role ||
+//                                     "-"
+//                                   }
+//                                 </span>
+//                               </td>
+
+//                               {/* TEAM */}
+
+//                               <td className="px-5 py-4">
+//                                 <span className="inline-flex items-center gap-2 text-sm text-gray-700">
+//                                   <Building2 className="w-3.5 h-3.5 text-gray-400" />
+
+//                                   {
+//                                     user.team ||
+//                                     "No Team"
+//                                   }
+//                                 </span>
+//                               </td>
+
+//                               {/* STATUS */}
+
+//                               <td className="px-5 py-4">
+//                                 <span
+//                                   className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-bold ${statusStyle.wrapper}`}
+//                                 >
+//                                   <span
+//                                     className={`w-1.5 h-1.5 rounded-full ${statusStyle.dot}`}
+//                                   />
+
+//                                   {
+//                                     user.displayStatus
+//                                   }
+//                                 </span>
+//                               </td>
+
+//                               {/* LAST LOGIN */}
+
+//                               <td className="px-5 py-4">
+//                                 <div className="flex items-center gap-2 text-sm text-gray-600">
+//                                   <Clock3 className="w-3.5 h-3.5 text-gray-400" />
+
+//                                   {formatDisplayDateTime(
+//                                     user.last_login ||
+//                                       user.login_time
+//                                   )}
+//                                 </div>
+//                               </td>
+
+//                               {/* ACTIONS */}
+
+//                               <td className="px-5 py-4">
+//                                 <div className="flex items-center justify-end gap-2">
+//                                   <button
+//                                     type="button"
+//                                     onClick={() =>
+//                                       openBreakModal(
+//                                         user
+//                                       )
+//                                     }
+//                                     className="w-9 h-9 rounded-xl border border-[#DED7D3] bg-white hover:bg-[#F7F3F1] hover:border-[#741C29]/30 flex items-center justify-center transition"
+//                                     title="Break time"
+//                                   >
+//                                     <Coffee className="w-4 h-4 text-[#741C29]" />
+//                                   </button>
+
+//                                   <Link
+//                                     href={`/users/${user.id}/edit`}
+//                                     className="w-9 h-9 rounded-xl border border-[#DED7D3] bg-white hover:bg-[#F7F3F1] hover:border-[#741C29]/30 flex items-center justify-center transition"
+//                                     title="Edit user"
+//                                   >
+//                                     <Edit3 className="w-4 h-4 text-gray-700" />
+//                                   </Link>
+
+//                                   <button
+//                                     type="button"
+//                                     onClick={() =>
+//                                       handleDeleteUser(
+//                                         user.id
+//                                       )
+//                                     }
+//                                     disabled={
+//                                       deletingUserId ===
+//                                       user.id
+//                                     }
+//                                     className="w-9 h-9 rounded-xl border border-[#DED7D3] bg-white hover:bg-[#F7F3F1] hover:border-[#741C29]/30 flex items-center justify-center transition disabled:opacity-50"
+//                                     title="Delete user"
+//                                   >
+//                                     {deletingUserId ===
+//                                     user.id ? (
+//                                       <RefreshCw className="w-4 h-4 text-[#741C29] animate-spin" />
+//                                     ) : (
+//                                       <Trash2 className="w-4 h-4 text-[#741C29]" />
+//                                     )}
+//                                   </button>
+//                                 </div>
+//                               </td>
+//                             </tr>
+//                           );
+//                         }
+//                       )}
+//                     </tbody>
+//                   </table>
+//                 </div>
+
+//                 {/* =================================================
+//                     MOBILE CARDS
+//                 ================================================= */}
+
+//                 <div className="lg:hidden divide-y divide-[#EEE9E6]">
+//                   {tableRows.map(
+//                     (user) => {
+//                       const statusStyle =
+//                         getStatusStyle(
+//                           user.displayStatus
+//                         );
+
+//                       return (
+//                         <div
+//                           key={
+//                             user.id
+//                           }
+//                           className="p-4 sm:p-5"
+//                         >
+//                           <div className="flex items-start justify-between gap-3">
+//                             <div className="flex items-center gap-3 min-w-0">
+//                               <div className="w-11 h-11 rounded-xl bg-[#741C29] text-white flex items-center justify-center font-bold overflow-hidden shrink-0">
+//                                 {user.avatar ? (
+//                                   <img
+//                                     src={
+//                                       user.avatar
+//                                     }
+//                                     alt={
+//                                       user.name ||
+//                                       "User"
+//                                     }
+//                                     className="w-full h-full object-cover"
+//                                   />
+//                                 ) : (
+//                                   (
+//                                     user.name ||
+//                                     "U"
+//                                   )
+//                                     .charAt(
+//                                       0
+//                                     )
+//                                     .toUpperCase()
+//                                 )}
+//                               </div>
+
+//                               <div className="min-w-0">
+//                                 <p className="font-bold text-gray-900 truncate">
+//                                   {user.name ||
+//                                     "-"}
+//                                 </p>
+
+//                                 <p className="text-xs text-gray-500 truncate mt-0.5">
+//                                   {user.email ||
+//                                     "-"}
+//                                 </p>
+//                               </div>
+//                             </div>
+
+//                             <span
+//                               className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border text-[10px] font-bold whitespace-nowrap ${statusStyle.wrapper}`}
+//                             >
+//                               <span
+//                                 className={`w-1.5 h-1.5 rounded-full ${statusStyle.dot}`}
+//                               />
+
+//                               {
+//                                 user.displayStatus
+//                               }
+//                             </span>
+//                           </div>
+
+//                           <div className="grid grid-cols-2 gap-2.5 mt-4">
+//                             <div className="rounded-xl bg-[#FAF9F8] border border-[#EEE9E6] p-3">
+//                               <p className="text-[10px] uppercase tracking-[0.08em] font-bold text-gray-400">
+//                                 Role
+//                               </p>
+
+//                               <p className="text-sm font-semibold text-gray-800 mt-1 capitalize">
+//                                 {user.role ||
+//                                   "-"}
+//                               </p>
+//                             </div>
+
+//                             <div className="rounded-xl bg-[#FAF9F8] border border-[#EEE9E6] p-3">
+//                               <p className="text-[10px] uppercase tracking-[0.08em] font-bold text-gray-400">
+//                                 Team
+//                               </p>
+
+//                               <p className="text-sm font-semibold text-gray-800 mt-1">
+//                                 {user.team ||
+//                                   "No Team"}
+//                               </p>
+//                             </div>
+
+//                             <div className="rounded-xl bg-[#FAF9F8] border border-[#EEE9E6] p-3">
+//                               <p className="text-[10px] uppercase tracking-[0.08em] font-bold text-gray-400">
+//                                 Phone
+//                               </p>
+
+//                               <p className="text-sm font-semibold text-gray-800 mt-1 truncate">
+//                                 {user.phone ||
+//                                   "-"}
+//                               </p>
+//                             </div>
+
+//                             <div className="rounded-xl bg-[#FAF9F8] border border-[#EEE9E6] p-3">
+//                               <p className="text-[10px] uppercase tracking-[0.08em] font-bold text-gray-400">
+//                                 Last Login
+//                               </p>
+
+//                               <p className="text-xs font-semibold text-gray-800 mt-1">
+//                                 {formatDisplayDateTime(
+//                                   user.last_login ||
+//                                     user.login_time
+//                                 )}
+//                               </p>
+//                             </div>
+//                           </div>
+
+//                           <div className="flex items-center justify-end gap-2 mt-4">
+//                             <button
+//                               type="button"
+//                               onClick={() =>
+//                                 openBreakModal(
+//                                   user
+//                                 )
+//                               }
+//                               className="flex-1 h-10 rounded-xl border border-[#DED7D3] bg-white hover:bg-[#F7F3F1] text-xs font-bold text-gray-700 flex items-center justify-center gap-2"
+//                             >
+//                               <Coffee className="w-4 h-4 text-[#741C29]" />
+//                               Break
+//                             </button>
+
+//                             <Link
+//                               href={`/users/${user.id}/edit`}
+//                               className="flex-1 h-10 rounded-xl border border-[#DED7D3] bg-white hover:bg-[#F7F3F1] text-xs font-bold text-gray-700 flex items-center justify-center gap-2"
+//                             >
+//                               <Edit3 className="w-4 h-4 text-[#741C29]" />
+//                               Edit
+//                             </Link>
+
+//                             <button
+//                               type="button"
+//                               onClick={() =>
+//                                 handleDeleteUser(
+//                                   user.id
+//                                 )
+//                               }
+//                               disabled={
+//                                 deletingUserId ===
+//                                 user.id
+//                               }
+//                               className="w-10 h-10 rounded-xl border border-[#DED7D3] bg-white hover:bg-[#F7F3F1] flex items-center justify-center disabled:opacity-50"
+//                             >
+//                               {deletingUserId ===
+//                               user.id ? (
+//                                 <RefreshCw className="w-4 h-4 text-[#741C29] animate-spin" />
+//                               ) : (
+//                                 <Trash2 className="w-4 h-4 text-[#741C29]" />
+//                               )}
+//                             </button>
+//                           </div>
+//                         </div>
+//                       );
+//                     }
+//                   )}
+//                 </div>
+//               </>
+//             )}
+//           </div>
+//         </div>
+//       </main>
+
+//       {/* =========================================================
+//           USER BREAK MODAL
+//       ========================================================= */}
+
+//       {breakModalOpen &&
+//         selectedUser && (
+//           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+//             <div
+//               className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+//               onClick={() =>
+//                 !savingBreak &&
+//                 setBreakModalOpen(
+//                   false
+//                 )
+//               }
+//             />
+
+//             <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden border border-[#E5DEDA]">
+//               <div className="h-1.5 bg-[#741C29]" />
+
+//               <div className="px-5 py-5 border-b border-[#ECE7E4] flex items-center justify-between">
+//                 <div className="flex items-center gap-3">
+//                   <div className="w-10 h-10 rounded-xl bg-[#741C29]/10 flex items-center justify-center">
+//                     <Coffee className="w-5 h-5 text-[#741C29]" />
+//                   </div>
+
+//                   <div>
+//                     <h3 className="font-bold text-gray-900">
+//                       Break Schedule
+//                     </h3>
+
+//                     <p className="text-xs text-gray-500 mt-0.5">
+//                       {
+//                         selectedUser.name
+//                       }
+//                     </p>
+//                   </div>
+//                 </div>
+
+//                 <button
+//                   type="button"
+//                   disabled={
+//                     savingBreak
+//                   }
+//                   onClick={() =>
+//                     setBreakModalOpen(
+//                       false
+//                     )
+//                   }
+//                   className="w-9 h-9 rounded-xl hover:bg-[#F7F5F3] flex items-center justify-center"
+//                 >
+//                   <X className="w-5 h-5 text-gray-500" />
+//                 </button>
+//               </div>
+
+//               <div className="p-5 space-y-4">
+//                 <div>
+//                   <label className="block text-xs font-bold uppercase tracking-wide text-gray-500 mb-2">
+//                     Break Start
+//                   </label>
+
+//                   <input
+//                     type="datetime-local"
+//                     value={
+//                       breakStart
+//                     }
+//                     onChange={(e) =>
+//                       setBreakStart(
+//                         e.target
+//                           .value
+//                       )
+//                     }
+//                     className="w-full h-11 rounded-xl border border-[#DDD6D2] bg-[#FCFBFA] px-3 text-sm outline-none focus:bg-white focus:border-[#741C29] focus:ring-4 focus:ring-[#741C29]/8"
+//                   />
+//                 </div>
+
+//                 <div>
+//                   <label className="block text-xs font-bold uppercase tracking-wide text-gray-500 mb-2">
+//                     Break End
+//                   </label>
+
+//                   <input
+//                     type="datetime-local"
+//                     value={
+//                       breakEnd
+//                     }
+//                     onChange={(e) =>
+//                       setBreakEnd(
+//                         e.target
+//                           .value
+//                       )
+//                     }
+//                     className="w-full h-11 rounded-xl border border-[#DDD6D2] bg-[#FCFBFA] px-3 text-sm outline-none focus:bg-white focus:border-[#741C29] focus:ring-4 focus:ring-[#741C29]/8"
+//                   />
+//                 </div>
+//               </div>
+
+//               <div className="px-5 py-4 bg-[#FAF9F8] border-t border-[#ECE7E4] flex items-center justify-end gap-3">
+//                 <button
+//                   type="button"
+//                   disabled={
+//                     savingBreak
+//                   }
+//                   onClick={() =>
+//                     setBreakModalOpen(
+//                       false
+//                     )
+//                   }
+//                   className="px-4 py-2.5 rounded-xl border border-[#DCD5D1] bg-white text-sm font-semibold text-gray-700 hover:bg-[#F7F5F3]"
+//                 >
+//                   Cancel
+//                 </button>
+
+//                 <button
+//                   type="button"
+//                   disabled={
+//                     savingBreak
+//                   }
+//                   onClick={
+//                     handleSaveBreakTime
+//                   }
+//                   className="px-5 py-2.5 rounded-xl bg-[#741C29] hover:bg-[#5C1520] text-white text-sm font-semibold disabled:opacity-50 shadow-lg shadow-[#741C29]/15"
+//                 >
+//                   {savingBreak
+//                     ? "Saving..."
+//                     : "Save Break"}
+//                 </button>
+//               </div>
+//             </div>
+//           </div>
+//         )}
+
+//       {/* =========================================================
+//           ADMIN BREAK MODAL
+//       ========================================================= */}
+
+//       {adminBreakModalOpen && (
+//         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+//           <div
+//             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+//             onClick={() =>
+//               !savingBreak &&
+//               setAdminBreakModalOpen(
+//                 false
+//               )
+//             }
+//           />
+
+//           <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden border border-[#E5DEDA]">
+//             <div className="h-1.5 bg-[#741C29]" />
+
+//             <div className="px-5 py-5 border-b border-[#ECE7E4] flex items-center justify-between">
+//               <div className="flex items-center gap-3">
+//                 <div className="w-10 h-10 rounded-xl bg-[#741C29]/10 flex items-center justify-center">
+//                   <Users className="w-5 h-5 text-[#741C29]" />
+//                 </div>
+
+//                 <div>
+//                   <h3 className="font-bold text-gray-900">
+//                     All Users Break
+//                   </h3>
+
+//                   <p className="text-xs text-gray-500 mt-0.5">
+//                     Apply schedule to everyone
+//                   </p>
+//                 </div>
+//               </div>
+
+//               <button
+//                 type="button"
+//                 disabled={
+//                   savingBreak
+//                 }
+//                 onClick={() =>
+//                   setAdminBreakModalOpen(
+//                     false
+//                   )
+//                 }
+//                 className="w-9 h-9 rounded-xl hover:bg-[#F7F5F3] flex items-center justify-center"
+//               >
+//                 <X className="w-5 h-5 text-gray-500" />
+//               </button>
+//             </div>
+
+//             <div className="p-5 space-y-4">
+//               <div>
+//                 <label className="block text-xs font-bold uppercase tracking-wide text-gray-500 mb-2">
+//                   Break Start
+//                 </label>
+
+//                 <input
+//                   type="datetime-local"
+//                   value={
+//                     adminBreakStart
+//                   }
+//                   onChange={(e) =>
+//                     setAdminBreakStart(
+//                       e.target
+//                         .value
+//                     )
+//                   }
+//                   className="w-full h-11 rounded-xl border border-[#DDD6D2] bg-[#FCFBFA] px-3 text-sm outline-none focus:bg-white focus:border-[#741C29] focus:ring-4 focus:ring-[#741C29]/8"
+//                 />
+//               </div>
+
+//               <div>
+//                 <label className="block text-xs font-bold uppercase tracking-wide text-gray-500 mb-2">
+//                   Break End
+//                 </label>
+
+//                 <input
+//                   type="datetime-local"
+//                   value={
+//                     adminBreakEnd
+//                   }
+//                   onChange={(e) =>
+//                     setAdminBreakEnd(
+//                       e.target
+//                         .value
+//                     )
+//                   }
+//                   className="w-full h-11 rounded-xl border border-[#DDD6D2] bg-[#FCFBFA] px-3 text-sm outline-none focus:bg-white focus:border-[#741C29] focus:ring-4 focus:ring-[#741C29]/8"
+//                 />
+//               </div>
+//             </div>
+
+//             <div className="px-5 py-4 bg-[#FAF9F8] border-t border-[#ECE7E4] flex items-center justify-end gap-3">
+//               <button
+//                 type="button"
+//                 disabled={
+//                   savingBreak
+//                 }
+//                 onClick={() =>
+//                   setAdminBreakModalOpen(
+//                     false
+//                   )
+//                 }
+//                 className="px-4 py-2.5 rounded-xl border border-[#DCD5D1] bg-white text-sm font-semibold text-gray-700 hover:bg-[#F7F5F3]"
+//               >
+//                 Cancel
+//               </button>
+
+//               <button
+//                 type="button"
+//                 disabled={
+//                   savingBreak
+//                 }
+//                 onClick={
+//                   handleSaveAdminBreakTime
+//                 }
+//                 className="px-5 py-2.5 rounded-xl bg-[#741C29] hover:bg-[#5C1520] text-white text-sm font-semibold disabled:opacity-50 shadow-lg shadow-[#741C29]/15"
+//               >
+//                 {savingBreak
+//                   ? "Saving..."
+//                   : "Apply To All"}
+//               </button>
+//             </div>
+//           </div>
+//         </div>
+//       )}
+
+//       {/* =========================================================
+//           LOGOUT MODAL
+//       ========================================================= */}
+
+//       {logoutModalOpen && (
+//         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+//           <div
+//             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+//             onClick={() =>
+//               setLogoutModalOpen(
+//                 false
+//               )
+//             }
+//           />
+
+//           <div className="relative w-full max-w-sm bg-white rounded-2xl shadow-2xl p-6 border border-[#E5DEDA]">
+//             <div className="w-12 h-12 rounded-xl bg-[#741C29]/10 flex items-center justify-center">
+//               <LogOut className="w-5 h-5 text-[#741C29]" />
+//             </div>
+
+//             <h3 className="text-lg font-bold text-gray-900 mt-5">
+//               Logout
+//             </h3>
+
+//             <p className="text-sm text-gray-500 mt-2 leading-6">
+//               Are you sure you want to logout from your CRM account?
+//             </p>
+
+//             <div className="flex items-center justify-end gap-3 mt-6">
+//               <button
+//                 type="button"
+//                 onClick={() =>
+//                   setLogoutModalOpen(
+//                     false
+//                   )
+//                 }
+//                 className="px-4 py-2.5 rounded-xl border border-[#DCD5D1] bg-white text-sm font-semibold text-gray-700 hover:bg-[#F7F5F3]"
+//               >
+//                 Cancel
+//               </button>
+
+//               <button
+//                 type="button"
+//                 onClick={() => {
+//                   localStorage.removeItem(
+//                     "crm_login_time"
+//                   );
+
+//                   router.push(
+//                     "/login"
+//                   );
+//                 }}
+//                 className="px-5 py-2.5 rounded-xl bg-[#741C29] hover:bg-[#5C1520] text-white text-sm font-semibold shadow-lg shadow-[#741C29]/15"
+//               >
+//                 Logout
+//               </button>
+//             </div>
+//           </div>
+//         </div>
+//       )}
+//     </div>
+//   );
+// }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 "use client";
 
 import {
@@ -3974,8 +6192,8 @@ export default function UsersPage() {
   // THEME
   // =========================================================
 
-  const MAROON = "#741C29";
-  const MAROON_DARK = "#5C1520";
+  const RED = "#ec3737";
+  const RED_DARK = "#d92f2f";
 
   // =========================================================
   // STATES
@@ -3997,14 +6215,11 @@ export default function UsersPage() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
-  const [logoutModalOpen, setLogoutModalOpen] =
-    useState(false);
+  const [logoutModalOpen, setLogoutModalOpen] = useState(false);
 
-  const [breakModalOpen, setBreakModalOpen] =
-    useState(false);
+  const [breakModalOpen, setBreakModalOpen] = useState(false);
 
-  const [selectedUser, setSelectedUser] =
-    useState(null);
+  const [selectedUser, setSelectedUser] = useState(null);
 
   const [breakStart, setBreakStart] = useState("");
   const [breakEnd, setBreakEnd] = useState("");
@@ -4012,17 +6227,12 @@ export default function UsersPage() {
   const [adminBreakModalOpen, setAdminBreakModalOpen] =
     useState(false);
 
-  const [adminBreakStart, setAdminBreakStart] =
-    useState("");
+  const [adminBreakStart, setAdminBreakStart] = useState("");
+  const [adminBreakEnd, setAdminBreakEnd] = useState("");
 
-  const [adminBreakEnd, setAdminBreakEnd] =
-    useState("");
+  const [savingBreak, setSavingBreak] = useState(false);
 
-  const [savingBreak, setSavingBreak] =
-    useState(false);
-
-  const [deletingUserId, setDeletingUserId] =
-    useState(null);
+  const [deletingUserId, setDeletingUserId] = useState(null);
 
   // =========================================================
   // DATE HELPERS
@@ -4111,18 +6321,77 @@ export default function UsersPage() {
   };
 
   // =========================================================
-  // STATUS HELPERS
+  // LOGIN STATUS HELPERS
   // =========================================================
 
-  const getUserStatus = useCallback((user) => {
-    return (
-      user?.availability_status ||
-      user?.status ||
-      "Active"
-    )
-      .toString()
-      .trim();
+  const isUserLoggedIn = useCallback((user) => {
+    if (!user) return false;
+
+    const loginTime = user?.login_time
+      ? new Date(user.login_time)
+      : null;
+
+    const logoutTime = user?.logout_time
+      ? new Date(user.logout_time)
+      : null;
+
+    const hasValidLogin =
+      loginTime &&
+      !Number.isNaN(loginTime.getTime());
+
+    const hasValidLogout =
+      logoutTime &&
+      !Number.isNaN(logoutTime.getTime());
+
+    // No valid login time = not logged in
+    if (!hasValidLogin) {
+      return false;
+    }
+
+    // Login exists but logout does not = currently logged in
+    if (!hasValidLogout) {
+      return true;
+    }
+
+    // Latest event decides the state
+    return loginTime.getTime() > logoutTime.getTime();
   }, []);
+
+  // =========================================================
+  // STATUS HELPER
+  // =========================================================
+
+  const getUserStatus = useCallback(
+    (user) => {
+      if (!user) {
+        return "Inactive";
+      }
+
+      // IMPORTANT:
+      // Database status alone is NOT used to decide
+      // whether the user is currently online.
+      //
+      // login_time + logout_time decide login state.
+
+      const loggedIn = isUserLoggedIn(user);
+
+      if (!loggedIn) {
+        return "Inactive";
+      }
+
+      // If user is actually logged in,
+      // then show availability status.
+      const availability =
+        user?.availability_status ||
+        user?.status ||
+        "Active";
+
+      return availability
+        .toString()
+        .trim() || "Active";
+    },
+    [isUserLoggedIn]
+  );
 
   // =========================================================
   // FETCH USERS
@@ -4187,7 +6456,9 @@ export default function UsersPage() {
             await historyResponse.json();
 
           if (Array.isArray(historyData)) {
-            setLoginHistory(historyData);
+            setLoginHistory(
+              historyData
+            );
           } else if (
             Array.isArray(
               historyData?.history
@@ -4235,6 +6506,17 @@ export default function UsersPage() {
     }
   }, []);
 
+
+  const [syncing, setSyncing] = useState(false);
+
+const handleSync = async () => {
+  try {
+    setSyncing(true);
+    await fetchUsers();
+  } finally {
+    setSyncing(false);
+  }
+};
   // =========================================================
   // INITIAL LOAD
   // =========================================================
@@ -4242,6 +6524,22 @@ export default function UsersPage() {
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
+
+  // =========================================================
+  // AUTO REFRESH
+  // =========================================================
+  //
+  // This makes login/logout status update automatically.
+  // Every 10 seconds users are fetched again.
+  //
+
+  // useEffect(() => {
+  //   const interval = setInterval(() => {
+  //     fetchUsers();
+  //   }, 10000);
+
+  //   return () => clearInterval(interval);
+  // }, [fetchUsers]);
 
   // =========================================================
   // TEAMS
@@ -4333,13 +6631,10 @@ export default function UsersPage() {
         // STATUS
         // ---------------------------------------------------
 
-        const userStatus = (
-          usr.availability_status ||
-          usr.status ||
-          ""
-        )
-          .trim()
-          .toLowerCase();
+        const userStatus =
+          getUserStatus(usr)
+            .trim()
+            .toLowerCase();
 
         let matchesStatus = true;
 
@@ -4347,28 +6642,9 @@ export default function UsersPage() {
           statusFilter !==
           "All Status"
         ) {
-          if (
-            selectedStatus ===
-            "active"
-          ) {
-            matchesStatus =
-              userStatus ===
-              "active";
-          } else if (
-            selectedStatus ===
-            "inactive"
-          ) {
-            // IMPORTANT:
-            // Everything except Active
-            // is treated as unavailable/inactive.
-            matchesStatus =
-              userStatus !==
-              "active";
-          } else {
-            matchesStatus =
-              userStatus ===
-              selectedStatus;
-          }
+          matchesStatus =
+            userStatus ===
+            selectedStatus;
         }
 
         // ---------------------------------------------------
@@ -4456,6 +6732,7 @@ export default function UsersPage() {
     teamFilter,
     startDate,
     endDate,
+    getUserStatus,
   ]);
 
   // =========================================================
@@ -4466,39 +6743,17 @@ export default function UsersPage() {
     const total =
       usersList.length;
 
+    // ACTUAL LOGGED-IN USERS
     const active =
       usersList.filter(
-        (user) => {
-          const status = (
-            user?.availability_status ||
-            user?.status ||
-            ""
-          )
-            .trim()
-            .toLowerCase();
-
-          return (
-            status === "active"
-          );
-        }
+        (user) =>
+          isUserLoggedIn(user)
       ).length;
 
+    // EVERYONE WHO IS NOT LOGGED IN
     const inactive =
-      usersList.filter(
-        (user) => {
-          const status = (
-            user?.availability_status ||
-            user?.status ||
-            ""
-          )
-            .trim()
-            .toLowerCase();
-
-          return (
-            status !== "active"
-          );
-        }
-      ).length;
+      usersList.length -
+      active;
 
     const admins =
       usersList.filter(
@@ -4524,14 +6779,14 @@ export default function UsersPage() {
         label: "Active Users",
         value: active,
         icon: UserCheck,
-        small: "Currently active",
+        small: "Currently logged in",
       },
       {
         key: "inactive",
         label: "Inactive Users",
         value: inactive,
         icon: UserX,
-        small: "Unavailable users",
+        small: "Currently logged out",
       },
       {
         key: "logged",
@@ -4548,7 +6803,10 @@ export default function UsersPage() {
         small: "Administrator accounts",
       },
     ];
-  }, [usersList]);
+  }, [
+    usersList,
+    isUserLoggedIn,
+  ]);
 
   // =========================================================
   // TABLE ROWS
@@ -4572,37 +6830,48 @@ export default function UsersPage() {
   // =========================================================
 
   const getStatusStyle = (status) => {
-    const normalized = (
-      status || ""
-    )
-      .trim()
-      .toLowerCase();
+    const normalized =
+      (status || "")
+        .trim()
+        .toLowerCase();
+
+    // -------------------------------------------------------
+    // ACTIVE
+    // -------------------------------------------------------
 
     if (
       normalized === "active"
     ) {
       return {
         wrapper:
-          "bg-[#741C29]/8 border-[#741C29]/20 text-[#741C29]",
+          "bg-emerald-50 border-emerald-200 text-emerald-700",
         dot:
-          "bg-[#741C29]",
+          "bg-emerald-500",
       };
     }
+
+    // -------------------------------------------------------
+    // INACTIVE
+    // -------------------------------------------------------
 
     if (
       normalized === "inactive"
     ) {
       return {
         wrapper:
-          "bg-gray-100 border-gray-200 text-gray-700",
+          "bg-[#ec3737]/10 border-[#ec3737]/25 text-[#ec3737]",
         dot:
-          "bg-gray-700",
+          "bg-[#ec3737]",
       };
     }
 
+    // -------------------------------------------------------
+    // OTHER AVAILABILITY STATUS
+    // -------------------------------------------------------
+
     return {
       wrapper:
-        "bg-[#F4F1EF] border-[#D9D0CC] text-[#5E4B4F]",
+        "bg-[#F4F1EF] border-[#D9D0CC] text-[#741C29]",
       dot:
         "bg-[#741C29]",
     };
@@ -4613,16 +6882,15 @@ export default function UsersPage() {
   // =========================================================
 
   const getRoleStyle = (role) => {
-    const normalized = (
-      role || ""
-    )
-      .trim()
-      .toLowerCase();
+    const normalized =
+      (role || "")
+        .trim()
+        .toLowerCase();
 
     if (
       normalized === "admin"
     ) {
-      return "bg-[#741C29] text-white border-[#741C29]";
+      return "bg-[#ec3737] text-white border-[#ec3737]";
     }
 
     if (
@@ -4909,7 +7177,14 @@ export default function UsersPage() {
 
         <main className="lg:ml-[260px] min-h-screen flex items-center justify-center">
           <div className="text-center">
-            <div className="w-14 h-14 rounded-2xl bg-[#741C29] flex items-center justify-center mx-auto shadow-lg shadow-[#741C29]/20">
+            <div
+              className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto shadow-lg"
+              style={{
+                backgroundColor: RED,
+                boxShadow:
+                  `0 10px 25px ${RED}33`,
+              }}
+            >
               <RefreshCw className="w-6 h-6 text-white animate-spin" />
             </div>
 
@@ -4975,10 +7250,16 @@ export default function UsersPage() {
 
                 <div>
                   <div className="flex items-center gap-2">
-                    <div className="hidden sm:block w-1 h-6 rounded-full bg-[#741C29]" />
+                    <div
+                      className="hidden sm:block w-1 h-6 rounded-full"
+                      style={{
+                        backgroundColor:
+                          RED,
+                      }}
+                    />
 
                     <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#111111]">
-                      Users
+                      EMP ID
                     </h1>
                   </div>
 
@@ -4987,14 +7268,30 @@ export default function UsersPage() {
                   </p>
                 </div>
               </div>
-
+<button
+  type="button"
+  onClick={handleSync}
+  disabled={syncing}
+  className="inline-flex items-center gap-2 rounded-xl bg-[#ec3737] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#d92f2f] disabled:cursor-not-allowed disabled:opacity-60"
+>
+  <RefreshCw
+    size={16}
+    className={syncing ? "animate-spin" : ""}
+  />
+  {syncing ? "Syncing..." : "Sync"}
+</button>
               <div className="flex items-center gap-2">
+                {/* REFRESH */}
+
                 <button
                   type="button"
                   onClick={
                     fetchUsers
                   }
-                  className="h-10 sm:h-11 px-3 sm:px-4 rounded-xl border border-[#DED7D3] bg-white hover:bg-[#F7F5F3] text-sm font-semibold text-gray-800 flex items-center gap-2 transition"
+                  className="h-10 sm:h-11 px-3 sm:px-4 rounded-xl border border-[#DED7D3] bg-white hover:bg-[#F7F5F3] text-sm font-semibold flex items-center gap-2 transition"
+                  style={{
+                    color: RED,
+                  }}
                 >
                   <RefreshCw className="w-4 h-4" />
 
@@ -5003,9 +7300,17 @@ export default function UsersPage() {
                   </span>
                 </button>
 
+                {/* ADD USER */}
+
                 <Link
                   href="/add-new-users"
-                  className="h-10 sm:h-11 px-3 sm:px-5 rounded-xl bg-[#741C29] hover:bg-[#5C1520] text-white text-sm font-semibold flex items-center gap-2 shadow-lg shadow-[#741C29]/15 transition"
+                  className="h-10 sm:h-11 px-3 sm:px-5 rounded-xl text-white text-sm font-semibold flex items-center gap-2 shadow-lg transition"
+                  style={{
+                    backgroundColor:
+                      RED,
+                    boxShadow:
+                      `0 10px 25px ${RED}26`,
+                  }}
                 >
                   <Users className="w-4 h-4" />
 
@@ -5031,8 +7336,19 @@ export default function UsersPage() {
 
           {error && (
             <div className="mb-6 bg-white border border-[#D9BFC3] rounded-2xl p-4 flex items-start gap-3 shadow-sm">
-              <div className="w-9 h-9 rounded-xl bg-[#741C29]/10 flex items-center justify-center shrink-0">
-                <AlertCircle className="w-5 h-5 text-[#741C29]" />
+              <div
+                className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                style={{
+                  backgroundColor:
+                    `${RED}18`,
+                }}
+              >
+                <AlertCircle
+                  className="w-5 h-5"
+                  style={{
+                    color: RED,
+                  }}
+                />
               </div>
 
               <div className="flex-1">
@@ -5050,7 +7366,10 @@ export default function UsersPage() {
                 onClick={
                   fetchUsers
                 }
-                className="text-sm font-semibold text-[#741C29] hover:text-[#5C1520]"
+                className="text-sm font-semibold hover:opacity-80"
+                style={{
+                  color: RED,
+                }}
               >
                 Retry
               </button>
@@ -5077,12 +7396,18 @@ export default function UsersPage() {
                     }
                     className={`group relative overflow-hidden rounded-2xl border bg-white p-4 sm:p-5 transition-all duration-200 hover:-translate-y-0.5 ${
                       isMain
-                        ? "border-[#741C29]/20 shadow-[0_10px_35px_rgba(116,28,41,0.08)]"
+                        ? "border-[#ec3737]/20 shadow-[0_10px_35px_rgba(236,55,55,0.08)]"
                         : "border-[#E4DEDA] shadow-sm hover:shadow-md"
                     }`}
                   >
                     {isMain && (
-                      <div className="absolute top-0 left-0 right-0 h-1 bg-[#741C29]" />
+                      <div
+                        className="absolute top-0 left-0 right-0 h-1"
+                        style={{
+                          backgroundColor:
+                            RED,
+                        }}
+                      />
                     )}
 
                     <div className="flex items-start justify-between gap-3">
@@ -5092,20 +7417,35 @@ export default function UsersPage() {
                         </p>
 
                         <p className="text-2xl sm:text-3xl font-bold text-[#111111] mt-2">
-                          {stat.value}
+                          {
+                            stat.value
+                          }
                         </p>
 
                         <p className="text-[11px] sm:text-xs text-gray-400 mt-1">
-                          {stat.small}
+                          {
+                            stat.small
+                          }
                         </p>
                       </div>
 
                       <div
                         className={`w-10 h-10 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center shrink-0 ${
                           isMain
-                            ? "bg-[#741C29] text-white"
-                            : "bg-[#F5F1EF] text-[#741C29]"
+                            ? "text-white"
+                            : "bg-[#FFF1F1]"
                         }`}
+                        style={
+                          isMain
+                            ? {
+                                backgroundColor:
+                                  RED,
+                              }
+                            : {
+                                color:
+                                  RED,
+                              }
+                        }
                       >
                         <Icon className="w-5 h-5" />
                       </div>
@@ -5123,8 +7463,19 @@ export default function UsersPage() {
           <div className="bg-white border border-[#E4DEDA] rounded-2xl shadow-sm overflow-hidden mb-7">
             <div className="px-4 sm:px-5 py-4 border-b border-[#ECE7E4] flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-[#741C29]/10 flex items-center justify-center">
-                  <Filter className="w-4 h-4 text-[#741C29]" />
+                <div
+                  className="w-9 h-9 rounded-xl flex items-center justify-center"
+                  style={{
+                    backgroundColor:
+                      `${RED}12`,
+                  }}
+                >
+                  <Filter
+                    className="w-4 h-4"
+                    style={{
+                      color: RED,
+                    }}
+                  />
                 </div>
 
                 <div>
@@ -5143,7 +7494,10 @@ export default function UsersPage() {
                 onClick={
                   clearFilters
                 }
-                className="text-xs sm:text-sm font-semibold text-[#741C29] hover:text-[#5C1520]"
+                className="text-xs sm:text-sm font-semibold hover:opacity-80"
+                style={{
+                  color: RED,
+                }}
               >
                 Clear Filters
               </button>
@@ -5168,7 +7522,7 @@ export default function UsersPage() {
                       )
                     }
                     placeholder="Search name, email or phone..."
-                    className="w-full h-11 rounded-xl border border-[#DDD6D2] bg-[#FCFBFA] pl-10 pr-4 text-sm text-gray-900 placeholder:text-gray-400 outline-none transition focus:bg-white focus:border-[#741C29] focus:ring-4 focus:ring-[#741C29]/8"
+                    className="w-full h-11 rounded-xl border border-[#DDD6D2] bg-[#FCFBFA] pl-10 pr-4 text-sm text-gray-900 placeholder:text-gray-400 outline-none transition focus:bg-white focus:border-[#ec3737] focus:ring-4 focus:ring-[#ec3737]/8"
                   />
                 </div>
 
@@ -5187,20 +7541,17 @@ export default function UsersPage() {
                           .value
                       )
                     }
-                    className="appearance-none w-full h-11 rounded-xl border border-[#DDD6D2] bg-[#FCFBFA] pl-10 pr-9 text-sm text-gray-700 outline-none focus:bg-white focus:border-[#741C29] focus:ring-4 focus:ring-[#741C29]/8"
+                    className="appearance-none w-full h-11 rounded-xl border border-[#DDD6D2] bg-[#FCFBFA] pl-10 pr-9 text-sm text-gray-700 outline-none focus:bg-white focus:border-[#ec3737] focus:ring-4 focus:ring-[#ec3737]/8"
                   >
-                    <option>
-                      All Roles
-                    </option>
-                    <option>
-                      Admin
-                    </option>
-                    <option>
-                      Manager
-                    </option>
-                    <option>
-                      Agent
-                    </option>
+                   <option>All Roles</option>
+  <option>Admin</option>
+  <option>Manager</option>
+  <option>Agent</option>
+  <option>Staff</option>
+  <option>HR</option>
+  <option>Supervisor</option>
+  <option>Management</option>
+  <option>Team Lead</option>
                   </select>
 
                   <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
@@ -5221,7 +7572,7 @@ export default function UsersPage() {
                           .value
                       )
                     }
-                    className="appearance-none w-full h-11 rounded-xl border border-[#DDD6D2] bg-[#FCFBFA] pl-10 pr-9 text-sm text-gray-700 outline-none focus:bg-white focus:border-[#741C29] focus:ring-4 focus:ring-[#741C29]/8"
+                    className="appearance-none w-full h-11 rounded-xl border border-[#DDD6D2] bg-[#FCFBFA] pl-10 pr-9 text-sm text-gray-700 outline-none focus:bg-white focus:border-[#ec3737] focus:ring-4 focus:ring-[#ec3737]/8"
                   >
                     <option>
                       All Status
@@ -5242,41 +7593,28 @@ export default function UsersPage() {
                 <div className="relative">
                   <Building2 className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
 
-                  <select
-                    value={
-                      teamFilter
-                    }
-                    onChange={(e) =>
-                      setTeamFilter(
-                        e.target
-                          .value
-                      )
-                    }
-                    className="appearance-none w-full h-11 rounded-xl border border-[#DDD6D2] bg-[#FCFBFA] pl-10 pr-9 text-sm text-gray-700 outline-none focus:bg-white focus:border-[#741C29] focus:ring-4 focus:ring-[#741C29]/8"
-                  >
-                    <option>
-                      All Teams
-                    </option>
+               <select
+  value={teamFilter}
+  onChange={(e) => setTeamFilter(e.target.value)}
+  className="appearance-none w-full h-11 rounded-xl border border-[#DDD6D2] bg-[#FCFBFA] pl-10 pr-9 text-sm text-gray-700 outline-none focus:bg-white focus:border-[#ec3737] focus:ring-4 focus:ring-[#ec3737]/8"
+>
+  <option value="All Teams">All Teams</option>
 
-                    {teams.map(
-                      (
-                        team
-                      ) => (
-                        <option
-                          key={
-                            team
-                          }
-                          value={
-                            team
-                          }
-                        >
-                          {
-                            team
-                          }
-                        </option>
-                      )
-                    )}
-                  </select>
+  {[
+    "Design",
+    "Sales",
+    "Developer",
+    "SMM",
+    "HR",
+    "Supervisor",
+    "Management",
+    "Team Lead",
+  ].map((team) => (
+    <option key={team} value={team}>
+      {team}
+    </option>
+  ))}
+</select>
 
                   <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                 </div>
@@ -5298,7 +7636,7 @@ export default function UsersPage() {
                             .value
                         )
                       }
-                      className="w-full h-11 rounded-xl border border-[#DDD6D2] bg-[#FCFBFA] pl-9 pr-1 text-xs text-gray-700 outline-none focus:bg-white focus:border-[#741C29]"
+                      className="w-full h-11 rounded-xl border border-[#DDD6D2] bg-[#FCFBFA] pl-9 pr-1 text-xs text-gray-700 outline-none focus:bg-white focus:border-[#ec3737]"
                     />
                   </div>
 
@@ -5314,7 +7652,7 @@ export default function UsersPage() {
                             .value
                         )
                       }
-                      className="w-full h-11 rounded-xl border border-[#DDD6D2] bg-[#FCFBFA] px-2 text-xs text-gray-700 outline-none focus:bg-white focus:border-[#741C29]"
+                      className="w-full h-11 rounded-xl border border-[#DDD6D2] bg-[#FCFBFA] px-2 text-xs text-gray-700 outline-none focus:bg-white focus:border-[#ec3737]"
                     />
                   </div>
                 </div>
@@ -5328,7 +7666,12 @@ export default function UsersPage() {
 
           <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-4">
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#741C29]">
+              <p
+                className="text-xs font-bold uppercase tracking-[0.12em]"
+                style={{
+                  color: RED,
+                }}
+              >
                 User Directory
               </p>
 
@@ -5349,12 +7692,19 @@ export default function UsersPage() {
                     usersList.length
                   }
                 </span>{" "}
-                users
+                EMP ID
               </p>
             </div>
 
             <div className="flex items-center gap-2 text-xs font-medium text-gray-500">
-              <span className="w-2 h-2 rounded-full bg-[#741C29]" />
+              <span
+                className="w-2 h-2 rounded-full"
+                style={{
+                  backgroundColor:
+                    RED,
+                }}
+              />
+
               Live availability
             </div>
           </div>
@@ -5367,8 +7717,19 @@ export default function UsersPage() {
             {tableRows.length ===
             0 ? (
               <div className="py-20 px-6 text-center">
-                <div className="w-16 h-16 rounded-2xl bg-[#F5F1EF] flex items-center justify-center mx-auto">
-                  <Users className="w-7 h-7 text-[#741C29]" />
+                <div
+                  className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto"
+                  style={{
+                    backgroundColor:
+                      `${RED}12`,
+                  }}
+                >
+                  <Users
+                    className="w-7 h-7"
+                    style={{
+                      color: RED,
+                    }}
+                  />
                 </div>
 
                 <h3 className="font-bold text-gray-900 mt-5">
@@ -5384,7 +7745,11 @@ export default function UsersPage() {
                   onClick={
                     clearFilters
                   }
-                  className="mt-5 px-4 py-2.5 rounded-xl bg-[#741C29] text-white text-sm font-semibold hover:bg-[#5C1520]"
+                  className="mt-5 px-4 py-2.5 rounded-xl text-white text-sm font-semibold"
+                  style={{
+                    backgroundColor:
+                      RED,
+                  }}
                 >
                   Clear Filters
                 </button>
@@ -5448,7 +7813,13 @@ export default function UsersPage() {
 
                               <td className="px-5 py-4">
                                 <div className="flex items-center gap-3">
-                                  <div className="relative w-11 h-11 rounded-xl bg-[#741C29] text-white flex items-center justify-center font-bold overflow-hidden shrink-0 shadow-sm">
+                                  <div
+                                    className="relative w-11 h-11 rounded-xl text-white flex items-center justify-center font-bold overflow-hidden shrink-0 shadow-sm"
+                                    style={{
+                                      backgroundColor:
+                                        RED,
+                                    }}
+                                  >
                                     {user.avatar ? (
                                       <img
                                         src={
@@ -5479,7 +7850,7 @@ export default function UsersPage() {
                                     </p>
 
                                     <p className="text-xs text-gray-400 mt-0.5">
-                                      User #
+                                      EMP ID #
                                       {
                                         user.id
                                       }
@@ -5493,7 +7864,12 @@ export default function UsersPage() {
                               <td className="px-5 py-4">
                                 <div className="space-y-1.5">
                                   <div className="flex items-center gap-2 text-sm text-gray-700">
-                                    <Mail className="w-3.5 h-3.5 text-[#741C29]" />
+                                    <Mail
+                                      className="w-3.5 h-3.5"
+                                      style={{
+                                        color: RED,
+                                      }}
+                                    />
 
                                     <span className="truncate max-w-[220px]">
                                       {user.email ||
@@ -5574,6 +7950,8 @@ export default function UsersPage() {
 
                               <td className="px-5 py-4">
                                 <div className="flex items-center justify-end gap-2">
+                                  {/* BREAK */}
+
                                   <button
                                     type="button"
                                     onClick={() =>
@@ -5581,19 +7959,33 @@ export default function UsersPage() {
                                         user
                                       )
                                     }
-                                    className="w-9 h-9 rounded-xl border border-[#DED7D3] bg-white hover:bg-[#F7F3F1] hover:border-[#741C29]/30 flex items-center justify-center transition"
+                                    className="w-9 h-9 rounded-xl border border-[#DED7D3] bg-white hover:bg-[#FFF5F5] hover:border-[#ec3737]/30 flex items-center justify-center transition"
                                     title="Break time"
                                   >
-                                    <Coffee className="w-4 h-4 text-[#741C29]" />
+                                    <Coffee
+                                      className="w-4 h-4"
+                                      style={{
+                                        color: RED,
+                                      }}
+                                    />
                                   </button>
+
+                                  {/* EDIT */}
 
                                   <Link
                                     href={`/users/${user.id}/edit`}
-                                    className="w-9 h-9 rounded-xl border border-[#DED7D3] bg-white hover:bg-[#F7F3F1] hover:border-[#741C29]/30 flex items-center justify-center transition"
+                                    className="w-9 h-9 rounded-xl border border-[#DED7D3] bg-white hover:bg-[#FFF5F5] hover:border-[#ec3737]/30 flex items-center justify-center transition"
                                     title="Edit user"
                                   >
-                                    <Edit3 className="w-4 h-4 text-gray-700" />
+                                    <Edit3
+                                      className="w-4 h-4"
+                                      style={{
+                                        color: RED,
+                                      }}
+                                    />
                                   </Link>
+
+                                  {/* DELETE */}
 
                                   <button
                                     type="button"
@@ -5606,14 +7998,24 @@ export default function UsersPage() {
                                       deletingUserId ===
                                       user.id
                                     }
-                                    className="w-9 h-9 rounded-xl border border-[#DED7D3] bg-white hover:bg-[#F7F3F1] hover:border-[#741C29]/30 flex items-center justify-center transition disabled:opacity-50"
+                                    className="w-9 h-9 rounded-xl border border-[#DED7D3] bg-white hover:bg-[#FFF5F5] hover:border-[#ec3737]/30 flex items-center justify-center transition disabled:opacity-50"
                                     title="Delete user"
                                   >
                                     {deletingUserId ===
                                     user.id ? (
-                                      <RefreshCw className="w-4 h-4 text-[#741C29] animate-spin" />
+                                      <RefreshCw
+                                        className="w-4 h-4 animate-spin"
+                                        style={{
+                                          color: RED,
+                                        }}
+                                      />
                                     ) : (
-                                      <Trash2 className="w-4 h-4 text-[#741C29]" />
+                                      <Trash2
+                                        className="w-4 h-4"
+                                        style={{
+                                          color: RED,
+                                        }}
+                                      />
                                     )}
                                   </button>
                                 </div>
@@ -5647,7 +8049,13 @@ export default function UsersPage() {
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex items-center gap-3 min-w-0">
-                              <div className="w-11 h-11 rounded-xl bg-[#741C29] text-white flex items-center justify-center font-bold overflow-hidden shrink-0">
+                              <div
+                                className="w-11 h-11 rounded-xl text-white flex items-center justify-center font-bold overflow-hidden shrink-0"
+                                style={{
+                                  backgroundColor:
+                                    RED,
+                                }}
+                              >
                                 {user.avatar ? (
                                   <img
                                     src={
@@ -5746,6 +8154,8 @@ export default function UsersPage() {
                           </div>
 
                           <div className="flex items-center justify-end gap-2 mt-4">
+                            {/* BREAK */}
+
                             <button
                               type="button"
                               onClick={() =>
@@ -5753,19 +8163,33 @@ export default function UsersPage() {
                                   user
                                 )
                               }
-                              className="flex-1 h-10 rounded-xl border border-[#DED7D3] bg-white hover:bg-[#F7F3F1] text-xs font-bold text-gray-700 flex items-center justify-center gap-2"
+                              className="flex-1 h-10 rounded-xl border border-[#DED7D3] bg-white hover:bg-[#FFF5F5] text-xs font-bold text-gray-700 flex items-center justify-center gap-2"
                             >
-                              <Coffee className="w-4 h-4 text-[#741C29]" />
+                              <Coffee
+                                className="w-4 h-4"
+                                style={{
+                                  color: RED,
+                                }}
+                              />
                               Break
                             </button>
 
+                            {/* EDIT */}
+
                             <Link
                               href={`/users/${user.id}/edit`}
-                              className="flex-1 h-10 rounded-xl border border-[#DED7D3] bg-white hover:bg-[#F7F3F1] text-xs font-bold text-gray-700 flex items-center justify-center gap-2"
+                              className="flex-1 h-10 rounded-xl border border-[#DED7D3] bg-white hover:bg-[#FFF5F5] text-xs font-bold text-gray-700 flex items-center justify-center gap-2"
                             >
-                              <Edit3 className="w-4 h-4 text-[#741C29]" />
+                              <Edit3
+                                className="w-4 h-4"
+                                style={{
+                                  color: RED,
+                                }}
+                              />
                               Edit
                             </Link>
+
+                            {/* DELETE */}
 
                             <button
                               type="button"
@@ -5778,13 +8202,23 @@ export default function UsersPage() {
                                 deletingUserId ===
                                 user.id
                               }
-                              className="w-10 h-10 rounded-xl border border-[#DED7D3] bg-white hover:bg-[#F7F3F1] flex items-center justify-center disabled:opacity-50"
+                              className="w-10 h-10 rounded-xl border border-[#DED7D3] bg-white hover:bg-[#FFF5F5] flex items-center justify-center disabled:opacity-50"
                             >
                               {deletingUserId ===
                               user.id ? (
-                                <RefreshCw className="w-4 h-4 text-[#741C29] animate-spin" />
+                                <RefreshCw
+                                  className="w-4 h-4 animate-spin"
+                                  style={{
+                                    color: RED,
+                                  }}
+                                />
                               ) : (
-                                <Trash2 className="w-4 h-4 text-[#741C29]" />
+                                <Trash2
+                                  className="w-4 h-4"
+                                  style={{
+                                    color: RED,
+                                  }}
+                                />
                               )}
                             </button>
                           </div>
@@ -5817,12 +8251,29 @@ export default function UsersPage() {
             />
 
             <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden border border-[#E5DEDA]">
-              <div className="h-1.5 bg-[#741C29]" />
+              <div
+                className="h-1.5"
+                style={{
+                  backgroundColor:
+                    RED,
+                }}
+              />
 
               <div className="px-5 py-5 border-b border-[#ECE7E4] flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-[#741C29]/10 flex items-center justify-center">
-                    <Coffee className="w-5 h-5 text-[#741C29]" />
+                  <div
+                    className="w-10 h-10 rounded-xl flex items-center justify-center"
+                    style={{
+                      backgroundColor:
+                        `${RED}12`,
+                    }}
+                  >
+                    <Coffee
+                      className="w-5 h-5"
+                      style={{
+                        color: RED,
+                      }}
+                    />
                   </div>
 
                   <div>
@@ -5871,7 +8322,7 @@ export default function UsersPage() {
                           .value
                       )
                     }
-                    className="w-full h-11 rounded-xl border border-[#DDD6D2] bg-[#FCFBFA] px-3 text-sm outline-none focus:bg-white focus:border-[#741C29] focus:ring-4 focus:ring-[#741C29]/8"
+                    className="w-full h-11 rounded-xl border border-[#DDD6D2] bg-[#FCFBFA] px-3 text-sm outline-none focus:bg-white focus:border-[#ec3737] focus:ring-4 focus:ring-[#ec3737]/8"
                   />
                 </div>
 
@@ -5891,7 +8342,7 @@ export default function UsersPage() {
                           .value
                       )
                     }
-                    className="w-full h-11 rounded-xl border border-[#DDD6D2] bg-[#FCFBFA] px-3 text-sm outline-none focus:bg-white focus:border-[#741C29] focus:ring-4 focus:ring-[#741C29]/8"
+                    className="w-full h-11 rounded-xl border border-[#DDD6D2] bg-[#FCFBFA] px-3 text-sm outline-none focus:bg-white focus:border-[#ec3737] focus:ring-4 focus:ring-[#ec3737]/8"
                   />
                 </div>
               </div>
@@ -5920,7 +8371,13 @@ export default function UsersPage() {
                   onClick={
                     handleSaveBreakTime
                   }
-                  className="px-5 py-2.5 rounded-xl bg-[#741C29] hover:bg-[#5C1520] text-white text-sm font-semibold disabled:opacity-50 shadow-lg shadow-[#741C29]/15"
+                  className="px-5 py-2.5 rounded-xl text-white text-sm font-semibold disabled:opacity-50 shadow-lg"
+                  style={{
+                    backgroundColor:
+                      RED,
+                    boxShadow:
+                      `0 10px 25px ${RED}26`,
+                  }}
                 >
                   {savingBreak
                     ? "Saving..."
@@ -5948,12 +8405,29 @@ export default function UsersPage() {
           />
 
           <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden border border-[#E5DEDA]">
-            <div className="h-1.5 bg-[#741C29]" />
+            <div
+              className="h-1.5"
+              style={{
+                backgroundColor:
+                  RED,
+              }}
+            />
 
             <div className="px-5 py-5 border-b border-[#ECE7E4] flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-[#741C29]/10 flex items-center justify-center">
-                  <Users className="w-5 h-5 text-[#741C29]" />
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center"
+                  style={{
+                    backgroundColor:
+                      `${RED}12`,
+                  }}
+                >
+                  <Users
+                    className="w-5 h-5"
+                    style={{
+                      color: RED,
+                    }}
+                  />
                 </div>
 
                 <div>
@@ -6000,7 +8474,7 @@ export default function UsersPage() {
                         .value
                     )
                   }
-                  className="w-full h-11 rounded-xl border border-[#DDD6D2] bg-[#FCFBFA] px-3 text-sm outline-none focus:bg-white focus:border-[#741C29] focus:ring-4 focus:ring-[#741C29]/8"
+                  className="w-full h-11 rounded-xl border border-[#DDD6D2] bg-[#FCFBFA] px-3 text-sm outline-none focus:bg-white focus:border-[#ec3737] focus:ring-4 focus:ring-[#ec3737]/8"
                 />
               </div>
 
@@ -6020,7 +8494,7 @@ export default function UsersPage() {
                         .value
                     )
                   }
-                  className="w-full h-11 rounded-xl border border-[#DDD6D2] bg-[#FCFBFA] px-3 text-sm outline-none focus:bg-white focus:border-[#741C29] focus:ring-4 focus:ring-[#741C29]/8"
+                  className="w-full h-11 rounded-xl border border-[#DDD6D2] bg-[#FCFBFA] px-3 text-sm outline-none focus:bg-white focus:border-[#ec3737] focus:ring-4 focus:ring-[#ec3737]/8"
                 />
               </div>
             </div>
@@ -6049,7 +8523,13 @@ export default function UsersPage() {
                 onClick={
                   handleSaveAdminBreakTime
                 }
-                className="px-5 py-2.5 rounded-xl bg-[#741C29] hover:bg-[#5C1520] text-white text-sm font-semibold disabled:opacity-50 shadow-lg shadow-[#741C29]/15"
+                className="px-5 py-2.5 rounded-xl text-white text-sm font-semibold disabled:opacity-50 shadow-lg"
+                style={{
+                  backgroundColor:
+                    RED,
+                  boxShadow:
+                    `0 10px 25px ${RED}26`,
+                }}
               >
                 {savingBreak
                   ? "Saving..."
@@ -6076,8 +8556,19 @@ export default function UsersPage() {
           />
 
           <div className="relative w-full max-w-sm bg-white rounded-2xl shadow-2xl p-6 border border-[#E5DEDA]">
-            <div className="w-12 h-12 rounded-xl bg-[#741C29]/10 flex items-center justify-center">
-              <LogOut className="w-5 h-5 text-[#741C29]" />
+            <div
+              className="w-12 h-12 rounded-xl flex items-center justify-center"
+              style={{
+                backgroundColor:
+                  `${RED}12`,
+              }}
+            >
+              <LogOut
+                className="w-5 h-5"
+                style={{
+                  color: RED,
+                }}
+              />
             </div>
 
             <h3 className="text-lg font-bold text-gray-900 mt-5">
@@ -6112,7 +8603,13 @@ export default function UsersPage() {
                     "/login"
                   );
                 }}
-                className="px-5 py-2.5 rounded-xl bg-[#741C29] hover:bg-[#5C1520] text-white text-sm font-semibold shadow-lg shadow-[#741C29]/15"
+                className="px-5 py-2.5 rounded-xl text-white text-sm font-semibold shadow-lg"
+                style={{
+                  backgroundColor:
+                    RED,
+                  boxShadow:
+                    `0 10px 25px ${RED}26`,
+                }}
               >
                 Logout
               </button>
@@ -6123,3 +8620,4 @@ export default function UsersPage() {
     </div>
   );
 }
+
