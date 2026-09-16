@@ -1806,7 +1806,7 @@ import LogoutModal from "../../components/LogoutModal";
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
-import CRMLoader from "@/components/CRMLoader";
+// import CRMLoader from "@/components/CRMLoader";
 
 import DashboardTopBar from "@/components/DashboardTopBar";
 
@@ -2881,9 +2881,9 @@ const missedPercentage = useMemo(() => {
   // LOADING
   // =========================================================
 
-  if (loading) {
-    return <CRMLoader />;
-  }
+  // if (loading) {
+  //   return <CRMLoader />;
+  // }
 
   // =========================================================
   // DASHBOARD

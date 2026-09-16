@@ -274,7 +274,7 @@ export default function CRMLoader({
   {/* Bottom branding */}
   <div className="absolute bottom-6 left-0 right-0 z-10 text-center">
     <p className="text-[9px] font-semibold uppercase tracking-[0.22em] text-slate-600">
-      Digital Orbitus
+        Digital Orbit Innovations
     </p>
   </div>
 </div>
