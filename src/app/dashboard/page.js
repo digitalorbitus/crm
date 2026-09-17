@@ -2293,48 +2293,263 @@ const [endDate, setEndDate] = useState(
   // LOAD DASHBOARD DATA
   // =========================================================
 
+  // const loadStaffData = useCallback(async () => {
+  //   try {
+  //     setLoading(true);
+  //     setErrorMessage("");
+
+  //     // =====================================================
+  //     // CURRENT USER
+  //     // =====================================================
+
+  //     const meRes = await fetch("/api/auth/me", {
+  //       cache: "no-store",
+  //     });
+
+  //     const meData = await meRes.json();
+
+  //     if (!meRes.ok) {
+  //       throw new Error(
+  //         meData?.message ||
+  //           meData?.error ||
+  //           "Unable to load current user."
+  //       );
+  //     }
+
+  //     const currentUser =
+  //       meData?.user ||
+  //       meData?.data ||
+  //       meData;
+
+  //     setStaff(currentUser);
+
+  //     // =====================================================
+  //     // STAFF LIST
+  //     // =====================================================
+
+  //     try {
+  //       const staffRes = await fetch(
+  //         "/api/staffes/list",
+  //         {
+  //           cache: "no-store",
+  //         }
+  //       );
+
+  //       const staffData = await staffRes.json();
+
+  //       if (staffRes.ok) {
+  //         const staffList =
+  //           staffData?.staff ||
+  //           staffData?.users ||
+  //           staffData?.data ||
+  //           staffData?.results ||
+  //           [];
+
+  //         setAllStaff(
+  //           Array.isArray(staffList)
+  //             ? staffList
+  //             : []
+  //         );
+  //       }
+  //     } catch (staffError) {
+  //       console.error(
+  //         "STAFF LIST ERROR:",
+  //         staffError
+  //       );
+
+  //       setAllStaff([]);
+  //     }
+
+  //     // =====================================================
+  //     // DAILY DESK
+  //     // =====================================================
+
+  //     try {
+  //       const deskRes = await fetch(
+  //         "/api/staff/daily-desk",
+  //         {
+  //           cache: "no-store",
+  //         }
+  //       );
+
+  //       const deskData = await deskRes.json();
+
+  //       if (deskRes.ok) {
+  //         const deskNumbers =
+  //           deskData?.numbers ||
+  //           deskData?.data ||
+  //           deskData?.extensions ||
+  //           [];
+
+  //         setNumbers(
+  //           Array.isArray(deskNumbers)
+  //             ? deskNumbers
+  //             : []
+  //         );
+  //       }
+  //     } catch (deskError) {
+  //       console.error(
+  //         "DAILY DESK ERROR:",
+  //         deskError
+  //       );
+
+  //       setNumbers([]);
+  //     }
+
+  //     // =====================================================
+  //     // ZOOM CALL HISTORY
+  //     // =====================================================
+
+  //     const callRes = await fetch(
+  //       "/api/zoom/call-history",
+  //       {
+  //         method: "GET",
+  //         cache: "no-store",
+  //         headers: {
+  //           Accept: "application/json",
+  //         },
+  //       }
+  //     );
+
+  //     const callData = await callRes.json();
+
+  //     console.log(
+  //       "===================================="
+  //     );
+
+  //     console.log(
+  //       "ZOOM CALL HISTORY FULL RESPONSE:"
+  //     );
+
+  //     console.log(callData);
+
+  //     console.log(
+  //       "===================================="
+  //     );
+
+  //     setRawApiResponse(callData);
+
+  //     if (!callRes.ok) {
+  //       throw new Error(
+  //         callData?.message ||
+  //           callData?.error ||
+  //           "Failed to load Zoom call history."
+  //       );
+  //     }
+
+  //     const callList = getCallList(callData);
+
+  //     console.log(
+  //       "NORMALIZED CALL LIST:",
+  //       callList
+  //     );
+
+  //     console.log(
+  //       "CALL COUNT:",
+  //       callList.length
+  //     );
+
+  //     if (callList.length > 0) {
+  //       console.log(
+  //         "FIRST CALL OBJECT:",
+  //         callList[0]
+  //       );
+  //     }
+
+  //     setCalls(
+  //       Array.isArray(callList)
+  //         ? callList
+  //         : []
+  //     );
+  //   } catch (error) {
+  //     console.error(
+  //       "DASHBOARD LOAD ERROR:",
+  //       error
+  //     );
+
+  //     setErrorMessage(
+  //       error?.message ||
+  //         "Unable to load dashboard data."
+  //     );
+
+  //     setCalls([]);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // }, [getCallList]);
+
+
+
+
   const loadStaffData = useCallback(async () => {
-    try {
-      setLoading(true);
-      setErrorMessage("");
+  try {
+    setLoading(true);
+    setErrorMessage("");
 
-      // =====================================================
-      // CURRENT USER
-      // =====================================================
+    // =====================================================
+    // 1. CURRENT USER + STAFF + DAILY DESK
+    //    These are needed for initial page
+    // =====================================================
 
-      const meRes = await fetch("/api/auth/me", {
-        cache: "no-store",
-      });
+    const [meResult, staffResult, deskResult] =
+      await Promise.allSettled([
+        fetch("/api/auth/me", {
+          cache: "no-store",
+        }),
 
-      const meData = await meRes.json();
+        fetch("/api/staffes/list", {
+          cache: "no-store",
+        }),
 
-      if (!meRes.ok) {
-        throw new Error(
-          meData?.message ||
-            meData?.error ||
-            "Unable to load current user."
-        );
-      }
+        fetch("/api/staff/daily-desk", {
+          cache: "no-store",
+        }),
+      ]);
 
-      const currentUser =
-        meData?.user ||
-        meData?.data ||
-        meData;
+    // =====================================================
+    // CURRENT USER
+    // =====================================================
 
-      setStaff(currentUser);
-
-      // =====================================================
-      // STAFF LIST
-      // =====================================================
-
+    if (meResult.status === "fulfilled") {
       try {
-        const staffRes = await fetch(
-          "/api/staffes/list",
-          {
-            cache: "no-store",
-          }
+        const meRes = meResult.value;
+        const meData = await meRes.json();
+
+        if (!meRes.ok) {
+          throw new Error(
+            meData?.message ||
+              meData?.error ||
+              "Unable to load current user."
+          );
+        }
+
+        const currentUser =
+          meData?.user ||
+          meData?.data ||
+          meData;
+
+        setStaff(currentUser);
+      } catch (error) {
+        console.error(
+          "CURRENT USER ERROR:",
+          error
         );
 
+        throw error;
+      }
+    } else {
+      throw new Error(
+        "Unable to connect to current user API."
+      );
+    }
+
+    // =====================================================
+    // STAFF LIST
+    // =====================================================
+
+    if (staffResult.status === "fulfilled") {
+      try {
+        const staffRes = staffResult.value;
         const staffData = await staffRes.json();
 
         if (staffRes.ok) {
@@ -2350,6 +2565,8 @@ const [endDate, setEndDate] = useState(
               ? staffList
               : []
           );
+        } else {
+          setAllStaff([]);
         }
       } catch (staffError) {
         console.error(
@@ -2359,19 +2576,22 @@ const [endDate, setEndDate] = useState(
 
         setAllStaff([]);
       }
+    } else {
+      console.error(
+        "STAFF LIST REQUEST FAILED:",
+        staffResult.reason
+      );
 
-      // =====================================================
-      // DAILY DESK
-      // =====================================================
+      setAllStaff([]);
+    }
 
+    // =====================================================
+    // DAILY DESK
+    // =====================================================
+
+    if (deskResult.status === "fulfilled") {
       try {
-        const deskRes = await fetch(
-          "/api/staff/daily-desk",
-          {
-            cache: "no-store",
-          }
-        );
-
+        const deskRes = deskResult.value;
         const deskData = await deskRes.json();
 
         if (deskRes.ok) {
@@ -2386,6 +2606,8 @@ const [endDate, setEndDate] = useState(
               ? deskNumbers
               : []
           );
+        } else {
+          setNumbers([]);
         }
       } catch (deskError) {
         console.error(
@@ -2395,88 +2617,120 @@ const [endDate, setEndDate] = useState(
 
         setNumbers([]);
       }
-
-      // =====================================================
-      // ZOOM CALL HISTORY
-      // =====================================================
-
-      const callRes = await fetch(
-        "/api/zoom/call-history",
-        {
-          method: "GET",
-          cache: "no-store",
-          headers: {
-            Accept: "application/json",
-          },
-        }
-      );
-
-      const callData = await callRes.json();
-
-      console.log(
-        "===================================="
-      );
-
-      console.log(
-        "ZOOM CALL HISTORY FULL RESPONSE:"
-      );
-
-      console.log(callData);
-
-      console.log(
-        "===================================="
-      );
-
-      setRawApiResponse(callData);
-
-      if (!callRes.ok) {
-        throw new Error(
-          callData?.message ||
-            callData?.error ||
-            "Failed to load Zoom call history."
-        );
-      }
-
-      const callList = getCallList(callData);
-
-      console.log(
-        "NORMALIZED CALL LIST:",
-        callList
-      );
-
-      console.log(
-        "CALL COUNT:",
-        callList.length
-      );
-
-      if (callList.length > 0) {
-        console.log(
-          "FIRST CALL OBJECT:",
-          callList[0]
-        );
-      }
-
-      setCalls(
-        Array.isArray(callList)
-          ? callList
-          : []
-      );
-    } catch (error) {
+    } else {
       console.error(
-        "DASHBOARD LOAD ERROR:",
-        error
+        "DAILY DESK REQUEST FAILED:",
+        deskResult.reason
       );
 
-      setErrorMessage(
-        error?.message ||
-          "Unable to load dashboard data."
-      );
-
-      setCalls([]);
-    } finally {
-      setLoading(false);
+      setNumbers([]);
     }
-  }, [getCallList]);
+
+    // =====================================================
+    // STOP MAIN LOADER
+    //
+    // IMPORTANT:
+    // Zoom API will NOT block page rendering anymore.
+    // =====================================================
+
+    setLoading(false);
+
+    // =====================================================
+    // 2. ZOOM CALL HISTORY
+    //    LOAD IN BACKGROUND
+    // =====================================================
+
+    fetch("/api/zoom/call-history", {
+      method: "GET",
+      cache: "no-store",
+      headers: {
+        Accept: "application/json",
+      },
+    })
+      .then(async (callRes) => {
+        const callData = await callRes.json();
+
+        console.log(
+          "===================================="
+        );
+
+        console.log(
+          "ZOOM CALL HISTORY FULL RESPONSE:"
+        );
+
+        console.log(callData);
+
+        console.log(
+          "===================================="
+        );
+
+        setRawApiResponse(callData);
+
+        if (!callRes.ok) {
+          throw new Error(
+            callData?.message ||
+              callData?.error ||
+              "Failed to load Zoom call history."
+          );
+        }
+
+        const callList =
+          getCallList(callData);
+
+        console.log(
+          "NORMALIZED CALL LIST:",
+          callList
+        );
+
+        console.log(
+          "CALL COUNT:",
+          callList.length
+        );
+
+        if (callList.length > 0) {
+          console.log(
+            "FIRST CALL OBJECT:",
+            callList[0]
+          );
+        }
+
+        // =================================================
+        // UPDATE CALLS WHEN ZOOM API FINISHES
+        // =================================================
+
+        setCalls(
+          Array.isArray(callList)
+            ? callList
+            : []
+        );
+      })
+      .catch((callError) => {
+        console.error(
+          "ZOOM CALL HISTORY ERROR:",
+          callError
+        );
+
+        // Don't block / break the whole dashboard
+        setCalls([]);
+      });
+
+  } catch (error) {
+    console.error(
+      "DASHBOARD LOAD ERROR:",
+      error
+    );
+
+    setErrorMessage(
+      error?.message ||
+        "Unable to load dashboard data."
+    );
+
+    setCalls([]);
+
+    // Make sure page loader stops
+    setLoading(false);
+  }
+}, [getCallList]);
 
   // =========================================================
   // INITIAL LOAD

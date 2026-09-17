@@ -3693,6 +3693,685 @@
 
 
 
+// import { NextResponse } from "next/server";
+// import jwt from "jsonwebtoken";
+// import db from "../../lib/db";
+
+// const CALIFORNIA_TIMEZONE = "America/Los_Angeles";
+// const ATTENDANCE_CUTOFF = "08:15:00";
+
+// /* =========================================================
+//    AUTH
+// ========================================================= */
+
+// async function getAuthUser() {
+//   try {
+//     const token = (await import("next/headers")).cookies
+//       ? null
+//       : null;
+//   } catch {}
+
+//   return null;
+// }
+
+// /*
+//   Next.js route cookies helper
+// */
+// async function getCurrentUser() {
+//   try {
+//     const { cookies } = await import("next/headers");
+//     const cookieStore = await cookies();
+
+//     const token = cookieStore.get("token")?.value;
+
+//     if (!token) {
+//       return null;
+//     }
+
+//     const decoded = jwt.verify(
+//       token,
+//       process.env.JWT_SECRET
+//     );
+
+//     if (!decoded?.id) {
+//       return null;
+//     }
+
+//     /*
+//       Get current DB user so role changes are respected
+//     */
+//     const [rows] = await db.query(
+//       `
+//       SELECT
+//         id,
+//         name,
+//         email,
+//         role,
+//         status
+//       FROM users
+//       WHERE id = ?
+//       LIMIT 1
+//       `,
+//       [decoded.id]
+//     );
+
+//     if (!rows.length) {
+//       return null;
+//     }
+
+//     return rows[0];
+//   } catch (error) {
+//     console.error("AUTH ERROR:", error);
+//     return null;
+//   }
+// }
+
+// /* =========================================================
+//    CALIFORNIA DATE HELPERS
+// ========================================================= */
+
+// function normalizeToCaliforniaDateTime(value) {
+//   if (!value) return null;
+
+//   const input = String(value).trim();
+
+//   /*
+//     ISO / UTC input
+//   */
+//   if (input.endsWith("Z")) {
+//     const date = new Date(input);
+
+//     if (Number.isNaN(date.getTime())) {
+//       return null;
+//     }
+
+//     const parts = new Intl.DateTimeFormat("en-CA", {
+//       timeZone: CALIFORNIA_TIMEZONE,
+//       year: "numeric",
+//       month: "2-digit",
+//       day: "2-digit",
+//       hour: "2-digit",
+//       minute: "2-digit",
+//       second: "2-digit",
+//       hourCycle: "h23",
+//     }).formatToParts(date);
+
+//     const values = {};
+
+//     for (const part of parts) {
+//       if (part.type !== "literal") {
+//         values[part.type] = part.value;
+//       }
+//     }
+
+//     return `${values.year}-${values.month}-${values.day} ${values.hour}:${values.minute}:${values.second}`;
+//   }
+
+//   /*
+//     Already California wall-clock time
+//   */
+//   const match = input.match(
+//     /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?$/
+//   );
+
+//   if (match) {
+//     const [
+//       ,
+//       year,
+//       month,
+//       day,
+//       hour,
+//       minute,
+//       second = "00",
+//     ] = match;
+
+//     return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
+//   }
+
+//   return null;
+// }
+
+// function isValidDateTime(value) {
+//   return /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(
+//     String(value || "")
+//   );
+// }
+
+// /* =========================================================
+//    GET
+// ========================================================= */
+
+// export async function GET(request) {
+//   try {
+//     const user = await getCurrentUser();
+
+//     if (!user) {
+//       return NextResponse.json(
+//         {
+//           success: false,
+//           message: "Unauthorized",
+//         },
+//         { status: 401 }
+//       );
+//     }
+
+//     const { searchParams } = new URL(request.url);
+
+//     const from = searchParams.get("from");
+//     const to = searchParams.get("to");
+
+//     let sql = `
+//       SELECT
+//         lh.id,
+//         u.id AS user_id,
+//         u.name,
+//         u.email,
+//         u.role,
+//         u.team,
+
+//         DATE_FORMAT(
+//           lh.login_time,
+//           '%Y-%m-%d %H:%i:%s'
+//         ) AS login_time,
+
+//         CASE
+//           WHEN lh.logout_time IS NULL THEN NULL
+//           ELSE DATE_FORMAT(
+//             lh.logout_time,
+//             '%Y-%m-%d %H:%i:%s'
+//           )
+//         END AS logout_time,
+
+//         lh.ip_address,
+//         lh.user_agent,
+
+//         CASE
+//           WHEN TIME(lh.login_time) <= ?
+//           THEN 'On Time'
+//           ELSE 'Late'
+//         END AS attendance_status,
+
+//         CASE
+//           WHEN lh.logout_time IS NULL THEN NULL
+//           ELSE TIMESTAMPDIFF(
+//             SECOND,
+//             lh.login_time,
+//             lh.logout_time
+//           )
+//         END AS duration_seconds
+
+//       FROM login_history lh
+
+//       INNER JOIN users u
+//         ON lh.user_id = u.id
+
+//       WHERE 1 = 1
+//     `;
+
+//     const params = [ATTENDANCE_CUTOFF];
+
+//     /*
+//       Normal users see only their own records
+//     */
+//     if (String(user.role).toLowerCase() !== "admin") {
+//       sql += ` AND lh.user_id = ? `;
+//       params.push(user.id);
+//     }
+
+//     /*
+//       Date filter
+//     */
+//     if (from) {
+//       sql += ` AND DATE(lh.login_time) >= ? `;
+//       params.push(from);
+//     }
+
+//     if (to) {
+//       sql += ` AND DATE(lh.login_time) <= ? `;
+//       params.push(to);
+//     }
+
+//     sql += `
+//       ORDER BY
+//         lh.login_time DESC,
+//         u.name ASC
+//     `;
+
+//     const [history] = await db.query(sql, params);
+
+//     return NextResponse.json({
+//       success: true,
+//       history,
+//     });
+//   } catch (error) {
+//     console.error("LOGIN HISTORY GET ERROR:", error);
+
+//     return NextResponse.json(
+//       {
+//         success: false,
+//         message: "Failed to load attendance",
+//       },
+//       { status: 500 }
+//     );
+//   }
+// }
+
+// /* =========================================================
+//    POST - ADMIN ADD ATTENDANCE
+// ========================================================= */
+
+// export async function POST(request) {
+//   try {
+//     const user = await getCurrentUser();
+
+//     if (!user) {
+//       return NextResponse.json(
+//         {
+//           success: false,
+//           message: "Unauthorized",
+//         },
+//         { status: 401 }
+//       );
+//     }
+
+//     if (String(user.role).toLowerCase() !== "admin") {
+//       return NextResponse.json(
+//         {
+//           success: false,
+//           message: "Only admin can add attendance",
+//         },
+//         { status: 403 }
+//       );
+//     }
+
+//     const body = await request.json();
+
+//     const {
+//       user_id,
+//       login_time,
+//       logout_time,
+//       ip_address,
+//       user_agent,
+//     } = body;
+
+//     if (!user_id) {
+//       return NextResponse.json(
+//         {
+//           success: false,
+//           message: "Employee is required",
+//         },
+//         { status: 400 }
+//       );
+//     }
+
+//     const californiaLoginTime =
+//       normalizeToCaliforniaDateTime(login_time);
+
+//     const californiaLogoutTime =
+//       logout_time
+//         ? normalizeToCaliforniaDateTime(logout_time)
+//         : null;
+
+//     if (!californiaLoginTime) {
+//       return NextResponse.json(
+//         {
+//           success: false,
+//           message: "Invalid login time",
+//         },
+//         { status: 400 }
+//       );
+//     }
+
+//     if (
+//       californiaLogoutTime &&
+//       !isValidDateTime(californiaLogoutTime)
+//     ) {
+//       return NextResponse.json(
+//         {
+//           success: false,
+//           message: "Invalid logout time",
+//         },
+//         { status: 400 }
+//       );
+//     }
+
+//     if (
+//       californiaLogoutTime &&
+//       californiaLogoutTime < californiaLoginTime
+//     ) {
+//       return NextResponse.json(
+//         {
+//           success: false,
+//           message: "Logout time cannot be before login time",
+//         },
+//         { status: 400 }
+//       );
+//     }
+
+//     /*
+//       Verify employee exists
+//     */
+//     const [employee] = await db.query(
+//       `
+//       SELECT id
+//       FROM users
+//       WHERE id = ?
+//       LIMIT 1
+//       `,
+//       [Number(user_id)]
+//     );
+
+//     if (!employee.length) {
+//       return NextResponse.json(
+//         {
+//           success: false,
+//           message: "Employee not found",
+//         },
+//         { status: 404 }
+//       );
+//     }
+
+//     const [result] = await db.query(
+//       `
+//       INSERT INTO login_history
+//       (
+//         user_id,
+//         login_time,
+//         logout_time,
+//         ip_address,
+//         user_agent
+//       )
+//       VALUES (?, ?, ?, ?, ?)
+//       `,
+//       [
+//         Number(user_id),
+//         californiaLoginTime,
+//         californiaLogoutTime,
+//         ip_address || null,
+//         user_agent || null,
+//       ]
+//     );
+
+//     return NextResponse.json({
+//       success: true,
+//       message: "Attendance added successfully",
+//       id: result.insertId,
+//     });
+//   } catch (error) {
+//     console.error("LOGIN HISTORY POST ERROR:", error);
+
+//     return NextResponse.json(
+//       {
+//         success: false,
+//         message: "Failed to add attendance",
+//       },
+//       { status: 500 }
+//     );
+//   }
+// }
+
+// /* =========================================================
+//    PUT - ADMIN EDIT ATTENDANCE
+// ========================================================= */
+
+// export async function PUT(request) {
+//   try {
+//     const user = await getCurrentUser();
+
+//     if (!user) {
+//       return NextResponse.json(
+//         {
+//           success: false,
+//           message: "Unauthorized",
+//         },
+//         { status: 401 }
+//       );
+//     }
+
+//     if (String(user.role).toLowerCase() !== "admin") {
+//       return NextResponse.json(
+//         {
+//           success: false,
+//           message: "Only admin can edit attendance",
+//         },
+//         { status: 403 }
+//       );
+//     }
+
+//     const body = await request.json();
+
+//     const {
+//       id,
+//       user_id,
+//       login_time,
+//       logout_time,
+//       ip_address,
+//       user_agent,
+//     } = body;
+
+//     if (!id) {
+//       return NextResponse.json(
+//         {
+//           success: false,
+//           message: "Attendance ID is required",
+//         },
+//         { status: 400 }
+//       );
+//     }
+
+//     if (!user_id) {
+//       return NextResponse.json(
+//         {
+//           success: false,
+//           message: "Employee is required",
+//         },
+//         { status: 400 }
+//       );
+//     }
+
+//     const californiaLoginTime =
+//       normalizeToCaliforniaDateTime(login_time);
+
+//     const californiaLogoutTime =
+//       logout_time
+//         ? normalizeToCaliforniaDateTime(logout_time)
+//         : null;
+
+//     if (!californiaLoginTime) {
+//       return NextResponse.json(
+//         {
+//           success: false,
+//           message: "Invalid login time",
+//         },
+//         { status: 400 }
+//       );
+//     }
+
+//     if (
+//       californiaLogoutTime &&
+//       californiaLogoutTime < californiaLoginTime
+//     ) {
+//       return NextResponse.json(
+//         {
+//           success: false,
+//           message: "Logout time cannot be before login time",
+//         },
+//         { status: 400 }
+//       );
+//     }
+
+//     const [employee] = await db.query(
+//       `
+//       SELECT id
+//       FROM users
+//       WHERE id = ?
+//       LIMIT 1
+//       `,
+//       [Number(user_id)]
+//     );
+
+//     if (!employee.length) {
+//       return NextResponse.json(
+//         {
+//           success: false,
+//           message: "Employee not found",
+//         },
+//         { status: 404 }
+//       );
+//     }
+
+//     const [existing] = await db.query(
+//       `
+//       SELECT id
+//       FROM login_history
+//       WHERE id = ?
+//       LIMIT 1
+//       `,
+//       [Number(id)]
+//     );
+
+//     if (!existing.length) {
+//       return NextResponse.json(
+//         {
+//           success: false,
+//           message: "Attendance record not found",
+//         },
+//         { status: 404 }
+//       );
+//     }
+
+//     await db.query(
+//       `
+//       UPDATE login_history
+//       SET
+//         user_id = ?,
+//         login_time = ?,
+//         logout_time = ?,
+//         ip_address = ?,
+//         user_agent = ?
+//       WHERE id = ?
+//       `,
+//       [
+//         Number(user_id),
+//         californiaLoginTime,
+//         californiaLogoutTime,
+//         ip_address || null,
+//         user_agent || null,
+//         Number(id),
+//       ]
+//     );
+
+//     return NextResponse.json({
+//       success: true,
+//       message: "Attendance updated successfully",
+//     });
+//   } catch (error) {
+//     console.error("LOGIN HISTORY PUT ERROR:", error);
+
+//     return NextResponse.json(
+//       {
+//         success: false,
+//         message: "Failed to update attendance",
+//       },
+//       { status: 500 }
+//     );
+//   }
+// }
+
+// /* =========================================================
+//    DELETE - ADMIN ONLY
+// ========================================================= */
+
+// export async function DELETE(request) {
+//   try {
+//     const user = await getCurrentUser();
+
+//     if (!user) {
+//       return NextResponse.json(
+//         {
+//           success: false,
+//           message: "Unauthorized",
+//         },
+//         { status: 401 }
+//       );
+//     }
+
+//     if (String(user.role).toLowerCase() !== "admin") {
+//       return NextResponse.json(
+//         {
+//           success: false,
+//           message: "Only admin can delete attendance",
+//         },
+//         { status: 403 }
+//       );
+//     }
+
+//     const { searchParams } = new URL(request.url);
+
+//     const id = searchParams.get("id");
+
+//     if (!id) {
+//       return NextResponse.json(
+//         {
+//           success: false,
+//           message: "Attendance ID is required",
+//         },
+//         { status: 400 }
+//       );
+//     }
+
+//     const [result] = await db.query(
+//       `
+//       DELETE FROM login_history
+//       WHERE id = ?
+//       `,
+//       [Number(id)]
+//     );
+
+//     if (!result.affectedRows) {
+//       return NextResponse.json(
+//         {
+//           success: false,
+//           message: "Attendance record not found",
+//         },
+//         { status: 404 }
+//       );
+//     }
+
+//     return NextResponse.json({
+//       success: true,
+//       message: "Attendance deleted successfully",
+//     });
+//   } catch (error) {
+//     console.error("LOGIN HISTORY DELETE ERROR:", error);
+
+//     return NextResponse.json(
+//       {
+//         success: false,
+//         message: "Failed to delete attendance",
+//       },
+//       { status: 500 }
+//     );
+//   }
+// }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 import { NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 import db from "../../lib/db";
@@ -3704,19 +4383,6 @@ const ATTENDANCE_CUTOFF = "08:15:00";
    AUTH
 ========================================================= */
 
-async function getAuthUser() {
-  try {
-    const token = (await import("next/headers")).cookies
-      ? null
-      : null;
-  } catch {}
-
-  return null;
-}
-
-/*
-  Next.js route cookies helper
-*/
 async function getCurrentUser() {
   try {
     const { cookies } = await import("next/headers");
@@ -3737,9 +4403,6 @@ async function getCurrentUser() {
       return null;
     }
 
-    /*
-      Get current DB user so role changes are respected
-    */
     const [rows] = await db.query(
       `
       SELECT
@@ -3775,9 +4438,6 @@ function normalizeToCaliforniaDateTime(value) {
 
   const input = String(value).trim();
 
-  /*
-    ISO / UTC input
-  */
   if (input.endsWith("Z")) {
     const date = new Date(input);
 
@@ -3807,9 +4467,6 @@ function normalizeToCaliforniaDateTime(value) {
     return `${values.year}-${values.month}-${values.day} ${values.hour}:${values.minute}:${values.second}`;
   }
 
-  /*
-    Already California wall-clock time
-  */
   const match = input.match(
     /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?$/
   );
@@ -3910,17 +4567,13 @@ export async function GET(request) {
 
     const params = [ATTENDANCE_CUTOFF];
 
-    /*
-      Normal users see only their own records
-    */
-    if (String(user.role).toLowerCase() !== "admin") {
+    if (
+      String(user.role).toLowerCase() !== "admin"
+    ) {
       sql += ` AND lh.user_id = ? `;
       params.push(user.id);
     }
 
-    /*
-      Date filter
-    */
     if (from) {
       sql += ` AND DATE(lh.login_time) >= ? `;
       params.push(from);
@@ -3944,7 +4597,10 @@ export async function GET(request) {
       history,
     });
   } catch (error) {
-    console.error("LOGIN HISTORY GET ERROR:", error);
+    console.error(
+      "LOGIN HISTORY GET ERROR:",
+      error
+    );
 
     return NextResponse.json(
       {
@@ -3957,7 +4613,7 @@ export async function GET(request) {
 }
 
 /* =========================================================
-   POST - ADMIN ADD ATTENDANCE
+   POST - ADMIN ADD
 ========================================================= */
 
 export async function POST(request) {
@@ -3974,7 +4630,9 @@ export async function POST(request) {
       );
     }
 
-    if (String(user.role).toLowerCase() !== "admin") {
+    if (
+      String(user.role).toLowerCase() !== "admin"
+    ) {
       return NextResponse.json(
         {
           success: false,
@@ -3994,11 +4652,16 @@ export async function POST(request) {
       user_agent,
     } = body;
 
-    if (!user_id) {
+    const employeeId = Number(user_id);
+
+    if (
+      !Number.isInteger(employeeId) ||
+      employeeId <= 0
+    ) {
       return NextResponse.json(
         {
           success: false,
-          message: "Employee is required",
+          message: "Valid employee is required",
         },
         { status: 400 }
       );
@@ -4007,12 +4670,14 @@ export async function POST(request) {
     const californiaLoginTime =
       normalizeToCaliforniaDateTime(login_time);
 
-    const californiaLogoutTime =
-      logout_time
-        ? normalizeToCaliforniaDateTime(logout_time)
-        : null;
+    const californiaLogoutTime = logout_time
+      ? normalizeToCaliforniaDateTime(logout_time)
+      : null;
 
-    if (!californiaLoginTime) {
+    if (
+      !californiaLoginTime ||
+      !isValidDateTime(californiaLoginTime)
+    ) {
       return NextResponse.json(
         {
           success: false,
@@ -4042,15 +4707,13 @@ export async function POST(request) {
       return NextResponse.json(
         {
           success: false,
-          message: "Logout time cannot be before login time",
+          message:
+            "Logout time cannot be before login time",
         },
         { status: 400 }
       );
     }
 
-    /*
-      Verify employee exists
-    */
     const [employee] = await db.query(
       `
       SELECT id
@@ -4058,7 +4721,7 @@ export async function POST(request) {
       WHERE id = ?
       LIMIT 1
       `,
-      [Number(user_id)]
+      [employeeId]
     );
 
     if (!employee.length) {
@@ -4084,7 +4747,7 @@ export async function POST(request) {
       VALUES (?, ?, ?, ?, ?)
       `,
       [
-        Number(user_id),
+        employeeId,
         californiaLoginTime,
         californiaLogoutTime,
         ip_address || null,
@@ -4098,7 +4761,10 @@ export async function POST(request) {
       id: result.insertId,
     });
   } catch (error) {
-    console.error("LOGIN HISTORY POST ERROR:", error);
+    console.error(
+      "LOGIN HISTORY POST ERROR:",
+      error
+    );
 
     return NextResponse.json(
       {
@@ -4111,7 +4777,7 @@ export async function POST(request) {
 }
 
 /* =========================================================
-   PUT - ADMIN EDIT ATTENDANCE
+   PUT - ADMIN EDIT
 ========================================================= */
 
 export async function PUT(request) {
@@ -4128,7 +4794,9 @@ export async function PUT(request) {
       );
     }
 
-    if (String(user.role).toLowerCase() !== "admin") {
+    if (
+      String(user.role).toLowerCase() !== "admin"
+    ) {
       return NextResponse.json(
         {
           success: false,
@@ -4149,21 +4817,30 @@ export async function PUT(request) {
       user_agent,
     } = body;
 
-    if (!id) {
+    const attendanceId = Number(id);
+    const employeeId = Number(user_id);
+
+    if (
+      !Number.isInteger(attendanceId) ||
+      attendanceId <= 0
+    ) {
       return NextResponse.json(
         {
           success: false,
-          message: "Attendance ID is required",
+          message: "Valid attendance ID is required",
         },
         { status: 400 }
       );
     }
 
-    if (!user_id) {
+    if (
+      !Number.isInteger(employeeId) ||
+      employeeId <= 0
+    ) {
       return NextResponse.json(
         {
           success: false,
-          message: "Employee is required",
+          message: "Valid employee is required",
         },
         { status: 400 }
       );
@@ -4172,16 +4849,31 @@ export async function PUT(request) {
     const californiaLoginTime =
       normalizeToCaliforniaDateTime(login_time);
 
-    const californiaLogoutTime =
-      logout_time
-        ? normalizeToCaliforniaDateTime(logout_time)
-        : null;
+    const californiaLogoutTime = logout_time
+      ? normalizeToCaliforniaDateTime(logout_time)
+      : null;
 
-    if (!californiaLoginTime) {
+    if (
+      !californiaLoginTime ||
+      !isValidDateTime(californiaLoginTime)
+    ) {
       return NextResponse.json(
         {
           success: false,
           message: "Invalid login time",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (
+      californiaLogoutTime &&
+      !isValidDateTime(californiaLogoutTime)
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Invalid logout time",
         },
         { status: 400 }
       );
@@ -4194,7 +4886,8 @@ export async function PUT(request) {
       return NextResponse.json(
         {
           success: false,
-          message: "Logout time cannot be before login time",
+          message:
+            "Logout time cannot be before login time",
         },
         { status: 400 }
       );
@@ -4207,7 +4900,7 @@ export async function PUT(request) {
       WHERE id = ?
       LIMIT 1
       `,
-      [Number(user_id)]
+      [employeeId]
     );
 
     if (!employee.length) {
@@ -4227,7 +4920,7 @@ export async function PUT(request) {
       WHERE id = ?
       LIMIT 1
       `,
-      [Number(id)]
+      [attendanceId]
     );
 
     if (!existing.length) {
@@ -4252,12 +4945,12 @@ export async function PUT(request) {
       WHERE id = ?
       `,
       [
-        Number(user_id),
+        employeeId,
         californiaLoginTime,
         californiaLogoutTime,
         ip_address || null,
         user_agent || null,
-        Number(id),
+        attendanceId,
       ]
     );
 
@@ -4266,7 +4959,10 @@ export async function PUT(request) {
       message: "Attendance updated successfully",
     });
   } catch (error) {
-    console.error("LOGIN HISTORY PUT ERROR:", error);
+    console.error(
+      "LOGIN HISTORY PUT ERROR:",
+      error
+    );
 
     return NextResponse.json(
       {
@@ -4284,7 +4980,22 @@ export async function PUT(request) {
 
 export async function DELETE(request) {
   try {
+    console.log("=================================");
+    console.log("DELETE ATTENDANCE REQUEST");
+    console.log("=================================");
+
     const user = await getCurrentUser();
+
+    console.log(
+      "DELETE USER:",
+      user
+        ? {
+            id: user.id,
+            name: user.name,
+            role: user.role,
+          }
+        : null
+    );
 
     if (!user) {
       return NextResponse.json(
@@ -4296,7 +5007,9 @@ export async function DELETE(request) {
       );
     }
 
-    if (String(user.role).toLowerCase() !== "admin") {
+    if (
+      String(user.role).toLowerCase() !== "admin"
+    ) {
       return NextResponse.json(
         {
           success: false,
@@ -4310,45 +5023,132 @@ export async function DELETE(request) {
 
     const id = searchParams.get("id");
 
-    if (!id) {
+    console.log("DELETE ID FROM URL:", id);
+
+    const attendanceId = Number(id);
+
+    if (
+      !Number.isInteger(attendanceId) ||
+      attendanceId <= 0
+    ) {
       return NextResponse.json(
         {
           success: false,
-          message: "Attendance ID is required",
+          message: "Valid attendance ID is required",
         },
         { status: 400 }
       );
     }
 
-    const [result] = await db.query(
+    /*
+      First check record exists
+    */
+    const [beforeDelete] = await db.query(
       `
-      DELETE FROM login_history
+      SELECT
+        id,
+        user_id,
+        login_time
+      FROM login_history
       WHERE id = ?
+      LIMIT 1
       `,
-      [Number(id)]
+      [attendanceId]
     );
 
-    if (!result.affectedRows) {
+    console.log(
+      "RECORD BEFORE DELETE:",
+      beforeDelete
+    );
+
+    if (!beforeDelete.length) {
       return NextResponse.json(
         {
           success: false,
-          message: "Attendance record not found",
+          message:
+            "Attendance record not found",
         },
         { status: 404 }
       );
     }
 
+    /*
+      PERMANENT DELETE
+    */
+    const [result] = await db.query(
+      `
+      DELETE FROM login_history
+      WHERE id = ?
+      LIMIT 1
+      `,
+      [attendanceId]
+    );
+
+    console.log(
+      "DELETE RESULT:",
+      {
+        affectedRows: result.affectedRows,
+      }
+    );
+
+    if (result.affectedRows !== 1) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "Attendance was not deleted",
+        },
+        { status: 500 }
+      );
+    }
+
+    /*
+      Verify deletion
+    */
+    const [afterDelete] = await db.query(
+      `
+      SELECT id
+      FROM login_history
+      WHERE id = ?
+      LIMIT 1
+      `,
+      [attendanceId]
+    );
+
+    console.log(
+      "RECORD AFTER DELETE:",
+      afterDelete
+    );
+
+    if (afterDelete.length) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "Delete verification failed",
+        },
+        { status: 500 }
+      );
+    }
+
     return NextResponse.json({
       success: true,
-      message: "Attendance deleted successfully",
+      message:
+        "Attendance deleted permanently",
+      deletedId: attendanceId,
     });
   } catch (error) {
-    console.error("LOGIN HISTORY DELETE ERROR:", error);
+    console.error(
+      "LOGIN HISTORY DELETE ERROR:",
+      error
+    );
 
     return NextResponse.json(
       {
         success: false,
-        message: "Failed to delete attendance",
+        message:
+          error?.message ||
+          "Failed to delete attendance",
       },
       { status: 500 }
     );

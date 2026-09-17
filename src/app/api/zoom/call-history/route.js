@@ -3356,11 +3356,17 @@ import { query, zoomConfig } from "../../../lib/db";
 const ZOOM_CALL_HISTORY_URL =
   "https://api.zoom.us/v2/phone/call_history";
 
+// const DEFAULT_PAGE_SIZE = 300;
+// const MAX_PAGE_SIZE = 300;
+// const MAX_PAGES = 100;
+
+// const PAGE_DELAY_MS = 350;
+
 const DEFAULT_PAGE_SIZE = 300;
 const MAX_PAGE_SIZE = 300;
-const MAX_PAGES = 100;
+const MAX_PAGES = 10;
 
-const PAGE_DELAY_MS = 350;
+const PAGE_DELAY_MS = 10;
 
 const MAX_429_RETRIES = 3;
 const BASE_RETRY_DELAY_MS = 1500;

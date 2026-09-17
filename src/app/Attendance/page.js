@@ -4737,6 +4737,2071 @@
 
 
 
+// "use client";
+
+// import {
+//   CalendarDays,
+//   Search,
+//   Download,
+//   Users,
+//   UserCheck,
+//   Clock3,
+//   AlertCircle,
+//   ChevronDown,
+//   RefreshCw,
+//   FileText,
+//   Plus,
+//   Pencil,
+//   X,
+//   Save,
+// } from "lucide-react";
+
+// import { useCallback, useEffect, useMemo, useState } from "react";
+// import Sidebar from "@/components/Sidebar";
+
+// /* =========================================================
+//    CONSTANTS
+// ========================================================= */
+
+// const CALIFORNIA_TIMEZONE = "America/Los_Angeles";
+
+// /* =========================================================
+//    CALIFORNIA DATE
+// ========================================================= */
+
+// function getCaliforniaDateInput() {
+//   const parts = new Intl.DateTimeFormat("en-CA", {
+//     timeZone: CALIFORNIA_TIMEZONE,
+//     year: "numeric",
+//     month: "2-digit",
+//     day: "2-digit",
+//   }).formatToParts(new Date());
+
+//   const values = {};
+
+//   parts.forEach((part) => {
+//     if (part.type !== "literal") {
+//       values[part.type] = part.value;
+//     }
+//   });
+
+//   return `${values.year}-${values.month}-${values.day}`;
+// }
+
+// function getCaliforniaMonthStart() {
+//   const today = getCaliforniaDateInput();
+
+//   return `${today.slice(0, 8)}01`;
+// }
+
+// /* =========================================================
+//    DB DATE PARSER
+// ========================================================= */
+
+// function parseDbDateTime(value) {
+//   const match = String(value ?? "")
+//     .trim()
+//     .match(
+//       /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?/
+//     );
+
+//   if (!match) {
+//     return null;
+//   }
+
+//   return {
+//     year: Number(match[1]),
+//     month: Number(match[2]),
+//     day: Number(match[3]),
+//     hour: Number(match[4]),
+//     minute: Number(match[5]),
+//     second: Number(match[6] || 0),
+//   };
+// }
+
+// /* =========================================================
+//    DISPLAY DATE
+// ========================================================= */
+
+// function formatCaliforniaDate(value) {
+//   const p = parseDbDateTime(value);
+
+//   if (!p) return "-";
+
+//   return new Intl.DateTimeFormat("en-US", {
+//     month: "short",
+//     day: "2-digit",
+//     year: "numeric",
+//   }).format(
+//     new Date(
+//       p.year,
+//       p.month - 1,
+//       p.day
+//     )
+//   );
+// }
+
+// /* =========================================================
+//    DISPLAY TIME
+// ========================================================= */
+
+// function formatCaliforniaTime(value) {
+//   const p = parseDbDateTime(value);
+
+//   if (!p) return "-";
+
+//   const hour = p.hour;
+
+//   const suffix = hour >= 12 ? "PM" : "AM";
+
+//   const hour12 = hour % 12 || 12;
+
+//   return `${hour12}:${String(p.minute).padStart(
+//     2,
+//     "0"
+//   )}:${String(p.second).padStart(2, "0")} ${suffix}`;
+// }
+
+// /* =========================================================
+//    DATETIME LOCAL VALUE
+// ========================================================= */
+
+// function toDateTimeLocal(value) {
+//   const p = parseDbDateTime(value);
+
+//   if (!p) return "";
+
+//   return [
+//     String(p.year).padStart(4, "0"),
+//     "-",
+//     String(p.month).padStart(2, "0"),
+//     "-",
+//     String(p.day).padStart(2, "0"),
+//     "T",
+//     String(p.hour).padStart(2, "0"),
+//     ":",
+//     String(p.minute).padStart(2, "0"),
+//     ":",
+//     String(p.second).padStart(2, "0"),
+//   ].join("");
+// }
+
+// /* =========================================================
+//    DURATION
+// ========================================================= */
+
+// function formatDuration(seconds) {
+//   if (
+//     seconds === null ||
+//     seconds === undefined ||
+//     Number.isNaN(Number(seconds))
+//   ) {
+//     return "-";
+//   }
+
+//   const total = Math.max(0, Number(seconds));
+
+//   const hours = Math.floor(total / 3600);
+
+//   const minutes = Math.floor(
+//     (total % 3600) / 60
+//   );
+
+//   const secs = total % 60;
+
+//   if (hours > 0) {
+//     return `${hours}h ${minutes}m`;
+//   }
+
+//   if (minutes > 0) {
+//     return `${minutes}m ${secs}s`;
+//   }
+
+//   return `${secs}s`;
+// }
+
+// /* =========================================================
+//    STATUS
+// ========================================================= */
+
+// function getStatus(row) {
+//   const raw = String(
+//     row.attendance_status ||
+//       row.status ||
+//       ""
+//   )
+//     .trim()
+//     .toLowerCase();
+
+//   if (
+//     raw === "late" ||
+//     raw.includes("late")
+//   ) {
+//     return "Late";
+//   }
+
+//   if (
+//     raw === "on time" ||
+//     raw === "present" ||
+//     raw === "ontime"
+//   ) {
+//     return "Present";
+//   }
+
+//   return "Present";
+// }
+
+// /* =========================================================
+//    FORM DEFAULT
+// ========================================================= */
+
+// function getDefaultForm() {
+//   const today = getCaliforniaDateInput();
+
+//   return {
+//     user_id: "",
+//     login_time: `${today}T08:00:00`,
+//     logout_time: "",
+//     ip_address: "",
+//     user_agent: "",
+//   };
+// }
+
+// /* =========================================================
+//    COMPONENT
+// ========================================================= */
+
+// export default function AttendancePage() {
+//   const [sidebarOpen, setSidebarOpen] = useState(false);
+//    const [showLogoutModal, setShowLogoutModal] = useState(false);
+//   const [attendance, setAttendance] = useState([]);
+
+//   const [currentUser, setCurrentUser] =
+//     useState(null);
+
+//   const [staff, setStaff] = useState([]);
+
+//   const [loading, setLoading] =
+//     useState(true);
+
+//   const [refreshing, setRefreshing] =
+//     useState(false);
+
+//   const [error, setError] = useState("");
+
+//   const [success, setSuccess] =
+//     useState("");
+
+//   const [search, setSearch] =
+//     useState("");
+
+//   const [statusFilter, setStatusFilter] =
+//     useState("All");
+
+//   const [fromDate, setFromDate] =
+//     useState(getCaliforniaMonthStart());
+
+//   const [toDate, setToDate] =
+//     useState(getCaliforniaDateInput());
+
+//   const [showModal, setShowModal] =
+//     useState(false);
+
+//   const [editingRecord, setEditingRecord] =
+//     useState(null);
+
+//   const [form, setForm] =
+//     useState(getDefaultForm());
+
+//   const [saving, setSaving] =
+//     useState(false);
+
+//   /* =======================================================
+//      ADMIN
+//   ======================================================= */
+
+//   const isAdmin =
+//     String(currentUser?.role || "")
+//       .toLowerCase() === "admin";
+
+//   /* =======================================================
+//      LOAD CURRENT USER
+//   ======================================================= */
+
+//   const loadCurrentUser = useCallback(
+//     async () => {
+//       try {
+//         const response = await fetch(
+//           "/api/auth/me",
+//           {
+//             credentials: "include",
+//             cache: "no-store",
+//           }
+//         );
+
+//         const data = await response.json();
+
+//         if (!response.ok || !data?.user) {
+//           window.location.href = "/login";
+//           return null;
+//         }
+
+//         setCurrentUser(data.user);
+
+//         return data.user;
+//       } catch (err) {
+//         console.error(err);
+
+//         window.location.href = "/login";
+
+//         return null;
+//       }
+//     },
+//     []
+//   );
+
+//   /* =======================================================
+//      LOAD STAFF
+//   ======================================================= */
+
+//   const loadStaff = useCallback(
+//     async () => {
+//       try {
+//         const response = await fetch(
+//           "/api/staffes/list",
+//           {
+//             credentials: "include",
+//             cache: "no-store",
+//           }
+//         );
+
+//         if (!response.ok) return;
+
+//         const data = await response.json();
+
+//         const list =
+//           Array.isArray(data?.staffes)
+//             ? data.staffes
+//             : Array.isArray(data?.staff)
+//             ? data.staff
+//             : Array.isArray(data?.users)
+//             ? data.users
+//             : Array.isArray(data?.data)
+//             ? data.data
+//             : [];
+
+//         const normalized = list
+//           .map((item) => ({
+//             id: item.id,
+//             name:
+//               item.name ||
+//               item.full_name ||
+//               item.fullName ||
+//               "Unknown",
+//             email:
+//               item.email || "",
+//           }))
+//           .filter((item) => item.id);
+
+//         setStaff(normalized);
+//       } catch (err) {
+//         console.error(
+//           "STAFF LOAD ERROR:",
+//           err
+//         );
+//       }
+//     },
+//     []
+//   );
+
+//   /* =======================================================
+//      LOAD ATTENDANCE
+//   ======================================================= */
+
+//   const loadAttendance = useCallback(
+//     async (showLoader = true) => {
+//       try {
+//         if (showLoader) {
+//           setLoading(true);
+//         } else {
+//           setRefreshing(true);
+//         }
+
+//         setError("");
+
+//         const params = new URLSearchParams();
+
+//         if (fromDate) {
+//           params.set("from", fromDate);
+//         }
+
+//         if (toDate) {
+//           params.set("to", toDate);
+//         }
+
+//         params.set("_", Date.now());
+
+//         const response = await fetch(
+//           `/api/login-history?${params.toString()}`,
+//           {
+//             credentials: "include",
+//             cache: "no-store",
+//             headers: {
+//               "Cache-Control": "no-cache",
+//             },
+//           }
+//         );
+
+//         const data = await response.json();
+
+//         if (!response.ok) {
+//           throw new Error(
+//             data?.message ||
+//               "Failed to load attendance"
+//           );
+//         }
+
+//         setAttendance(
+//           Array.isArray(data?.history)
+//             ? data.history
+//             : []
+//         );
+//       } catch (err) {
+//         console.error(err);
+
+//         setError(
+//           err?.message ||
+//             "Failed to load attendance"
+//         );
+
+//         setAttendance([]);
+//       } finally {
+//         setLoading(false);
+//         setRefreshing(false);
+//       }
+//     },
+//     [fromDate, toDate]
+//   );
+
+//   /* =======================================================
+//      INITIAL
+//   ======================================================= */
+
+//   useEffect(() => {
+//     let mounted = true;
+
+//     async function init() {
+//       const user =
+//         await loadCurrentUser();
+
+//       if (!mounted || !user) return;
+
+//       await loadAttendance(true);
+
+//       if (
+//         String(user.role || "")
+//           .toLowerCase() === "admin"
+//       ) {
+//         await loadStaff();
+//       }
+//     }
+
+//     init();
+
+//     return () => {
+//       mounted = false;
+//     };
+//   }, [
+//     loadCurrentUser,
+//     loadAttendance,
+//     loadStaff,
+//   ]);
+
+//   /* =======================================================
+//      FILTER
+//   ======================================================= */
+
+//   const filteredAttendance = useMemo(() => {
+//     const term =
+//       search.trim().toLowerCase();
+
+//     return attendance.filter((row) => {
+//       const status = getStatus(row);
+
+//       const matchesSearch =
+//         !term ||
+//         String(row.name || "")
+//           .toLowerCase()
+//           .includes(term) ||
+//         String(row.email || "")
+//           .toLowerCase()
+//           .includes(term) ||
+//         String(row.team || "")
+//           .toLowerCase()
+//           .includes(term);
+
+//       const matchesStatus =
+//         statusFilter === "All" ||
+//         status === statusFilter;
+
+//       return (
+//         matchesSearch &&
+//         matchesStatus
+//       );
+//     });
+//   }, [
+//     attendance,
+//     search,
+//     statusFilter,
+//   ]);
+
+//   /* =======================================================
+//      STATS
+//   ======================================================= */
+
+//   const stats = useMemo(() => {
+//     let present = 0;
+//     let late = 0;
+//     let totalSeconds = 0;
+
+//     attendance.forEach((row) => {
+//       const status = getStatus(row);
+
+//       if (status === "Late") {
+//         late++;
+//       } else {
+//         present++;
+//       }
+
+//       if (
+//         row.duration_seconds !== null &&
+//         row.duration_seconds !== undefined
+//       ) {
+//         totalSeconds += Number(
+//           row.duration_seconds
+//         ) || 0;
+//       }
+//     });
+
+//     return {
+//       total: attendance.length,
+//       present,
+//       late,
+//       absent: 0,
+//       totalHours:
+//         Math.round(
+//           (totalSeconds / 3600) * 10
+//         ) / 10,
+//     };
+//   }, [attendance]);
+
+//   /* =======================================================
+//      OPEN ADD
+//   ======================================================= */
+
+//   function openAddModal() {
+//     setEditingRecord(null);
+
+//     setForm({
+//       ...getDefaultForm(),
+//       user_id:
+//         staff.length > 0
+//           ? String(staff[0].id)
+//           : "",
+//     });
+
+//     setError("");
+
+//     setSuccess("");
+
+//     setShowModal(true);
+//   }
+
+//   /* =======================================================
+//      OPEN EDIT
+//   ======================================================= */
+
+//  function openEditModal(row) {
+//   const employeeId = String(row.user_id || "");
+
+//   /*
+//    * Make sure the employee being edited
+//    * exists inside the select options.
+//    */
+//   if (employeeId) {
+//     setStaff((prev) => {
+//       const alreadyExists = prev.some(
+//         (employee) =>
+//           String(employee.id) === employeeId
+//       );
+
+//       if (alreadyExists) {
+//         return prev;
+//       }
+
+//       return [
+//         {
+//           id: row.user_id,
+//           name: row.name || "Current Employee",
+//           email: row.email || "",
+//         },
+//         ...prev,
+//       ];
+//     });
+//   }
+
+//   setEditingRecord(row);
+
+//   setForm({
+//     user_id: employeeId,
+
+//     login_time: toDateTimeLocal(
+//       row.login_time
+//     ),
+
+//     logout_time: row.logout_time
+//       ? toDateTimeLocal(row.logout_time)
+//       : "",
+
+//     ip_address:
+//       row.ip_address || "",
+
+//     user_agent:
+//       row.user_agent || "",
+//   });
+
+//   setError("");
+//   setSuccess("");
+
+//   setShowModal(true);
+// }
+
+//   /* =======================================================
+//      CLOSE MODAL
+//   ======================================================= */
+
+//   function closeModal() {
+//     if (saving) return;
+
+//     setShowModal(false);
+
+//     setEditingRecord(null);
+
+//     setForm(getDefaultForm());
+//   }
+
+//   /* =======================================================
+//      CHANGE FORM
+//   ======================================================= */
+
+//   function updateForm(key, value) {
+//     setForm((prev) => ({
+//       ...prev,
+//       [key]: value,
+//     }));
+//   }
+
+//   /* =======================================================
+//      SAVE
+//   ======================================================= */
+
+//   async function handleSave(e) {
+//     e.preventDefault();
+
+//     if (!isAdmin) return;
+
+//     if (!form.user_id) {
+//       setError("Please select employee.");
+//       return;
+//     }
+
+//     if (!form.login_time) {
+//       setError("Please select login time.");
+//       return;
+//     }
+
+//     if (
+//       form.logout_time &&
+//       form.logout_time < form.login_time
+//     ) {
+//       setError(
+//         "Logout time cannot be before login time."
+//       );
+//       return;
+//     }
+
+//     try {
+//       setSaving(true);
+
+//       setError("");
+
+//       setSuccess("");
+
+//       const payload = {
+//         user_id: Number(form.user_id),
+
+//         login_time:
+//           form.login_time.replace(
+//             "T",
+//             " "
+//           ),
+
+//         logout_time:
+//           form.logout_time
+//             ? form.logout_time.replace(
+//                 "T",
+//                 " "
+//               )
+//             : null,
+
+//         ip_address:
+//           form.ip_address || null,
+
+//         user_agent:
+//           form.user_agent || null,
+//       };
+
+//       let response;
+
+//       if (editingRecord) {
+//         response = await fetch(
+//           "/api/login-history",
+//           {
+//             method: "PUT",
+
+//             credentials: "include",
+
+//             headers: {
+//               "Content-Type":
+//                 "application/json",
+//             },
+
+//             body: JSON.stringify({
+//               ...payload,
+//               id: Number(
+//                 editingRecord.id
+//               ),
+//             }),
+//           }
+//         );
+//       } else {
+//         response = await fetch(
+//           "/api/login-history",
+//           {
+//             method: "POST",
+
+//             credentials: "include",
+
+//             headers: {
+//               "Content-Type":
+//                 "application/json",
+//             },
+
+//             body: JSON.stringify(
+//               payload
+//             ),
+//           }
+//         );
+//       }
+
+//       const data =
+//         await response.json();
+
+//       if (!response.ok) {
+//         throw new Error(
+//           data?.message ||
+//             "Failed to save attendance"
+//         );
+//       }
+
+//       setSuccess(
+//         editingRecord
+//           ? "Attendance updated successfully."
+//           : "Attendance added successfully."
+//       );
+
+//       setShowModal(false);
+
+//       setEditingRecord(null);
+
+//       await loadAttendance(false);
+//     } catch (err) {
+//       console.error(err);
+
+//       setError(
+//         err?.message ||
+//           "Failed to save attendance"
+//       );
+//     } finally {
+//       setSaving(false);
+//     }
+//   }
+
+//   /* =======================================================
+//      PDF
+//   ======================================================= */
+
+//   async function exportPDF() {
+//     try {
+//       const jsPDFModule =
+//         await import("jspdf");
+
+//       const autoTableModule =
+//         await import(
+//           "jspdf-autotable"
+//         );
+
+//       const jsPDF =
+//         jsPDFModule.default;
+
+//       const autoTable =
+//         autoTableModule.default;
+
+//       const doc = new jsPDF({
+//         orientation: "landscape",
+//         unit: "mm",
+//         format: "a4",
+//       });
+
+//       /*
+//         Screenshot-style header
+//       */
+
+//       const red = [210, 0, 0];
+
+//       doc.setFillColor(
+//         red[0],
+//         red[1],
+//         red[2]
+//       );
+
+//       doc.rect(
+//         8,
+//         8,
+//         281,
+//         8,
+//         "F"
+//       );
+
+//       doc.setTextColor(
+//         255,
+//         255,
+//         255
+//       );
+
+//       doc.setFontSize(9);
+
+//       doc.setFont(
+//         "helvetica",
+//         "bold"
+//       );
+
+//       doc.text(
+//         "EMP ID",
+//         12,
+//         13.5
+//       );
+
+//       doc.text(
+//         "Employee Name",
+//         55,
+//         13.5
+//       );
+
+//       doc.text(
+//         "Payroll",
+//         105,
+//         13.5
+//       );
+
+//       doc.text(
+//         "Campaign",
+//         145,
+//         13.5
+//       );
+
+//       doc.text(
+//         "Agent WD",
+//         210,
+//         13.5
+//       );
+
+//       /*
+//         Employee/date attendance table
+//       */
+
+//       const rows = filteredAttendance;
+
+//       const uniqueDates = [
+//         ...new Set(
+//           rows.map((row) => {
+//             const parsed =
+//               parseDbDateTime(
+//                 row.login_time
+//               );
+
+//             if (!parsed) return "";
+
+//             return `${parsed.year}-${String(
+//               parsed.month
+//             ).padStart(2, "0")}-${String(
+//               parsed.day
+//             ).padStart(2, "0")}`;
+//           })
+//         ),
+//       ]
+//         .filter(Boolean)
+//         .sort();
+
+//       /*
+//         Limit date columns so PDF stays clean.
+//       */
+
+//       const dates =
+//         uniqueDates.slice(0, 14);
+
+//       const firstEmployee =
+//         rows[0];
+
+//       const employeeId =
+//         firstEmployee?.user_id ||
+//         "-";
+
+//       const employeeName =
+//         firstEmployee?.name ||
+//         "-";
+
+//       const payroll =
+//         firstEmployee?.payroll ||
+//         "-";
+
+//       const campaign =
+//         firstEmployee?.campaign ||
+//         "-";
+
+//       const agentWD =
+//         firstEmployee?.agent_wd ||
+//         "-";
+
+//       const headerDates = dates.map(
+//         (date) => {
+//           const d = new Date(
+//             `${date}T00:00:00`
+//           );
+
+//           return d.toLocaleDateString(
+//             "en-US",
+//             {
+//               weekday: "short",
+//               month: "short",
+//               day: "numeric",
+//             }
+//           );
+//         }
+//       );
+
+//       const bodyRow = [
+//         employeeId,
+//         employeeName,
+//         payroll,
+//         campaign,
+//         agentWD,
+//         ...headerDates,
+//       ];
+
+//       autoTable(doc, {
+//         startY: 17,
+
+//         head: [
+//           [
+//             "EMP ID",
+//             "Employee Name",
+//             "Payroll",
+//             "Campaign",
+//             "Agent WD",
+//             ...headerDates,
+//           ],
+//         ],
+
+//         body: [
+//           bodyRow,
+//         ],
+
+//         theme: "grid",
+
+//         styles: {
+//           fontSize: 6.5,
+//           cellPadding: 1.5,
+//           halign: "center",
+//           valign: "middle",
+//           lineColor: [
+//             255,
+//             255,
+//             255,
+//           ],
+//           lineWidth: 0.25,
+//         },
+
+//         headStyles: {
+//           fillColor: red,
+//           textColor: [
+//             255,
+//             255,
+//             255,
+//           ],
+//           fontStyle: "bold",
+//           fontSize: 6.5,
+//         },
+//       });
+
+//       /*
+//         Attendance status rows
+//       */
+
+//       let startY =
+//         doc.lastAutoTable
+//           ?.finalY || 30;
+
+//       const statusRows = [
+//         "Attendance",
+//         "Login",
+//         "Logout",
+//         "Duration",
+//       ];
+
+//       const attendanceBody =
+//         statusRows.map(
+//           (type) => {
+//             const values = dates.map(
+//               (date) => {
+//                 const record =
+//                   rows.find((row) => {
+//                     const parsed =
+//                       parseDbDateTime(
+//                         row.login_time
+//                       );
+
+//                     if (!parsed)
+//                       return false;
+
+//                     const rowDate =
+//                       `${parsed.year}-${String(
+//                         parsed.month
+//                       ).padStart(
+//                         2,
+//                         "0"
+//                       )}-${String(
+//                         parsed.day
+//                       ).padStart(
+//                         2,
+//                         "0"
+//                       )}`;
+
+//                     return (
+//                       rowDate ===
+//                         date &&
+//                       String(
+//                         row.user_id
+//                       ) ===
+//                         String(
+//                           employeeId
+//                         )
+//                     );
+//                   });
+
+//                 if (!record) {
+//                   return "Off";
+//                 }
+
+//                 if (
+//                   type ===
+//                   "Attendance"
+//                 ) {
+//                   return getStatus(
+//                     record
+//                   );
+//                 }
+
+//                 if (
+//                   type === "Login"
+//                 ) {
+//                   return formatCaliforniaTime(
+//                     record.login_time
+//                   );
+//                 }
+
+//                 if (
+//                   type === "Logout"
+//                 ) {
+//                   return formatCaliforniaTime(
+//                     record.logout_time
+//                   );
+//                 }
+
+//                 if (
+//                   type ===
+//                   "Duration"
+//                 ) {
+//                   return formatDuration(
+//                     record.duration_seconds
+//                   );
+//                 }
+
+//                 return "";
+//               }
+//             );
+
+//             return [
+//               type,
+//               ...values,
+//             ];
+//           }
+//         );
+
+//       autoTable(doc, {
+//         startY,
+
+//         head: [
+//           [
+//             "Status",
+//             ...headerDates,
+//           ],
+//         ],
+
+//         body: attendanceBody,
+
+//         theme: "grid",
+
+//         styles: {
+//           fontSize: 6.5,
+//           cellPadding: 1.5,
+//           halign: "center",
+//           valign: "middle",
+//           lineColor: [
+//             255,
+//             255,
+//             255,
+//           ],
+//           lineWidth: 0.25,
+//         },
+
+//         headStyles: {
+//           fillColor: red,
+//           textColor: [
+//             255,
+//             255,
+//             255,
+//           ],
+//           fontStyle: "bold",
+//         },
+
+//         columnStyles: {
+//           0: {
+//             fontStyle: "bold",
+//           },
+//         },
+//       });
+
+//       /*
+//         Summary
+//       */
+
+//       startY =
+//         doc.lastAutoTable
+//           ?.finalY + 6 || 50;
+
+//       doc.setFillColor(
+//         red[0],
+//         red[1],
+//         red[2]
+//       );
+
+//       doc.rect(
+//         8,
+//         startY,
+//         281,
+//         7,
+//         "F"
+//       );
+
+//       doc.setTextColor(
+//         255,
+//         255,
+//         255
+//       );
+
+//       doc.setFontSize(7);
+
+//       doc.text(
+//         `Present: ${stats.present}`,
+//         15,
+//         startY + 4.8
+//       );
+
+//       doc.text(
+//         `Late: ${stats.late}`,
+//         70,
+//         startY + 4.8
+//       );
+
+//       doc.text(
+//         `Absent: ${stats.absent}`,
+//         115,
+//         startY + 4.8
+//       );
+
+//       doc.text(
+//         `Total Hours: ${stats.totalHours}`,
+//         175,
+//         startY + 4.8
+//       );
+
+//       doc.save(
+//         `attendance-${fromDate}-${toDate}.pdf`
+//       );
+//     } catch (error) {
+//       console.error(
+//         "PDF ERROR:",
+//         error
+//       );
+
+//       setError(
+//         "Unable to generate PDF. Please make sure jspdf and jspdf-autotable are installed."
+//       );
+//     }
+//   }
+
+//   /* =======================================================
+//      LOADING
+//   ======================================================= */
+
+//   if (loading) {
+//     return (
+//       <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center">
+//         <div className="flex flex-col items-center gap-3">
+//           <div className="w-10 h-10 border-4 border-[#741C29]/20 border-t-[#741C29] rounded-full animate-spin" />
+
+//           <p className="text-sm text-slate-500">
+//             Loading attendance...
+//           </p>
+//         </div>
+//       </div>
+//     );
+//   }
+
+//   /* =======================================================
+//      UI
+//   ======================================================= */
+
+//   return (
+//     <div className="min-h-screen lg:pl-[270px]">
+//       <div className="p-4 sm:p-6 lg:p-8">
+
+//   <div
+//         className={`
+//           fixed inset-y-0 left-0 z-50
+//           w-[270px]
+//           transform
+//           bg-white
+//           shadow-xl
+//           transition-transform
+//           duration-300
+//           lg:translate-x-0
+//           ${
+//             sidebarOpen
+//               ? "translate-x-0"
+//               : "-translate-x-full"
+//           }
+//         `}
+//       >
+//         <Sidebar
+//           sidebarOpen={sidebarOpen}
+//           setSidebarOpen={setSidebarOpen}
+//           setShowLogoutModal={setShowLogoutModal}
+//         />
+//       </div>
+//         {/* =================================================
+//             HEADER
+//         ================================================= */}
+
+//         <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4 mb-6">
+
+//           <div>
+//             <div className="flex items-center gap-3">
+//               <div className="w-11 h-11 rounded-xl bg-[#741C29] flex items-center justify-center shadow-sm">
+//                 <CalendarDays
+//                   className="w-5 h-5 text-white"
+//                 />
+//               </div>
+
+//               <div>
+//                 <h1 className="text-2xl font-bold text-slate-900">
+//                   Attendance
+//                 </h1>
+
+//                 <p className="text-sm text-slate-500">
+//                   Employee attendance and login history
+//                 </p>
+//               </div>
+
+//               {isAdmin && (
+//                 <span className="hidden sm:inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-[#741C29]/10 text-[#741C29]">
+//                   Admin View
+//                 </span>
+//               )}
+//             </div>
+//           </div>
+
+//           <div className="flex flex-wrap items-center gap-2">
+
+//             {/* REFRESH */}
+
+//             <button
+//               type="button"
+//               onClick={() =>
+//                 loadAttendance(false)
+//               }
+//               disabled={refreshing}
+//               className="inline-flex items-center justify-center gap-2 h-10 px-4 rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50 transition disabled:opacity-60"
+//             >
+//               <RefreshCw
+//                 className={`w-4 h-4 ${
+//                   refreshing
+//                     ? "animate-spin"
+//                     : ""
+//                 }`}
+//               />
+
+//               Refresh
+//             </button>
+
+//             {/* PDF */}
+
+//             <button
+//               type="button"
+//               onClick={exportPDF}
+//               className="inline-flex items-center justify-center gap-2 h-10 px-4 rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50 transition"
+//             >
+//               <Download className="w-4 h-4" />
+
+//               Export PDF
+//             </button>
+
+//             {/* ADMIN ADD */}
+
+//             {isAdmin && (
+//               <button
+//                 type="button"
+//                 onClick={openAddModal}
+//                 className="inline-flex items-center justify-center gap-2 h-10 px-4 rounded-xl bg-[#741C29] text-white text-sm font-semibold shadow-sm hover:bg-[#611621] transition"
+//               >
+//                 <Plus className="w-4 h-4" />
+
+//                 Add Attendance
+//               </button>
+//             )}
+//           </div>
+//         </div>
+
+//         {/* =================================================
+//             ALERTS
+//         ================================================= */}
+
+//         {error && (
+//           <div className="mb-4 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+//             <AlertCircle className="w-5 h-5 shrink-0" />
+
+//             <span>{error}</span>
+
+//             <button
+//               type="button"
+//               onClick={() =>
+//                 setError("")
+//               }
+//               className="ml-auto"
+//             >
+//               <X className="w-4 h-4" />
+//             </button>
+//           </div>
+//         )}
+
+//         {success && (
+//           <div className="mb-4 flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+//             <UserCheck className="w-5 h-5" />
+
+//             <span>{success}</span>
+
+//             <button
+//               type="button"
+//               onClick={() =>
+//                 setSuccess("")
+//               }
+//               className="ml-auto"
+//             >
+//               <X className="w-4 h-4" />
+//             </button>
+//           </div>
+//         )}
+
+//         {/* =================================================
+//             STATS
+//         ================================================= */}
+
+//         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4 mb-6">
+
+//           <StatCard
+//             icon={Users}
+//             title="Total Records"
+//             value={stats.total}
+//             subtitle="Attendance records"
+//           />
+
+//           <StatCard
+//             icon={UserCheck}
+//             title="Present"
+//             value={stats.present}
+//             subtitle="On time attendance"
+//           />
+
+//           <StatCard
+//             icon={AlertCircle}
+//             title="Late"
+//             value={stats.late}
+//             subtitle="Late arrivals"
+//           />
+
+//           <StatCard
+//             icon={Clock3}
+//             title="Total Hours"
+//             value={stats.totalHours}
+//             subtitle="Logged working hours"
+//           />
+
+//           <StatCard
+//             icon={FileText}
+//             title="Absent"
+//             value={stats.absent}
+//             subtitle="No attendance record"
+//           />
+//         </div>
+
+//         {/* =================================================
+//             FILTERS
+//         ================================================= */}
+
+//         <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-4 mb-5">
+
+//           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
+
+//             {/* SEARCH */}
+
+//             <div className="xl:col-span-2 relative">
+//               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+
+//               <input
+//                 type="text"
+//                 value={search}
+//                 onChange={(e) =>
+//                   setSearch(
+//                     e.target.value
+//                   )
+//                 }
+//                 placeholder="Search employee, email or team..."
+//                 className="w-full h-11 rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm text-slate-700 outline-none focus:bg-white focus:border-[#741C29] focus:ring-4 focus:ring-[#741C29]/10"
+//               />
+//             </div>
+
+//             {/* FROM */}
+
+//             <div className="relative">
+//               <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+
+//               <input
+//                 type="date"
+//                 value={fromDate}
+//                 onChange={(e) =>
+//                   setFromDate(
+//                     e.target.value
+//                   )
+//                 }
+//                 className="w-full h-11 rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-3 text-sm text-slate-700 outline-none focus:bg-white focus:border-[#741C29] focus:ring-4 focus:ring-[#741C29]/10"
+//               />
+//             </div>
+
+//             {/* TO */}
+
+//             <div className="relative">
+//               <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+
+//               <input
+//                 type="date"
+//                 value={toDate}
+//                 onChange={(e) =>
+//                   setToDate(
+//                     e.target.value
+//                   )
+//                 }
+//                 className="w-full h-11 rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-3 text-sm text-slate-700 outline-none focus:bg-white focus:border-[#741C29] focus:ring-4 focus:ring-[#741C29]/10"
+//               />
+//             </div>
+
+//             {/* STATUS */}
+
+//             <div className="relative">
+//               <select
+//                 value={statusFilter}
+//                 onChange={(e) =>
+//                   setStatusFilter(
+//                     e.target.value
+//                   )
+//                 }
+//                 className="appearance-none w-full h-11 rounded-xl border border-slate-200 bg-slate-50 px-4 pr-10 text-sm text-slate-700 outline-none focus:bg-white focus:border-[#741C29] focus:ring-4 focus:ring-[#741C29]/10"
+//               >
+//                 <option value="All">
+//                   All Status
+//                 </option>
+
+//                 <option value="Present">
+//                   Present
+//                 </option>
+
+//                 <option value="Late">
+//                   Late
+//                 </option>
+//               </select>
+
+//               <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+//             </div>
+//           </div>
+//         </div>
+
+//         {/* =================================================
+//             TABLE
+//         ================================================= */}
+
+//         <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+
+//           <div className="overflow-x-auto">
+//             <table className="w-full min-w-[900px]">
+
+//               <thead>
+//                 <tr className="bg-slate-50 border-b border-slate-200">
+
+//                   {isAdmin && (
+//                     <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wider text-slate-500">
+//                       Staff
+//                     </th>
+//                   )}
+
+//                   <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wider text-slate-500">
+//                     Date
+//                   </th>
+
+//                   <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wider text-slate-500">
+//                     Login
+//                   </th>
+
+//                   <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wider text-slate-500">
+//                     Logout
+//                   </th>
+
+//                   <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wider text-slate-500">
+//                     Duration
+//                   </th>
+
+//                   <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wider text-slate-500">
+//                     Status
+//                   </th>
+
+//                   {isAdmin && (
+//                     <th className="px-5 py-4 text-right text-xs font-bold uppercase tracking-wider text-slate-500">
+//                       Action
+//                     </th>
+//                   )}
+
+//                   {!isAdmin && (
+//                     <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wider text-slate-500">
+//                       Email
+//                     </th>
+//                   )}
+
+//                 </tr>
+//               </thead>
+
+//               <tbody className="divide-y divide-slate-100">
+
+//                 {filteredAttendance.length ===
+//                 0 ? (
+//                   <tr>
+//                     <td
+//                       colSpan={
+//                         isAdmin
+//                           ? 7
+//                           : 6
+//                       }
+//                       className="px-5 py-14 text-center"
+//                     >
+//                       <div className="flex flex-col items-center">
+//                         <FileText className="w-10 h-10 text-slate-300 mb-3" />
+
+//                         <p className="font-semibold text-slate-700">
+//                           No attendance found
+//                         </p>
+
+//                         <p className="text-sm text-slate-400 mt-1">
+//                           Try changing the filters or date range.
+//                         </p>
+//                       </div>
+//                     </td>
+//                   </tr>
+//                 ) : (
+//                   filteredAttendance.map(
+//                     (row) => {
+//                       const status =
+//                         getStatus(row);
+
+//                       return (
+//                         <tr
+//                           key={row.id}
+//                           className="hover:bg-slate-50/70 transition"
+//                         >
+
+//                           {isAdmin && (
+//                             <td className="px-5 py-4">
+//                               <div className="flex items-center gap-3">
+
+//                                 <div className="w-9 h-9 rounded-full bg-[#741C29]/10 text-[#741C29] flex items-center justify-center font-bold text-xs">
+//                                   {String(
+//                                     row.name ||
+//                                       "U"
+//                                   )
+//                                     .slice(
+//                                       0,
+//                                       1
+//                                     )
+//                                     .toUpperCase()}
+//                                 </div>
+
+//                                 <div>
+//                                   <div className="font-semibold text-sm text-slate-800">
+//                                     {row.name ||
+//                                       "-"}
+//                                   </div>
+
+//                                   <div className="text-xs text-slate-400">
+//                                     {row.team ||
+//                                       "Staff"}
+//                                   </div>
+//                                 </div>
+
+//                               </div>
+//                             </td>
+//                           )}
+
+//                           <td className="px-5 py-4 text-sm text-slate-700 whitespace-nowrap">
+//                             {formatCaliforniaDate(
+//                               row.login_time
+//                             )}
+//                           </td>
+
+//                           <td className="px-5 py-4 text-sm font-medium text-slate-700 whitespace-nowrap">
+//                             {formatCaliforniaTime(
+//                               row.login_time
+//                             )}
+//                           </td>
+
+//                           <td className="px-5 py-4 text-sm font-medium text-slate-700 whitespace-nowrap">
+//                             {formatCaliforniaTime(
+//                               row.logout_time
+//                             )}
+//                           </td>
+
+//                           <td className="px-5 py-4 text-sm text-slate-600 whitespace-nowrap">
+//                             {formatDuration(
+//                               row.duration_seconds
+//                             )}
+//                           </td>
+
+//                           <td className="px-5 py-4">
+//                             {status ===
+//                             "Late" ? (
+//                               <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-100">
+//                                 Late
+//                               </span>
+//                             ) : (
+//                               <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100">
+//                                 Present
+//                               </span>
+//                             )}
+//                           </td>
+
+//                           {isAdmin && (
+//                             <td className="px-5 py-4 text-right">
+//                               <button
+//                                 type="button"
+//                                 onClick={() =>
+//                                   openEditModal(
+//                                     row
+//                                   )
+//                                 }
+//                                 className="inline-flex items-center justify-center gap-2 h-9 px-3 rounded-lg border border-slate-200 bg-white text-slate-700 text-xs font-semibold hover:border-[#741C29] hover:text-[#741C29] transition"
+//                               >
+//                                 <Pencil className="w-3.5 h-3.5" />
+
+//                                 Edit
+//                               </button>
+//                             </td>
+//                           )}
+
+//                           {!isAdmin && (
+//                             <td className="px-5 py-4 text-sm text-slate-500">
+//                               {row.email ||
+//                                 "-"}
+//                             </td>
+//                           )}
+
+//                         </tr>
+//                       );
+//                     }
+//                   )
+//                 )}
+
+//               </tbody>
+//             </table>
+//           </div>
+
+//           <div className="px-5 py-4 border-t border-slate-100 bg-slate-50/50 text-xs text-slate-500">
+//             Showing{" "}
+//             <span className="font-semibold text-slate-700">
+//               {filteredAttendance.length}
+//             </span>{" "}
+//             of{" "}
+//             <span className="font-semibold text-slate-700">
+//               {attendance.length}
+//             </span>{" "}
+//             attendance records
+//           </div>
+//         </div>
+//       </div>
+
+//       {/* ===================================================
+//           ADMIN ADD / EDIT MODAL
+//       =================================================== */}
+
+//       {showModal && isAdmin && (
+//         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+
+//           <div
+//             className="absolute inset-0 bg-slate-900/50 backdrop-blur-[2px]"
+//             onClick={closeModal}
+//           />
+
+//           <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl overflow-hidden">
+
+//             {/* MODAL HEADER */}
+
+//             <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
+
+//               <div className="flex items-center gap-3">
+
+//                 <div className="w-10 h-10 rounded-xl bg-[#741C29]/10 flex items-center justify-center">
+//                   {editingRecord ? (
+//                     <Pencil className="w-5 h-5 text-[#741C29]" />
+//                   ) : (
+//                     <Plus className="w-5 h-5 text-[#741C29]" />
+//                   )}
+//                 </div>
+
+//                 <div>
+//                   <h2 className="text-lg font-bold text-slate-900">
+//                     {editingRecord
+//                       ? "Edit Attendance"
+//                       : "Add Attendance"}
+//                   </h2>
+
+//                   <p className="text-xs text-slate-500 mt-0.5">
+//                     Time is saved using California timezone
+//                   </p>
+//                 </div>
+
+//               </div>
+
+//               <button
+//                 type="button"
+//                 onClick={closeModal}
+//                 disabled={saving}
+//                 className="w-9 h-9 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
+//               >
+//                 <X className="w-5 h-5" />
+//               </button>
+
+//             </div>
+
+//             {/* FORM */}
+
+//             <form
+//               onSubmit={handleSave}
+//               className="p-6"
+//             >
+
+//               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+//                 {/* EMPLOYEE */}
+// <div className="md:col-span-2">
+//   <label className="block text-sm font-semibold text-slate-700 mb-2">
+//     Employee
+//   </label>
+
+//   <div className="relative">
+//     <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+
+//     <select
+//       value={form.user_id}
+//       onChange={(e) =>
+//         updateForm(
+//           "user_id",
+//           e.target.value
+//         )
+//       }
+//       required
+//       className="appearance-none w-full h-11 rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-10 text-sm text-slate-700 outline-none focus:bg-white focus:border-[#741C29] focus:ring-4 focus:ring-[#741C29]/10"
+//     >
+//       <option value="">
+//         Select employee
+//       </option>
+
+//       {staff.map((employee) => (
+//         <option
+//           key={employee.id}
+//           value={employee.id}
+//         >
+//           {employee.name}
+//           {employee.email
+//             ? ` — ${employee.email}`
+//             : ""}
+//         </option>
+//       ))}
+//     </select>
+
+//     <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+//   </div>
+// </div>
+
+//                 {/* LOGIN */}
+
+//                 <div>
+
+//                   <label className="block text-sm font-semibold text-slate-700 mb-2">
+//                     Login Time
+//                   </label>
+
+//                   <input
+//                     type="datetime-local"
+//                     step="1"
+//                     value={
+//                       form.login_time
+//                     }
+//                     onChange={(e) =>
+//                       updateForm(
+//                         "login_time",
+//                         e.target.value
+//                       )
+//                     }
+//                     required
+//                     className="w-full h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 outline-none focus:bg-white focus:border-[#741C29] focus:ring-4 focus:ring-[#741C29]/10"
+//                   />
+
+//                 </div>
+
+//                 {/* LOGOUT */}
+
+//                 <div>
+
+//                   <label className="block text-sm font-semibold text-slate-700 mb-2">
+//                     Logout Time
+//                   </label>
+
+//                   <input
+//                     type="datetime-local"
+//                     step="1"
+//                     value={
+//                       form.logout_time
+//                     }
+//                     onChange={(e) =>
+//                       updateForm(
+//                         "logout_time",
+//                         e.target.value
+//                       )
+//                     }
+//                     className="w-full h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 outline-none focus:bg-white focus:border-[#741C29] focus:ring-4 focus:ring-[#741C29]/10"
+//                   />
+
+//                   <p className="text-xs text-slate-400 mt-1.5">
+//                     Leave empty if employee is still logged in.
+//                   </p>
+
+//                 </div>
+
+//                 {/* IP */}
+
+//                 <div>
+
+//                   <label className="block text-sm font-semibold text-slate-700 mb-2">
+//                     IP Address
+//                   </label>
+
+//                   <input
+//                     type="text"
+//                     value={
+//                       form.ip_address
+//                     }
+//                     onChange={(e) =>
+//                       updateForm(
+//                         "ip_address",
+//                         e.target.value
+//                       )
+//                     }
+//                     placeholder="Optional"
+//                     className="w-full h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 outline-none focus:bg-white focus:border-[#741C29] focus:ring-4 focus:ring-[#741C29]/10"
+//                   />
+
+//                 </div>
+
+//                 {/* USER AGENT */}
+
+//                 <div>
+
+//                   <label className="block text-sm font-semibold text-slate-700 mb-2">
+//                     User Agent
+//                   </label>
+
+//                   <input
+//                     type="text"
+//                     value={
+//                       form.user_agent
+//                     }
+//                     onChange={(e) =>
+//                       updateForm(
+//                         "user_agent",
+//                         e.target.value
+//                       )
+//                     }
+//                     placeholder="Optional"
+//                     className="w-full h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 outline-none focus:bg-white focus:border-[#741C29] focus:ring-4 focus:ring-[#741C29]/10"
+//                   />
+
+//                 </div>
+
+//               </div>
+
+//               {/* ERROR */}
+
+//               {error && (
+//                 <div className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex gap-2">
+//                   <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+
+//                   <span>{error}</span>
+//                 </div>
+//               )}
+
+//               {/* FOOTER */}
+
+//               <div className="flex items-center justify-end gap-3 mt-7 pt-5 border-t border-slate-100">
+
+//                 <button
+//                   type="button"
+//                   onClick={closeModal}
+//                   disabled={saving}
+//                   className="h-11 px-5 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 hover:bg-slate-50 transition disabled:opacity-50"
+//                 >
+//                   Cancel
+//                 </button>
+
+//                 <button
+//                   type="submit"
+//                   disabled={saving}
+//                   className="h-11 px-5 rounded-xl bg-[#741C29] text-white text-sm font-semibold hover:bg-[#611621] transition disabled:opacity-60 inline-flex items-center gap-2"
+//                 >
+//                   {saving ? (
+//                     <>
+//                       <RefreshCw className="w-4 h-4 animate-spin" />
+
+//                       Saving...
+//                     </>
+//                   ) : (
+//                     <>
+//                       <Save className="w-4 h-4" />
+
+//                       {editingRecord
+//                         ? "Update Attendance"
+//                         : "Add Attendance"}
+//                     </>
+//                   )}
+//                 </button>
+
+//               </div>
+
+//             </form>
+//           </div>
+//         </div>
+//       )}
+//     </div>
+//   );
+// }
+
+// /* =========================================================
+//    STAT CARD
+// ========================================================= */
+
+// function StatCard({
+//   icon: Icon,
+//   title,
+//   value,
+//   subtitle,
+// }) {
+//   return (
+//     <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+
+//       <div className="flex items-start justify-between">
+
+//         <div>
+//           <p className="text-sm font-medium text-slate-500">
+//             {title}
+//           </p>
+
+//           <p className="text-2xl font-bold text-slate-900 mt-1">
+//             {value}
+//           </p>
+
+//           <p className="text-xs text-slate-400 mt-1">
+//             {subtitle}
+//           </p>
+//         </div>
+
+//         <div className="w-10 h-10 rounded-xl bg-[#741C29]/10 flex items-center justify-center">
+//           <Icon className="w-5 h-5 text-[#741C29]" />
+//         </div>
+
+//       </div>
+//     </div>
+//   );
+// }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 "use client";
 
 import {
@@ -4752,11 +6817,19 @@ import {
   FileText,
   Plus,
   Pencil,
+  Trash2,
   X,
   Save,
+  AlertTriangle,
 } from "lucide-react";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
 import Sidebar from "@/components/Sidebar";
 
 /* =========================================================
@@ -4856,10 +6929,11 @@ function formatCaliforniaTime(value) {
 
   const hour12 = hour % 12 || 12;
 
-  return `${hour12}:${String(p.minute).padStart(
-    2,
-    "0"
-  )}:${String(p.second).padStart(2, "0")} ${suffix}`;
+  return `${hour12}:${String(
+    p.minute
+  ).padStart(2, "0")}:${String(
+    p.second
+  ).padStart(2, "0")} ${suffix}`;
 }
 
 /* =========================================================
@@ -4972,14 +7046,20 @@ function getDefaultForm() {
 ========================================================= */
 
 export default function AttendancePage() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-   const [showLogoutModal, setShowLogoutModal] = useState(false);
-  const [attendance, setAttendance] = useState([]);
+  const [sidebarOpen, setSidebarOpen] =
+    useState(false);
+
+  const [showLogoutModal, setShowLogoutModal] =
+    useState(false);
+
+  const [attendance, setAttendance] =
+    useState([]);
 
   const [currentUser, setCurrentUser] =
     useState(null);
 
-  const [staff, setStaff] = useState([]);
+  const [staff, setStaff] =
+    useState([]);
 
   const [loading, setLoading] =
     useState(true);
@@ -4987,10 +7067,15 @@ export default function AttendancePage() {
   const [refreshing, setRefreshing] =
     useState(false);
 
-  const [error, setError] = useState("");
+  const [error, setError] =
+    useState("");
 
   const [success, setSuccess] =
     useState("");
+
+  /* =======================================================
+     FILTERS
+  ======================================================= */
 
   const [search, setSearch] =
     useState("");
@@ -4998,11 +7083,22 @@ export default function AttendancePage() {
   const [statusFilter, setStatusFilter] =
     useState("All");
 
+  const [teamFilter, setTeamFilter] =
+    useState("All Teams");
+
   const [fromDate, setFromDate] =
-    useState(getCaliforniaMonthStart());
+    useState(
+      getCaliforniaMonthStart()
+    );
 
   const [toDate, setToDate] =
-    useState(getCaliforniaDateInput());
+    useState(
+      getCaliforniaDateInput()
+    );
+
+  /* =======================================================
+     MODALS
+  ======================================================= */
 
   const [showModal, setShowModal] =
     useState(false);
@@ -5014,6 +7110,12 @@ export default function AttendancePage() {
     useState(getDefaultForm());
 
   const [saving, setSaving] =
+    useState(false);
+
+  const [deleteRecord, setDeleteRecord] =
+    useState(null);
+
+  const [deleting, setDeleting] =
     useState(false);
 
   /* =======================================================
@@ -5028,8 +7130,8 @@ export default function AttendancePage() {
      LOAD CURRENT USER
   ======================================================= */
 
-  const loadCurrentUser = useCallback(
-    async () => {
+  const loadCurrentUser =
+    useCallback(async () => {
       try {
         const response = await fetch(
           "/api/auth/me",
@@ -5039,149 +7141,193 @@ export default function AttendancePage() {
           }
         );
 
-        const data = await response.json();
+        const data =
+          await response.json();
 
-        if (!response.ok || !data?.user) {
-          window.location.href = "/login";
+        if (
+          !response.ok ||
+          !data?.user
+        ) {
+          window.location.href =
+            "/login";
+
           return null;
         }
 
-        setCurrentUser(data.user);
+        setCurrentUser(
+          data.user
+        );
 
         return data.user;
       } catch (err) {
         console.error(err);
 
-        window.location.href = "/login";
+        window.location.href =
+          "/login";
 
         return null;
       }
-    },
-    []
-  );
+    }, []);
 
   /* =======================================================
      LOAD STAFF
   ======================================================= */
 
-  const loadStaff = useCallback(
-    async () => {
+  const loadStaff =
+    useCallback(async () => {
       try {
-        const response = await fetch(
-          "/api/staffes/list",
-          {
-            credentials: "include",
-            cache: "no-store",
-          }
-        );
+        const response =
+          await fetch(
+            "/api/staffes/list",
+            {
+              credentials:
+                "include",
+              cache: "no-store",
+            }
+          );
 
-        if (!response.ok) return;
+        if (!response.ok)
+          return;
 
-        const data = await response.json();
+        const data =
+          await response.json();
 
         const list =
-          Array.isArray(data?.staffes)
+          Array.isArray(
+            data?.staffes
+          )
             ? data.staffes
-            : Array.isArray(data?.staff)
+            : Array.isArray(
+                data?.staff
+              )
             ? data.staff
-            : Array.isArray(data?.users)
+            : Array.isArray(
+                data?.users
+              )
             ? data.users
-            : Array.isArray(data?.data)
+            : Array.isArray(
+                data?.data
+              )
             ? data.data
             : [];
 
-        const normalized = list
-          .map((item) => ({
-            id: item.id,
-            name:
-              item.name ||
-              item.full_name ||
-              item.fullName ||
-              "Unknown",
-            email:
-              item.email || "",
-          }))
-          .filter((item) => item.id);
+        const normalized =
+          list
+            .map((item) => ({
+              id: item.id,
 
-        setStaff(normalized);
+              name:
+                item.name ||
+                item.full_name ||
+                item.fullName ||
+                "Unknown",
+
+              email:
+                item.email || "",
+            }))
+            .filter(
+              (item) =>
+                item.id
+            );
+
+        setStaff(
+          normalized
+        );
       } catch (err) {
         console.error(
           "STAFF LOAD ERROR:",
           err
         );
       }
-    },
-    []
-  );
+    }, []);
 
   /* =======================================================
      LOAD ATTENDANCE
   ======================================================= */
 
-  const loadAttendance = useCallback(
-    async (showLoader = true) => {
-      try {
-        if (showLoader) {
-          setLoading(true);
-        } else {
-          setRefreshing(true);
-        }
-
-        setError("");
-
-        const params = new URLSearchParams();
-
-        if (fromDate) {
-          params.set("from", fromDate);
-        }
-
-        if (toDate) {
-          params.set("to", toDate);
-        }
-
-        params.set("_", Date.now());
-
-        const response = await fetch(
-          `/api/login-history?${params.toString()}`,
-          {
-            credentials: "include",
-            cache: "no-store",
-            headers: {
-              "Cache-Control": "no-cache",
-            },
+  const loadAttendance =
+    useCallback(
+      async (
+        showLoader = true
+      ) => {
+        try {
+          if (showLoader) {
+            setLoading(true);
+          } else {
+            setRefreshing(true);
           }
-        );
 
-        const data = await response.json();
+          setError("");
 
-        if (!response.ok) {
-          throw new Error(
-            data?.message ||
+          const params =
+            new URLSearchParams();
+
+          if (fromDate) {
+            params.set(
+              "from",
+              fromDate
+            );
+          }
+
+          if (toDate) {
+            params.set(
+              "to",
+              toDate
+            );
+          }
+
+          params.set(
+            "_",
+            Date.now()
+          );
+
+          const response =
+            await fetch(
+              `/api/login-history?${params.toString()}`,
+              {
+                credentials:
+                  "include",
+                cache: "no-store",
+                headers: {
+                  "Cache-Control":
+                    "no-cache",
+                },
+              }
+            );
+
+          const data =
+            await response.json();
+
+          if (!response.ok) {
+            throw new Error(
+              data?.message ||
+                "Failed to load attendance"
+            );
+          }
+
+          setAttendance(
+            Array.isArray(
+              data?.history
+            )
+              ? data.history
+              : []
+          );
+        } catch (err) {
+          console.error(err);
+
+          setError(
+            err?.message ||
               "Failed to load attendance"
           );
+
+          setAttendance([]);
+        } finally {
+          setLoading(false);
+          setRefreshing(false);
         }
-
-        setAttendance(
-          Array.isArray(data?.history)
-            ? data.history
-            : []
-        );
-      } catch (err) {
-        console.error(err);
-
-        setError(
-          err?.message ||
-            "Failed to load attendance"
-        );
-
-        setAttendance([]);
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
-      }
-    },
-    [fromDate, toDate]
-  );
+      },
+      [fromDate, toDate]
+    );
 
   /* =======================================================
      INITIAL
@@ -5194,13 +7340,22 @@ export default function AttendancePage() {
       const user =
         await loadCurrentUser();
 
-      if (!mounted || !user) return;
+      if (
+        !mounted ||
+        !user
+      ) {
+        return;
+      }
 
-      await loadAttendance(true);
+      await loadAttendance(
+        true
+      );
 
       if (
-        String(user.role || "")
-          .toLowerCase() === "admin"
+        String(
+          user.role || ""
+        ).toLowerCase() ===
+        "admin"
       ) {
         await loadStaff();
       }
@@ -5218,42 +7373,100 @@ export default function AttendancePage() {
   ]);
 
   /* =======================================================
+     TEAMS
+  ======================================================= */
+
+  const teams = useMemo(() => {
+    const uniqueTeams =
+      new Set();
+
+    attendance.forEach(
+      (row) => {
+        const team =
+          String(
+            row.team || ""
+          ).trim();
+
+        if (team) {
+          uniqueTeams.add(
+            team
+          );
+        }
+      }
+    );
+
+    return Array.from(
+      uniqueTeams
+    ).sort(
+      (a, b) =>
+        a.localeCompare(b)
+    );
+  }, [attendance]);
+
+  /* =======================================================
      FILTER
   ======================================================= */
 
-  const filteredAttendance = useMemo(() => {
-    const term =
-      search.trim().toLowerCase();
+  const filteredAttendance =
+    useMemo(() => {
+      const term =
+        search
+          .trim()
+          .toLowerCase();
 
-    return attendance.filter((row) => {
-      const status = getStatus(row);
+      return attendance.filter(
+        (row) => {
+          const status =
+            getStatus(row);
 
-      const matchesSearch =
-        !term ||
-        String(row.name || "")
-          .toLowerCase()
-          .includes(term) ||
-        String(row.email || "")
-          .toLowerCase()
-          .includes(term) ||
-        String(row.team || "")
-          .toLowerCase()
-          .includes(term);
+          const rowTeam =
+            String(
+              row.team || ""
+            ).trim();
 
-      const matchesStatus =
-        statusFilter === "All" ||
-        status === statusFilter;
+          const matchesSearch =
+            !term ||
+            String(
+              row.name || ""
+            )
+              .toLowerCase()
+              .includes(term) ||
+            String(
+              row.email || ""
+            )
+              .toLowerCase()
+              .includes(term) ||
+            String(
+              row.team || ""
+            )
+              .toLowerCase()
+              .includes(term);
 
-      return (
-        matchesSearch &&
-        matchesStatus
+          const matchesStatus =
+            statusFilter ===
+              "All" ||
+            status ===
+              statusFilter;
+
+          const matchesTeam =
+            teamFilter ===
+              "All Teams" ||
+            rowTeam ===
+              teamFilter;
+
+          return (
+            matchesSearch &&
+            matchesStatus &&
+            matchesTeam
+          );
+        }
       );
-    });
-  }, [
-    attendance,
-    search,
-    statusFilter,
-  ]);
+    }, [
+      attendance,
+      search,
+      statusFilter,
+      teamFilter,
+    ]);
 
   /* =======================================================
      STATS
@@ -5264,33 +7477,47 @@ export default function AttendancePage() {
     let late = 0;
     let totalSeconds = 0;
 
-    attendance.forEach((row) => {
-      const status = getStatus(row);
+    attendance.forEach(
+      (row) => {
+        const status =
+          getStatus(row);
 
-      if (status === "Late") {
-        late++;
-      } else {
-        present++;
-      }
+        if (
+          status === "Late"
+        ) {
+          late++;
+        } else {
+          present++;
+        }
 
-      if (
-        row.duration_seconds !== null &&
-        row.duration_seconds !== undefined
-      ) {
-        totalSeconds += Number(
-          row.duration_seconds
-        ) || 0;
+        if (
+          row.duration_seconds !==
+            null &&
+          row.duration_seconds !==
+            undefined
+        ) {
+          totalSeconds +=
+            Number(
+              row.duration_seconds
+            ) || 0;
+        }
       }
-    });
+    );
 
     return {
-      total: attendance.length,
+      total:
+        attendance.length,
+
       present,
+
       late,
+
       absent: 0,
+
       totalHours:
         Math.round(
-          (totalSeconds / 3600) * 10
+          (totalSeconds / 3600) *
+            10
         ) / 10,
     };
   }, [attendance]);
@@ -5300,13 +7527,19 @@ export default function AttendancePage() {
   ======================================================= */
 
   function openAddModal() {
+    if (!isAdmin)
+      return;
+
     setEditingRecord(null);
 
     setForm({
       ...getDefaultForm(),
+
       user_id:
         staff.length > 0
-          ? String(staff[0].id)
+          ? String(
+              staff[0].id
+            )
           : "",
     });
 
@@ -5321,80 +7554,279 @@ export default function AttendancePage() {
      OPEN EDIT
   ======================================================= */
 
- function openEditModal(row) {
-  const employeeId = String(row.user_id || "");
+  function openEditModal(row) {
+    if (!isAdmin)
+      return;
 
-  /*
-   * Make sure the employee being edited
-   * exists inside the select options.
-   */
-  if (employeeId) {
-    setStaff((prev) => {
-      const alreadyExists = prev.some(
-        (employee) =>
-          String(employee.id) === employeeId
+    const employeeId =
+      String(
+        row.user_id || ""
       );
 
-      if (alreadyExists) {
-        return prev;
-      }
+    /*
+     * Make sure employee
+     * exists in select.
+     */
 
-      return [
-        {
-          id: row.user_id,
-          name: row.name || "Current Employee",
-          email: row.email || "",
-        },
-        ...prev,
-      ];
+    if (employeeId) {
+      setStaff((prev) => {
+        const alreadyExists =
+          prev.some(
+            (employee) =>
+              String(
+                employee.id
+              ) ===
+              employeeId
+          );
+
+        if (
+          alreadyExists
+        ) {
+          return prev;
+        }
+
+        return [
+          {
+            id:
+              row.user_id,
+
+            name:
+              row.name ||
+              "Current Employee",
+
+            email:
+              row.email || "",
+          },
+          ...prev,
+        ];
+      });
+    }
+
+    setEditingRecord(row);
+
+    setForm({
+      user_id:
+        employeeId,
+
+      login_time:
+        toDateTimeLocal(
+          row.login_time
+        ),
+
+      logout_time:
+        row.logout_time
+          ? toDateTimeLocal(
+              row.logout_time
+            )
+          : "",
+
+      ip_address:
+        row.ip_address ||
+        "",
+
+      user_agent:
+        row.user_agent ||
+        "",
     });
+
+    setError("");
+
+    setSuccess("");
+
+    setShowModal(true);
   }
 
-  setEditingRecord(row);
+  /* =======================================================
+     DELETE CONFIRM OPEN
+  ======================================================= */
 
-  setForm({
-    user_id: employeeId,
+  function openDeleteConfirm(
+    row
+  ) {
+    if (!isAdmin)
+      return;
 
-    login_time: toDateTimeLocal(
-      row.login_time
-    ),
+    setError("");
 
-    logout_time: row.logout_time
-      ? toDateTimeLocal(row.logout_time)
-      : "",
+    setSuccess("");
 
-    ip_address:
-      row.ip_address || "",
+    setDeleteRecord(row);
+  }
 
-    user_agent:
-      row.user_agent || "",
-  });
+  /* =======================================================
+     CLOSE DELETE CONFIRM
+  ======================================================= */
 
-  setError("");
-  setSuccess("");
+  function closeDeleteConfirm() {
+    if (deleting)
+      return;
 
-  setShowModal(true);
+    setDeleteRecord(null);
+  }
+
+  /* =======================================================
+     DELETE
+  ======================================================= */
+
+  // async function handleDelete() {
+  //   if (
+  //     !isAdmin ||
+  //     !deleteRecord?.id
+  //   ) {
+  //     return;
+  //   }
+
+  //   try {
+  //     setDeleting(true);
+
+  //     setError("");
+
+  //     setSuccess("");
+
+  //     const response =
+  //       await fetch(
+  //         "/api/login-history",
+  //         {
+  //           method: "DELETE",
+
+  //           credentials:
+  //             "include",
+
+  //           headers: {
+  //             "Content-Type":
+  //               "application/json",
+  //           },
+
+  //           body: JSON.stringify({
+  //             id: Number(
+  //               deleteRecord.id
+  //             ),
+  //           }),
+  //         }
+  //       );
+
+  //     const data =
+  //       await response.json();
+
+  //     if (!response.ok) {
+  //       throw new Error(
+  //         data?.message ||
+  //           "Failed to delete attendance"
+  //       );
+  //     }
+
+  //     setDeleteRecord(null);
+
+  //     setSuccess(
+  //       "Attendance deleted successfully."
+  //     );
+
+  //     await loadAttendance(
+  //       false
+  //     );
+  //   } catch (err) {
+  //     console.error(err);
+
+  //     setError(
+  //       err?.message ||
+  //         "Failed to delete attendance"
+  //     );
+  //   } finally {
+  //     setDeleting(false);
+  //   }
+  // }
+
+  async function handleDelete() {
+  if (!isAdmin || !deleteRecord?.id) {
+    return;
+  }
+
+  const attendanceId = Number(deleteRecord.id);
+
+  if (!Number.isInteger(attendanceId) || attendanceId <= 0) {
+    setError("Invalid attendance record ID.");
+    return;
+  }
+
+  try {
+    setDeleting(true);
+    setError("");
+    setSuccess("");
+
+    const response = await fetch(
+      `/api/login-history?id=${encodeURIComponent(attendanceId)}`,
+      {
+        method: "DELETE",
+        credentials: "include",
+        cache: "no-store",
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data?.message || "Failed to delete attendance"
+      );
+    }
+
+    /*
+      Close confirmation modal
+    */
+    setDeleteRecord(null);
+
+    /*
+      Show success message
+    */
+    setSuccess(
+      "Attendance deleted permanently."
+    );
+
+    /*
+      Reload attendance from database
+    */
+    await loadAttendance(false);
+
+  } catch (err) {
+    console.error(
+      "DELETE ATTENDANCE ERROR:",
+      err
+    );
+
+    setError(
+      err?.message ||
+        "Failed to delete attendance"
+    );
+  } finally {
+    setDeleting(false);
+  }
 }
 
   /* =======================================================
-     CLOSE MODAL
+     CLOSE EDIT/ADD MODAL
   ======================================================= */
 
   function closeModal() {
-    if (saving) return;
+    if (saving)
+      return;
 
     setShowModal(false);
 
     setEditingRecord(null);
 
-    setForm(getDefaultForm());
+    setForm(
+      getDefaultForm()
+    );
   }
 
   /* =======================================================
      CHANGE FORM
   ======================================================= */
 
-  function updateForm(key, value) {
+  function updateForm(
+    key,
+    value
+  ) {
     setForm((prev) => ({
       ...prev,
       [key]: value,
@@ -5408,21 +7840,27 @@ export default function AttendancePage() {
   async function handleSave(e) {
     e.preventDefault();
 
-    if (!isAdmin) return;
+    if (!isAdmin)
+      return;
 
     if (!form.user_id) {
-      setError("Please select employee.");
+      setError(
+        "Please select employee."
+      );
       return;
     }
 
     if (!form.login_time) {
-      setError("Please select login time.");
+      setError(
+        "Please select login time."
+      );
       return;
     }
 
     if (
       form.logout_time &&
-      form.logout_time < form.login_time
+      form.logout_time <
+        form.login_time
     ) {
       setError(
         "Logout time cannot be before login time."
@@ -5438,7 +7876,10 @@ export default function AttendancePage() {
       setSuccess("");
 
       const payload = {
-        user_id: Number(form.user_id),
+        user_id:
+          Number(
+            form.user_id
+          ),
 
         login_time:
           form.login_time.replace(
@@ -5455,53 +7896,60 @@ export default function AttendancePage() {
             : null,
 
         ip_address:
-          form.ip_address || null,
+          form.ip_address ||
+          null,
 
         user_agent:
-          form.user_agent || null,
+          form.user_agent ||
+          null,
       };
 
       let response;
 
       if (editingRecord) {
-        response = await fetch(
-          "/api/login-history",
-          {
-            method: "PUT",
+        response =
+          await fetch(
+            "/api/login-history",
+            {
+              method: "PUT",
 
-            credentials: "include",
+              credentials:
+                "include",
 
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
 
-            body: JSON.stringify({
-              ...payload,
-              id: Number(
-                editingRecord.id
-              ),
-            }),
-          }
-        );
+              body: JSON.stringify({
+                ...payload,
+
+                id: Number(
+                  editingRecord.id
+                ),
+              }),
+            }
+          );
       } else {
-        response = await fetch(
-          "/api/login-history",
-          {
-            method: "POST",
+        response =
+          await fetch(
+            "/api/login-history",
+            {
+              method: "POST",
 
-            credentials: "include",
+              credentials:
+                "include",
 
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
 
-            body: JSON.stringify(
-              payload
-            ),
-          }
-        );
+              body: JSON.stringify(
+                payload
+              ),
+            }
+          );
       }
 
       const data =
@@ -5524,7 +7972,9 @@ export default function AttendancePage() {
 
       setEditingRecord(null);
 
-      await loadAttendance(false);
+      await loadAttendance(
+        false
+      );
     } catch (err) {
       console.error(err);
 
@@ -5544,7 +7994,9 @@ export default function AttendancePage() {
   async function exportPDF() {
     try {
       const jsPDFModule =
-        await import("jspdf");
+        await import(
+          "jspdf"
+        );
 
       const autoTableModule =
         await import(
@@ -5557,17 +8009,19 @@ export default function AttendancePage() {
       const autoTable =
         autoTableModule.default;
 
-      const doc = new jsPDF({
-        orientation: "landscape",
-        unit: "mm",
-        format: "a4",
-      });
+      const doc =
+        new jsPDF({
+          orientation:
+            "landscape",
+          unit: "mm",
+          format: "a4",
+        });
 
-      /*
-        Screenshot-style header
-      */
-
-      const red = [210, 0, 0];
+      const red = [
+        210,
+        0,
+        0,
+      ];
 
       doc.setFillColor(
         red[0],
@@ -5626,39 +8080,45 @@ export default function AttendancePage() {
         13.5
       );
 
-      /*
-        Employee/date attendance table
-      */
-
-      const rows = filteredAttendance;
+      const rows =
+        filteredAttendance;
 
       const uniqueDates = [
         ...new Set(
-          rows.map((row) => {
-            const parsed =
-              parseDbDateTime(
-                row.login_time
-              );
+          rows
+            .map(
+              (row) => {
+                const parsed =
+                  parseDbDateTime(
+                    row.login_time
+                  );
 
-            if (!parsed) return "";
+                if (!parsed)
+                  return "";
 
-            return `${parsed.year}-${String(
-              parsed.month
-            ).padStart(2, "0")}-${String(
-              parsed.day
-            ).padStart(2, "0")}`;
-          })
+                return `${parsed.year}-${String(
+                  parsed.month
+                ).padStart(
+                  2,
+                  "0"
+                )}-${String(
+                  parsed.day
+                ).padStart(
+                  2,
+                  "0"
+                )}`;
+              }
+            )
         ),
       ]
         .filter(Boolean)
         .sort();
 
-      /*
-        Limit date columns so PDF stays clean.
-      */
-
       const dates =
-        uniqueDates.slice(0, 14);
+        uniqueDates.slice(
+          0,
+          14
+        );
 
       const firstEmployee =
         rows[0];
@@ -5683,22 +8143,26 @@ export default function AttendancePage() {
         firstEmployee?.agent_wd ||
         "-";
 
-      const headerDates = dates.map(
-        (date) => {
-          const d = new Date(
-            `${date}T00:00:00`
-          );
+      const headerDates =
+        dates.map(
+          (date) => {
+            const d =
+              new Date(
+                `${date}T00:00:00`
+              );
 
-          return d.toLocaleDateString(
-            "en-US",
-            {
-              weekday: "short",
-              month: "short",
-              day: "numeric",
-            }
-          );
-        }
-      );
+            return d.toLocaleDateString(
+              "en-US",
+              {
+                weekday:
+                  "short",
+                month:
+                  "short",
+                day: "numeric",
+              }
+            );
+          }
+        );
 
       const bodyRow = [
         employeeId,
@@ -5749,14 +8213,11 @@ export default function AttendancePage() {
             255,
             255,
           ],
-          fontStyle: "bold",
+          fontStyle:
+            "bold",
           fontSize: 6.5,
         },
       });
-
-      /*
-        Attendance status rows
-      */
 
       let startY =
         doc.lastAutoTable
@@ -5772,84 +8233,89 @@ export default function AttendancePage() {
       const attendanceBody =
         statusRows.map(
           (type) => {
-            const values = dates.map(
-              (date) => {
-                const record =
-                  rows.find((row) => {
-                    const parsed =
-                      parseDbDateTime(
-                        row.login_time
-                      );
+            const values =
+              dates.map(
+                (date) => {
+                  const record =
+                    rows.find(
+                      (row) => {
+                        const parsed =
+                          parseDbDateTime(
+                            row.login_time
+                          );
 
-                    if (!parsed)
-                      return false;
+                        if (!parsed)
+                          return false;
 
-                    const rowDate =
-                      `${parsed.year}-${String(
-                        parsed.month
-                      ).padStart(
-                        2,
-                        "0"
-                      )}-${String(
-                        parsed.day
-                      ).padStart(
-                        2,
-                        "0"
-                      )}`;
+                        const rowDate =
+                          `${parsed.year}-${String(
+                            parsed.month
+                          ).padStart(
+                            2,
+                            "0"
+                          )}-${String(
+                            parsed.day
+                          ).padStart(
+                            2,
+                            "0"
+                          )}`;
 
-                    return (
-                      rowDate ===
-                        date &&
-                      String(
-                        row.user_id
-                      ) ===
-                        String(
-                          employeeId
-                        )
+                        return (
+                          rowDate ===
+                            date &&
+                          String(
+                            row.user_id
+                          ) ===
+                            String(
+                              employeeId
+                            )
+                        );
+                      }
                     );
-                  });
 
-                if (!record) {
-                  return "Off";
+                  if (!record) {
+                    return "Off";
+                  }
+
+                  if (
+                    type ===
+                    "Attendance"
+                  ) {
+                    return getStatus(
+                      record
+                    );
+                  }
+
+                  if (
+                    type ===
+                    "Login"
+                  ) {
+                    return formatCaliforniaTime(
+                      record.login_time
+                    );
+                  }
+
+                  if (
+                    type ===
+                    "Logout"
+                  ) {
+                    return formatCaliforniaTime(
+                      record.logout_time
+                    );
+                  }
+
+                  if (
+                    type ===
+                    "Duration"
+                  ) {
+                    return formatDuration(
+                      record.duration_seconds
+                    );
+                  }
+
+                  return "";
                 }
-
-                if (
-                  type ===
-                  "Attendance"
-                ) {
-                  return getStatus(
-                    record
-                  );
-                }
-
-                if (
-                  type === "Login"
-                ) {
-                  return formatCaliforniaTime(
-                    record.login_time
-                  );
-                }
-
-                if (
-                  type === "Logout"
-                ) {
-                  return formatCaliforniaTime(
-                    record.logout_time
-                  );
-                }
-
-                if (
-                  type ===
-                  "Duration"
-                ) {
-                  return formatDuration(
-                    record.duration_seconds
-                  );
-                }
-
-                return "";
-              }
-            );
+              );
 
             return [
               type,
@@ -5868,7 +8334,8 @@ export default function AttendancePage() {
           ],
         ],
 
-        body: attendanceBody,
+        body:
+          attendanceBody,
 
         theme: "grid",
 
@@ -5892,23 +8359,22 @@ export default function AttendancePage() {
             255,
             255,
           ],
-          fontStyle: "bold",
+          fontStyle:
+            "bold",
         },
 
         columnStyles: {
           0: {
-            fontStyle: "bold",
+            fontStyle:
+              "bold",
           },
         },
       });
 
-      /*
-        Summary
-      */
-
       startY =
         doc.lastAutoTable
-          ?.finalY + 6 || 50;
+          ?.finalY +
+          6 || 50;
 
       doc.setFillColor(
         red[0],
@@ -5997,29 +8463,38 @@ export default function AttendancePage() {
     <div className="min-h-screen lg:pl-[270px]">
       <div className="p-4 sm:p-6 lg:p-8">
 
-  <div
-        className={`
-          fixed inset-y-0 left-0 z-50
-          w-[270px]
-          transform
-          bg-white
-          shadow-xl
-          transition-transform
-          duration-300
-          lg:translate-x-0
-          ${
-            sidebarOpen
-              ? "translate-x-0"
-              : "-translate-x-full"
-          }
-        `}
-      >
-        <Sidebar
-          sidebarOpen={sidebarOpen}
-          setSidebarOpen={setSidebarOpen}
-          setShowLogoutModal={setShowLogoutModal}
-        />
-      </div>
+        {/* SIDEBAR */}
+
+        <div
+          className={`
+            fixed inset-y-0 left-0 z-50
+            w-[270px]
+            transform
+            bg-white
+            shadow-xl
+            transition-transform
+            duration-300
+            lg:translate-x-0
+            ${
+              sidebarOpen
+                ? "translate-x-0"
+                : "-translate-x-full"
+            }
+          `}
+        >
+          <Sidebar
+            sidebarOpen={
+              sidebarOpen
+            }
+            setSidebarOpen={
+              setSidebarOpen
+            }
+            setShowLogoutModal={
+              setShowLogoutModal
+            }
+          />
+        </div>
+
         {/* =================================================
             HEADER
         ================================================= */}
@@ -6028,10 +8503,9 @@ export default function AttendancePage() {
 
           <div>
             <div className="flex items-center gap-3">
+
               <div className="w-11 h-11 rounded-xl bg-[#741C29] flex items-center justify-center shadow-sm">
-                <CalendarDays
-                  className="w-5 h-5 text-white"
-                />
+                <CalendarDays className="w-5 h-5 text-white" />
               </div>
 
               <div>
@@ -6049,6 +8523,7 @@ export default function AttendancePage() {
                   Admin View
                 </span>
               )}
+
             </div>
           </div>
 
@@ -6092,7 +8567,9 @@ export default function AttendancePage() {
             {isAdmin && (
               <button
                 type="button"
-                onClick={openAddModal}
+                onClick={
+                  openAddModal
+                }
                 className="inline-flex items-center justify-center gap-2 h-10 px-4 rounded-xl bg-[#741C29] text-white text-sm font-semibold shadow-sm hover:bg-[#611621] transition"
               >
                 <Plus className="w-4 h-4" />
@@ -6100,6 +8577,7 @@ export default function AttendancePage() {
                 Add Attendance
               </button>
             )}
+
           </div>
         </div>
 
@@ -6109,9 +8587,12 @@ export default function AttendancePage() {
 
         {error && (
           <div className="mb-4 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+
             <AlertCircle className="w-5 h-5 shrink-0" />
 
-            <span>{error}</span>
+            <span>
+              {error}
+            </span>
 
             <button
               type="button"
@@ -6122,14 +8603,18 @@ export default function AttendancePage() {
             >
               <X className="w-4 h-4" />
             </button>
+
           </div>
         )}
 
         {success && (
           <div className="mb-4 flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+
             <UserCheck className="w-5 h-5" />
 
-            <span>{success}</span>
+            <span>
+              {success}
+            </span>
 
             <button
               type="button"
@@ -6140,6 +8625,7 @@ export default function AttendancePage() {
             >
               <X className="w-4 h-4" />
             </button>
+
           </div>
         )}
 
@@ -6183,6 +8669,7 @@ export default function AttendancePage() {
             value={stats.absent}
             subtitle="No attendance record"
           />
+
         </div>
 
         {/* =================================================
@@ -6196,6 +8683,7 @@ export default function AttendancePage() {
             {/* SEARCH */}
 
             <div className="xl:col-span-2 relative">
+
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
 
               <input
@@ -6209,11 +8697,13 @@ export default function AttendancePage() {
                 placeholder="Search employee, email or team..."
                 className="w-full h-11 rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm text-slate-700 outline-none focus:bg-white focus:border-[#741C29] focus:ring-4 focus:ring-[#741C29]/10"
               />
+
             </div>
 
             {/* FROM */}
 
             <div className="relative">
+
               <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
 
               <input
@@ -6226,11 +8716,13 @@ export default function AttendancePage() {
                 }
                 className="w-full h-11 rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-3 text-sm text-slate-700 outline-none focus:bg-white focus:border-[#741C29] focus:ring-4 focus:ring-[#741C29]/10"
               />
+
             </div>
 
             {/* TO */}
 
             <div className="relative">
+
               <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
 
               <input
@@ -6243,13 +8735,54 @@ export default function AttendancePage() {
                 }
                 className="w-full h-11 rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-3 text-sm text-slate-700 outline-none focus:bg-white focus:border-[#741C29] focus:ring-4 focus:ring-[#741C29]/10"
               />
+
+            </div>
+
+            {/* TEAM */}
+
+            <div className="relative">
+
+              <select
+                value={
+                  teamFilter
+                }
+                onChange={(e) =>
+                  setTeamFilter(
+                    e.target.value
+                  )
+                }
+                className="appearance-none w-full h-11 rounded-xl border border-[#DDD6D2] bg-[#FCFBFA] px-3 pr-9 text-sm text-gray-700 outline-none focus:bg-white focus:border-[#741C29] focus:ring-4 focus:ring-[#741C29]/10"
+              >
+
+                <option>
+                  All Teams
+                </option>
+
+                {teams.map(
+                  (team) => (
+                    <option
+                      key={team}
+                      value={team}
+                    >
+                      {team}
+                    </option>
+                  )
+                )}
+
+              </select>
+
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+
             </div>
 
             {/* STATUS */}
 
             <div className="relative">
+
               <select
-                value={statusFilter}
+                value={
+                  statusFilter
+                }
                 onChange={(e) =>
                   setStatusFilter(
                     e.target.value
@@ -6257,6 +8790,7 @@ export default function AttendancePage() {
                 }
                 className="appearance-none w-full h-11 rounded-xl border border-slate-200 bg-slate-50 px-4 pr-10 text-sm text-slate-700 outline-none focus:bg-white focus:border-[#741C29] focus:ring-4 focus:ring-[#741C29]/10"
               >
+
                 <option value="All">
                   All Status
                 </option>
@@ -6268,10 +8802,13 @@ export default function AttendancePage() {
                 <option value="Late">
                   Late
                 </option>
+
               </select>
 
               <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+
             </div>
+
           </div>
         </div>
 
@@ -6282,9 +8819,11 @@ export default function AttendancePage() {
         <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
 
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px]">
+
+            <table className="w-full min-w-[1000px]">
 
               <thead>
+
                 <tr className="bg-slate-50 border-b border-slate-200">
 
                   {isAdmin && (
@@ -6333,6 +8872,7 @@ export default function AttendancePage() {
                 {filteredAttendance.length ===
                 0 ? (
                   <tr>
+
                     <td
                       colSpan={
                         isAdmin
@@ -6341,7 +8881,9 @@ export default function AttendancePage() {
                       }
                       className="px-5 py-14 text-center"
                     >
+
                       <div className="flex flex-col items-center">
+
                         <FileText className="w-10 h-10 text-slate-300 mb-3" />
 
                         <p className="font-semibold text-slate-700">
@@ -6351,26 +8893,35 @@ export default function AttendancePage() {
                         <p className="text-sm text-slate-400 mt-1">
                           Try changing the filters or date range.
                         </p>
+
                       </div>
+
                     </td>
+
                   </tr>
                 ) : (
                   filteredAttendance.map(
                     (row) => {
                       const status =
-                        getStatus(row);
+                        getStatus(
+                          row
+                        );
 
                       return (
                         <tr
-                          key={row.id}
+                          key={
+                            row.id
+                          }
                           className="hover:bg-slate-50/70 transition"
                         >
 
                           {isAdmin && (
                             <td className="px-5 py-4">
+
                               <div className="flex items-center gap-3">
 
                                 <div className="w-9 h-9 rounded-full bg-[#741C29]/10 text-[#741C29] flex items-center justify-center font-bold text-xs">
+
                                   {String(
                                     row.name ||
                                       "U"
@@ -6380,9 +8931,11 @@ export default function AttendancePage() {
                                       1
                                     )
                                     .toUpperCase()}
+
                                 </div>
 
                                 <div>
+
                                   <div className="font-semibold text-sm text-slate-800">
                                     {row.name ||
                                       "-"}
@@ -6392,9 +8945,11 @@ export default function AttendancePage() {
                                     {row.team ||
                                       "Staff"}
                                   </div>
+
                                 </div>
 
                               </div>
+
                             </td>
                           )}
 
@@ -6423,6 +8978,7 @@ export default function AttendancePage() {
                           </td>
 
                           <td className="px-5 py-4">
+
                             {status ===
                             "Late" ? (
                               <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-100">
@@ -6433,23 +8989,48 @@ export default function AttendancePage() {
                                 Present
                               </span>
                             )}
+
                           </td>
 
                           {isAdmin && (
                             <td className="px-5 py-4 text-right">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  openEditModal(
-                                    row
-                                  )
-                                }
-                                className="inline-flex items-center justify-center gap-2 h-9 px-3 rounded-lg border border-slate-200 bg-white text-slate-700 text-xs font-semibold hover:border-[#741C29] hover:text-[#741C29] transition"
-                              >
-                                <Pencil className="w-3.5 h-3.5" />
 
-                                Edit
-                              </button>
+                              <div className="inline-flex items-center gap-2">
+
+                                {/* EDIT */}
+
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    openEditModal(
+                                      row
+                                    )
+                                  }
+                                  className="inline-flex items-center justify-center gap-2 h-9 px-3 rounded-lg border border-slate-200 bg-white text-slate-700 text-xs font-semibold hover:border-[#741C29] hover:text-[#741C29] transition"
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+
+                                  Edit
+                                </button>
+
+                                {/* DELETE */}
+
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    openDeleteConfirm(
+                                      row
+                                    )
+                                  }
+                                  className="inline-flex items-center justify-center gap-2 h-9 px-3 rounded-lg border border-red-200 bg-red-50 text-red-600 text-xs font-semibold hover:bg-red-100 hover:border-red-300 transition"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+
+                                  Delete
+                                </button>
+
+                              </div>
+
                             </td>
                           )}
 
@@ -6471,280 +9052,507 @@ export default function AttendancePage() {
           </div>
 
           <div className="px-5 py-4 border-t border-slate-100 bg-slate-50/50 text-xs text-slate-500">
+
             Showing{" "}
+
             <span className="font-semibold text-slate-700">
-              {filteredAttendance.length}
-            </span>{" "}
-            of{" "}
+              {
+                filteredAttendance.length
+              }
+            </span>
+
+            {" "}of{" "}
+
             <span className="font-semibold text-slate-700">
-              {attendance.length}
-            </span>{" "}
+              {
+                attendance.length
+              }
+            </span>
+
+            {" "}
             attendance records
+
           </div>
+
         </div>
+
       </div>
 
       {/* ===================================================
           ADMIN ADD / EDIT MODAL
       =================================================== */}
 
-      {showModal && isAdmin && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+      {showModal &&
+        isAdmin && (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
 
-          <div
-            className="absolute inset-0 bg-slate-900/50 backdrop-blur-[2px]"
-            onClick={closeModal}
-          />
+            <div
+              className="absolute inset-0 bg-slate-900/50 backdrop-blur-[2px]"
+              onClick={
+                closeModal
+              }
+            />
 
-          <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl overflow-hidden">
+            <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl overflow-hidden">
 
-            {/* MODAL HEADER */}
+              {/* HEADER */}
 
-            <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
+              <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
 
-              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3">
 
-                <div className="w-10 h-10 rounded-xl bg-[#741C29]/10 flex items-center justify-center">
-                  {editingRecord ? (
-                    <Pencil className="w-5 h-5 text-[#741C29]" />
-                  ) : (
-                    <Plus className="w-5 h-5 text-[#741C29]" />
-                  )}
-                </div>
+                  <div className="w-10 h-10 rounded-xl bg-[#741C29]/10 flex items-center justify-center">
 
-                <div>
-                  <h2 className="text-lg font-bold text-slate-900">
-                    {editingRecord
-                      ? "Edit Attendance"
-                      : "Add Attendance"}
-                  </h2>
+                    {editingRecord ? (
+                      <Pencil className="w-5 h-5 text-[#741C29]" />
+                    ) : (
+                      <Plus className="w-5 h-5 text-[#741C29]" />
+                    )}
 
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Time is saved using California timezone
-                  </p>
-                </div>
+                  </div>
 
-              </div>
+                  <div>
 
-              <button
-                type="button"
-                onClick={closeModal}
-                disabled={saving}
-                className="w-9 h-9 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
-              >
-                <X className="w-5 h-5" />
-              </button>
+                    <h2 className="text-lg font-bold text-slate-900">
+                      {editingRecord
+                        ? "Edit Attendance"
+                        : "Add Attendance"}
+                    </h2>
 
-            </div>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Time is saved using California timezone
+                    </p>
 
-            {/* FORM */}
-
-            <form
-              onSubmit={handleSave}
-              className="p-6"
-            >
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-
-                {/* EMPLOYEE */}
-<div className="md:col-span-2">
-  <label className="block text-sm font-semibold text-slate-700 mb-2">
-    Employee
-  </label>
-
-  <div className="relative">
-    <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-
-    <select
-      value={form.user_id}
-      onChange={(e) =>
-        updateForm(
-          "user_id",
-          e.target.value
-        )
-      }
-      required
-      className="appearance-none w-full h-11 rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-10 text-sm text-slate-700 outline-none focus:bg-white focus:border-[#741C29] focus:ring-4 focus:ring-[#741C29]/10"
-    >
-      <option value="">
-        Select employee
-      </option>
-
-      {staff.map((employee) => (
-        <option
-          key={employee.id}
-          value={employee.id}
-        >
-          {employee.name}
-          {employee.email
-            ? ` — ${employee.email}`
-            : ""}
-        </option>
-      ))}
-    </select>
-
-    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-  </div>
-</div>
-
-                {/* LOGIN */}
-
-                <div>
-
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    Login Time
-                  </label>
-
-                  <input
-                    type="datetime-local"
-                    step="1"
-                    value={
-                      form.login_time
-                    }
-                    onChange={(e) =>
-                      updateForm(
-                        "login_time",
-                        e.target.value
-                      )
-                    }
-                    required
-                    className="w-full h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 outline-none focus:bg-white focus:border-[#741C29] focus:ring-4 focus:ring-[#741C29]/10"
-                  />
+                  </div>
 
                 </div>
-
-                {/* LOGOUT */}
-
-                <div>
-
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    Logout Time
-                  </label>
-
-                  <input
-                    type="datetime-local"
-                    step="1"
-                    value={
-                      form.logout_time
-                    }
-                    onChange={(e) =>
-                      updateForm(
-                        "logout_time",
-                        e.target.value
-                      )
-                    }
-                    className="w-full h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 outline-none focus:bg-white focus:border-[#741C29] focus:ring-4 focus:ring-[#741C29]/10"
-                  />
-
-                  <p className="text-xs text-slate-400 mt-1.5">
-                    Leave empty if employee is still logged in.
-                  </p>
-
-                </div>
-
-                {/* IP */}
-
-                <div>
-
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    IP Address
-                  </label>
-
-                  <input
-                    type="text"
-                    value={
-                      form.ip_address
-                    }
-                    onChange={(e) =>
-                      updateForm(
-                        "ip_address",
-                        e.target.value
-                      )
-                    }
-                    placeholder="Optional"
-                    className="w-full h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 outline-none focus:bg-white focus:border-[#741C29] focus:ring-4 focus:ring-[#741C29]/10"
-                  />
-
-                </div>
-
-                {/* USER AGENT */}
-
-                <div>
-
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    User Agent
-                  </label>
-
-                  <input
-                    type="text"
-                    value={
-                      form.user_agent
-                    }
-                    onChange={(e) =>
-                      updateForm(
-                        "user_agent",
-                        e.target.value
-                      )
-                    }
-                    placeholder="Optional"
-                    className="w-full h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 outline-none focus:bg-white focus:border-[#741C29] focus:ring-4 focus:ring-[#741C29]/10"
-                  />
-
-                </div>
-
-              </div>
-
-              {/* ERROR */}
-
-              {error && (
-                <div className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex gap-2">
-                  <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-
-                  <span>{error}</span>
-                </div>
-              )}
-
-              {/* FOOTER */}
-
-              <div className="flex items-center justify-end gap-3 mt-7 pt-5 border-t border-slate-100">
 
                 <button
                   type="button"
-                  onClick={closeModal}
+                  onClick={
+                    closeModal
+                  }
                   disabled={saving}
-                  className="h-11 px-5 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 hover:bg-slate-50 transition disabled:opacity-50"
+                  className="w-9 h-9 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
                 >
-                  Cancel
-                </button>
-
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="h-11 px-5 rounded-xl bg-[#741C29] text-white text-sm font-semibold hover:bg-[#611621] transition disabled:opacity-60 inline-flex items-center gap-2"
-                >
-                  {saving ? (
-                    <>
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-
-                      Saving...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="w-4 h-4" />
-
-                      {editingRecord
-                        ? "Update Attendance"
-                        : "Add Attendance"}
-                    </>
-                  )}
+                  <X className="w-5 h-5" />
                 </button>
 
               </div>
 
-            </form>
+              {/* FORM */}
+
+              <form
+                onSubmit={
+                  handleSave
+                }
+                className="p-6"
+              >
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+                  {/* EMPLOYEE */}
+
+                  <div className="md:col-span-2">
+
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      Employee
+                    </label>
+
+                    <div className="relative">
+
+                      <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+
+                      <select
+                        value={
+                          form.user_id
+                        }
+                        onChange={(
+                          e
+                        ) =>
+                          updateForm(
+                            "user_id",
+                            e.target
+                              .value
+                          )
+                        }
+                        required
+                        className="appearance-none w-full h-11 rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-10 text-sm text-slate-700 outline-none focus:bg-white focus:border-[#741C29] focus:ring-4 focus:ring-[#741C29]/10"
+                      >
+
+                        <option value="">
+                          Select employee
+                        </option>
+
+                        {staff.map(
+                          (
+                            employee
+                          ) => (
+                            <option
+                              key={
+                                employee.id
+                              }
+                              value={
+                                employee.id
+                              }
+                            >
+                              {
+                                employee.name
+                              }
+
+                              {employee.email
+                                ? ` — ${employee.email}`
+                                : ""}
+                            </option>
+                          )
+                        )}
+
+                      </select>
+
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+
+                    </div>
+
+                  </div>
+
+                  {/* LOGIN */}
+
+                  <div>
+
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      Login Time
+                    </label>
+
+                    <input
+                      type="datetime-local"
+                      step="1"
+                      value={
+                        form.login_time
+                      }
+                      onChange={(
+                        e
+                      ) =>
+                        updateForm(
+                          "login_time",
+                          e.target
+                            .value
+                        )
+                      }
+                      required
+                      className="w-full h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 outline-none focus:bg-white focus:border-[#741C29] focus:ring-4 focus:ring-[#741C29]/10"
+                    />
+
+                  </div>
+
+                  {/* LOGOUT */}
+
+                  <div>
+
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      Logout Time
+                    </label>
+
+                    <input
+                      type="datetime-local"
+                      step="1"
+                      value={
+                        form.logout_time
+                      }
+                      onChange={(
+                        e
+                      ) =>
+                        updateForm(
+                          "logout_time",
+                          e.target
+                            .value
+                        )
+                      }
+                      className="w-full h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 outline-none focus:bg-white focus:border-[#741C29] focus:ring-4 focus:ring-[#741C29]/10"
+                    />
+
+                    <p className="text-xs text-slate-400 mt-1.5">
+                      Leave empty if employee is still logged in.
+                    </p>
+
+                  </div>
+
+                  {/* IP */}
+
+                  <div>
+
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      IP Address
+                    </label>
+
+                    <input
+                      type="text"
+                      value={
+                        form.ip_address
+                      }
+                      onChange={(
+                        e
+                      ) =>
+                        updateForm(
+                          "ip_address",
+                          e.target
+                            .value
+                        )
+                      }
+                      placeholder="Optional"
+                      className="w-full h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 outline-none focus:bg-white focus:border-[#741C29] focus:ring-4 focus:ring-[#741C29]/10"
+                    />
+
+                  </div>
+
+                  {/* USER AGENT */}
+
+                  <div>
+
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      User Agent
+                    </label>
+
+                    <input
+                      type="text"
+                      value={
+                        form.user_agent
+                      }
+                      onChange={(
+                        e
+                      ) =>
+                        updateForm(
+                          "user_agent",
+                          e.target
+                            .value
+                        )
+                      }
+                      placeholder="Optional"
+                      className="w-full h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 outline-none focus:bg-white focus:border-[#741C29] focus:ring-4 focus:ring-[#741C29]/10"
+                    />
+
+                  </div>
+
+                </div>
+
+                {/* MODAL ERROR */}
+
+                {error && (
+                  <div className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex gap-2">
+
+                    <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+
+                    <span>
+                      {error}
+                    </span>
+
+                  </div>
+                )}
+
+                {/* FOOTER */}
+
+                <div className="flex items-center justify-end gap-3 mt-7 pt-5 border-t border-slate-100">
+
+                  <button
+                    type="button"
+                    onClick={
+                      closeModal
+                    }
+                    disabled={saving}
+                    className="h-11 px-5 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 hover:bg-slate-50 transition disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="h-11 px-5 rounded-xl bg-[#741C29] text-white text-sm font-semibold hover:bg-[#611621] transition disabled:opacity-60 inline-flex items-center gap-2"
+                  >
+
+                    {saving ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4" />
+
+                        {editingRecord
+                          ? "Update Attendance"
+                          : "Add Attendance"}
+                      </>
+                    )}
+
+                  </button>
+
+                </div>
+
+              </form>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+
+      {/* ===================================================
+          DELETE CONFIRMATION MODAL
+      =================================================== */}
+
+      {deleteRecord &&
+        isAdmin && (
+          <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
+
+            {/* BACKDROP */}
+
+            <div
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-[2px]"
+              onClick={
+                closeDeleteConfirm
+              }
+            />
+
+            {/* MODAL */}
+
+            <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden">
+
+              <div className="p-6">
+
+                {/* ICON */}
+
+                <div className="w-12 h-12 rounded-xl bg-red-50 border border-red-100 flex items-center justify-center mb-4">
+
+                  <AlertTriangle className="w-6 h-6 text-red-600" />
+
+                </div>
+
+                {/* TITLE */}
+
+                <h2 className="text-xl font-bold text-slate-900">
+                  Are you sure?
+                </h2>
+
+                <p className="text-sm text-slate-500 mt-2 leading-6">
+                  Are you sure you want to permanently delete this attendance record?
+                  This action cannot be undone.
+                </p>
+
+                {/* RECORD INFO */}
+
+                <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
+
+                  <div className="flex items-center gap-3">
+
+                    <div className="w-10 h-10 rounded-full bg-[#741C29]/10 text-[#741C29] flex items-center justify-center font-bold text-sm">
+                      {String(
+                        deleteRecord.name ||
+                          "U"
+                      )
+                        .slice(
+                          0,
+                          1
+                        )
+                        .toUpperCase()}
+                    </div>
+
+                    <div className="min-w-0">
+
+                      <p className="font-semibold text-sm text-slate-800 truncate">
+                        {deleteRecord.name ||
+                          "Unknown Employee"}
+                      </p>
+
+                      <p className="text-xs text-slate-500 truncate">
+                        {deleteRecord.email ||
+                          deleteRecord.team ||
+                          "Attendance Record"}
+                      </p>
+
+                    </div>
+
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 mt-4">
+
+                    <div>
+                      <p className="text-[11px] uppercase tracking-wide text-slate-400 font-semibold">
+                        Date
+                      </p>
+
+                      <p className="text-sm font-medium text-slate-700 mt-1">
+                        {formatCaliforniaDate(
+                          deleteRecord.login_time
+                        )}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-[11px] uppercase tracking-wide text-slate-400 font-semibold">
+                        Login
+                      </p>
+
+                      <p className="text-sm font-medium text-slate-700 mt-1">
+                        {formatCaliforniaTime(
+                          deleteRecord.login_time
+                        )}
+                      </p>
+                    </div>
+
+                  </div>
+
+                </div>
+
+                {/* BUTTONS */}
+
+                <div className="flex items-center justify-end gap-3 mt-6">
+
+                  <button
+                    type="button"
+                    onClick={
+                      closeDeleteConfirm
+                    }
+                    disabled={
+                      deleting
+                    }
+                    className="h-11 px-5 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 hover:bg-slate-50 transition disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={
+                      handleDelete
+                    }
+                    disabled={
+                      deleting
+                    }
+                    className="h-11 px-5 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition disabled:opacity-60 inline-flex items-center gap-2"
+                  >
+
+                    {deleting ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+
+                        Deleting...
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="w-4 h-4" />
+
+                        Yes, Delete
+                      </>
+                    )}
+
+                  </button>
+
+                </div>
+
+              </div>
+
+            </div>
+          </div>
+        )}
+
     </div>
   );
 }
@@ -6765,6 +9573,7 @@ function StatCard({
       <div className="flex items-start justify-between">
 
         <div>
+
           <p className="text-sm font-medium text-slate-500">
             {title}
           </p>
@@ -6776,13 +9585,17 @@ function StatCard({
           <p className="text-xs text-slate-400 mt-1">
             {subtitle}
           </p>
+
         </div>
 
         <div className="w-10 h-10 rounded-xl bg-[#741C29]/10 flex items-center justify-center">
+
           <Icon className="w-5 h-5 text-[#741C29]" />
+
         </div>
 
       </div>
+
     </div>
   );
 }
