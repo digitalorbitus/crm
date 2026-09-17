@@ -3364,13 +3364,13 @@ const ZOOM_CALL_HISTORY_URL =
 
 const DEFAULT_PAGE_SIZE = 300;
 const MAX_PAGE_SIZE = 300;
-const MAX_PAGES = 10;
+const MAX_PAGES = 100;
 
-const PAGE_DELAY_MS = 10;
+const PAGE_DELAY_MS = 0;
 
-const MAX_429_RETRIES = 3;
-const BASE_RETRY_DELAY_MS = 1500;
-const MAX_RETRY_DELAY_MS = 10000;
+const MAX_429_RETRIES = 1;
+const BASE_RETRY_DELAY_MS = 150;
+const MAX_RETRY_DELAY_MS = 150;
 
 
 // ============================================================

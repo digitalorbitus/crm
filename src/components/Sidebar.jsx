@@ -398,6 +398,25 @@ export default function Sidebar({
       href: "/messages",
       roles: ["admin", "user","staff", "agent"],
     },
+      {
+      name: "Admin Edit",
+      icon: MessageSquare,
+      href: "/messages",
+      roles: ["admin", "user","staff", "agent"],
+    },
+       {
+      name: "Domain Email",
+      icon: MessageSquare,
+      href: "/messages",
+      roles: ["admin", "user","staff", "agent"],
+    },
+           {
+      name: "QA",
+      icon: MessageSquare,
+      href: "/messages",
+      roles: ["admin", "user","staff", "agent"],
+    },
+
     {
       name: "Reports",
       icon: BarChart3,
