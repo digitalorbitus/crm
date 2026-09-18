@@ -2883,41 +2883,100 @@ const [breakStats, setBreakStats] = useState({
   // HELPERS
   // =========================================================
 
-  const formatDateTime = (dateValue) => {
-    if (!dateValue) return "—";
+  // const formatDateTime = (dateValue) => {
+  //   if (!dateValue) return "—";
 
-    const date = new Date(dateValue);
+  //   const date = new Date(dateValue);
 
-    if (Number.isNaN(date.getTime())) {
-      return "—";
-    }
+  //   if (Number.isNaN(date.getTime())) {
+  //     return "—";
+  //   }
 
-    return date.toLocaleString("en-US", {
-      month: "short",
-      day: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    });
-  };
+  //   return date.toLocaleString("en-US", {
+  //     month: "short",
+  //     day: "2-digit",
+  //     year: "numeric",
+  //     hour: "2-digit",
+  //     minute: "2-digit",
+  //     hour12: true,
+  //   });
+  // };
+
+  const parseCaliforniaDateTime = (value) => {
+  if (!value) return null;
+
+  const raw = String(value).trim();
+
+  const match = raw.match(
+    /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/
+  );
+
+  if (match) {
+    const [
+      ,
+      year,
+      month,
+      day,
+      hour,
+      minute,
+      second = "0",
+    ] = match;
+
+    // California timezone
+    const iso = `${year}-${month}-${day}T${hour}:${minute}:${second}-07:00`;
+
+    return new Date(iso);
+  }
+
+  const date = new Date(raw);
+
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const formatDateTime = (dateValue) => {
+  const date = parseCaliforniaDateTime(dateValue);
+
+  if (!date) return "—";
+
+  return date.toLocaleString("en-US", {
+    month: "short",
+    day: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: "America/Los_Angeles",
+  });
+};
+
+  // const formatDateOnly = (dateValue) => {
+  //   if (!dateValue) return "—";
+
+  //   const date = new Date(dateValue);
+
+  //   if (Number.isNaN(date.getTime())) {
+  //     return "—";
+  //   }
+
+  //   return date.toLocaleDateString("en-US", {
+  //     month: "short",
+  //     day: "2-digit",
+  //     year: "numeric",
+  //   });
+  // };
 
   const formatDateOnly = (dateValue) => {
-    if (!dateValue) return "—";
+  const date = parseCaliforniaDateTime(dateValue);
 
-    const date = new Date(dateValue);
+  if (!date) return "—";
 
-    if (Number.isNaN(date.getTime())) {
-      return "—";
-    }
-
-    return date.toLocaleDateString("en-US", {
-      month: "short",
-      day: "2-digit",
-      year: "numeric",
-    });
-  };
-
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "2-digit",
+    year: "numeric",
+    timeZone: "America/Los_Angeles",
+  });
+};
   const formatDuration = (seconds) => {
     const totalSeconds = Number(seconds || 0);
 

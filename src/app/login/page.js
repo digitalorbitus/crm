@@ -428,21 +428,23 @@ export default function LoginPage() {
     </p>
 
     {/* Dashboard Mockup Image */}
-    <div className="relative mt-4 transform -rotate-1 hover:rotate-0 transition-transform duration-500 ease-out">
+  {/* Dashboard Mockup Image */}
+<div className="relative mt-4 transform -rotate-1 hover:rotate-0 transition-transform duration-500 ease-out">
 
-      <div className="absolute -inset-1 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-2xl blur opacity-30" />
+  {/* Red Glow / Blur */}
+  <div className="absolute -inset-1 bg-[#ec3737] rounded-2xl blur-xl opacity-30" />
 
-      <img
-        src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=800&q=80"
-        alt="CallCRM Dashboard Preview"
-        className="relative rounded-2xl border border-white/10 shadow-2xl w-full object-cover h-64"
-      />
+  <img
+    src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=800&q=80"
+    alt="CallCRM Dashboard Preview"
+    className="relative rounded-2xl border bg-[#ec3737]/20 shadow-2xl w-full object-cover h-64"
+  />
 
-    </div>
+</div>
   </div>
 
   {/* Footer Copyright */}
-  <div className="z-10 text-xs text-slate-400">
+  <div className="z-10 text-xs text-white">
     © 2026 Digital Orbit Innovations. All rights reserved.
   </div>
 
