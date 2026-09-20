@@ -9817,8 +9817,8 @@ function formatDuration(seconds) {
 function getStatus(row) {
   const raw = String(
     row.attendance_status ||
-      row.status ||
-      ""
+    row.status ||
+    ""
   )
     .trim()
     .toLowerCase();
@@ -10131,18 +10131,18 @@ export default function AttendancePage() {
           )
             ? data.staffes
             : Array.isArray(
-                data?.staff
-              )
-            ? data.staff
-            : Array.isArray(
+              data?.staff
+            )
+              ? data.staff
+              : Array.isArray(
                 data?.users
               )
-            ? data.users
-            : Array.isArray(
-                data?.data
-              )
-            ? data.data
-            : [];
+                ? data.users
+                : Array.isArray(
+                  data?.data
+                )
+                  ? data.data
+                  : [];
 
         const normalized =
           list
@@ -10234,7 +10234,7 @@ export default function AttendancePage() {
           if (!response.ok) {
             throw new Error(
               data?.message ||
-                "Failed to load attendance"
+              "Failed to load attendance"
             );
           }
 
@@ -10250,7 +10250,7 @@ export default function AttendancePage() {
 
           setError(
             err?.message ||
-              "Failed to load attendance"
+            "Failed to load attendance"
           );
 
           setAttendance([]);
@@ -10377,15 +10377,15 @@ export default function AttendancePage() {
 
           const matchesStatus =
             statusFilter ===
-              "All" ||
+            "All" ||
             status ===
-              statusFilter;
+            statusFilter;
 
           const matchesTeam =
             teamFilter ===
-              "All Teams" ||
+            "All Teams" ||
             rowTeam ===
-              teamFilter;
+            teamFilter;
 
           return (
             matchesSearch &&
@@ -10459,9 +10459,9 @@ export default function AttendancePage() {
 
         if (
           row.duration_seconds !==
-            null &&
+          null &&
           row.duration_seconds !==
-            undefined
+          undefined
         ) {
           totalSeconds +=
             Number(
@@ -10484,7 +10484,7 @@ export default function AttendancePage() {
       totalHours:
         Math.round(
           (totalSeconds / 3600) *
-            10
+          10
         ) / 10,
     };
   }, [attendance]);
@@ -10505,8 +10505,8 @@ export default function AttendancePage() {
       user_id:
         staff.length > 0
           ? String(
-              staff[0].id
-            )
+            staff[0].id
+          )
           : "",
     });
 
@@ -10578,8 +10578,8 @@ export default function AttendancePage() {
       logout_time:
         row.logout_time
           ? toDateTimeLocal(
-              row.logout_time
-            )
+            row.logout_time
+          )
           : "",
 
       ip_address:
@@ -10677,7 +10677,7 @@ export default function AttendancePage() {
       if (!response.ok) {
         throw new Error(
           data?.message ||
-            "Failed to delete attendance"
+          "Failed to delete attendance"
         );
       }
 
@@ -10709,7 +10709,7 @@ export default function AttendancePage() {
 
       setError(
         err?.message ||
-          "Failed to delete attendance"
+        "Failed to delete attendance"
       );
     } finally {
       setDeleting(false);
@@ -10774,7 +10774,7 @@ export default function AttendancePage() {
     if (
       form.logout_time &&
       form.logout_time <
-        form.login_time
+      form.login_time
     ) {
       setError(
         "Logout time cannot be before login time."
@@ -10804,9 +10804,9 @@ export default function AttendancePage() {
         logout_time:
           form.logout_time
             ? form.logout_time.replace(
-                "T",
-                " "
-              )
+              "T",
+              " "
+            )
             : null,
 
         ip_address:
@@ -10872,7 +10872,7 @@ export default function AttendancePage() {
       if (!response.ok) {
         throw new Error(
           data?.message ||
-            "Failed to save attendance"
+          "Failed to save attendance"
         );
       }
 
@@ -10900,7 +10900,7 @@ export default function AttendancePage() {
 
       setError(
         err?.message ||
-          "Failed to save attendance"
+        "Failed to save attendance"
       );
     } finally {
       setSaving(false);
@@ -10911,451 +10911,234 @@ export default function AttendancePage() {
      PDF
   ======================================================= */
 
-  async function exportPDF() {
-    try {
-      const jsPDFModule =
-        await import(
-          "jspdf"
-        );
+async function exportPDF() {
+  try {
+    const jsPDFModule = await import("jspdf");
+    const autoTableModule = await import("jspdf-autotable");
 
-      const autoTableModule =
-        await import(
-          "jspdf-autotable"
-        );
+    const jsPDF = jsPDFModule.default;
+    const autoTable = autoTableModule.default;
 
-      const jsPDF =
-        jsPDFModule.default;
+    const doc = new jsPDF({
+      orientation: "landscape",
+      unit: "mm",
+      format: "a4",
+    });
 
-      const autoTable =
-        autoTableModule.default;
+    const primaryRed = [204, 0, 0]; // #cc0000 matching design
+    const rows = filteredAttendance || [];
 
-      const doc =
-        new jsPDF({
-          orientation:
-            "landscape",
-          unit: "mm",
-          format: "a4",
+    // Extract ALL unique dates dynamically
+    const uniqueDates = [
+      ...new Set(
+        rows
+          .map((row) => {
+            const parsed = parseDbDateTime(row.login_time);
+            if (!parsed) return "";
+            return `${parsed.year}-${String(parsed.month).padStart(
+              2,
+              "0"
+            )}-${String(parsed.day).padStart(2, "0")}`;
+          })
+      ),
+    ]
+      .filter(Boolean)
+      .sort();
+
+    const firstEmployee = rows[0] || {};
+    const employeeId = firstEmployee.user_id || "-";
+    const employeeName = firstEmployee.name || "-";
+    const payroll = firstEmployee.payroll || "-";
+    const campaign = firstEmployee.campaign || "-";
+    const agentWD = firstEmployee.agent_wd || "-";
+
+    // ----------------------------------------------------
+    // 1. TOP HEADER SECTION (Dear Name & Net Salary)
+    // ----------------------------------------------------
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(0, 0, 0);
+
+    // "Dear [Name]"
+    doc.text("Dear", 8, 12);
+    doc.setLineWidth(0.3);
+    doc.setDrawColor(0, 128, 0); // Green box around name
+    doc.rect(20, 8, 35, 6);
+    doc.text(String(employeeName), 22, 12);
+
+    // "Total Hours"
+    doc.setFont("helvetica", "bold");
+    doc.text(`Total Hours: ${stats?.totalHours || 0}`, 70, 12);
+
+    // ----------------------------------------------------
+    // 2. MAIN EMPLOYEE SUMMARY TABLE
+    // ----------------------------------------------------
+    autoTable(doc, {
+      startY: 16,
+      margin: { left: 8, right: 8 },
+      head: [["EMP ID", "Employee Name", "Payroll", "Campaign", "Agent WD"]],
+      body: [[employeeId, employeeName, payroll, campaign, agentWD]],
+      theme: "grid",
+      styles: {
+        fontSize: 7,
+        cellPadding: 2,
+        halign: "center",
+        valign: "middle",
+        lineColor: [200, 200, 200],
+        lineWidth: 0.2,
+      },
+      headStyles: {
+        fillColor: primaryRed,
+        textColor: [255, 255, 255],
+        fontStyle: "bold",
+        fontSize: 7.5,
+        lineColor: [255, 255, 255],
+        lineWidth: 0.2,
+      },
+    });
+
+    let currentY = doc.lastAutoTable.finalY + 4;
+
+    // ----------------------------------------------------
+    // 3. CHUNKING DATES (7 Days Per Row Chunking)
+    // ----------------------------------------------------
+    const CHUNK_SIZE = 7; // Har row me 7 days ayenge
+    const dateChunks = [];
+    
+    for (let i = 0; i < uniqueDates.length; i += CHUNK_SIZE) {
+      dateChunks.push(uniqueDates.slice(i, i + CHUNK_SIZE));
+    }
+
+    const statusRows = ["Attendance", "Login", "Logout", "Duration"];
+
+    // Har 7-days ke chunk ka alag table render karo
+    dateChunks.forEach((chunkDates) => {
+      // Agar page par space khatam ho jaye, tow automatic new page create kare
+      if (currentY > 170) {
+        doc.addPage();
+        currentY = 12;
+      }
+
+      const headerDates = chunkDates.map((date) => {
+        const d = new Date(`${date}T00:00:00`);
+        return d.toLocaleDateString("en-US", {
+          weekday: "short",
+          month: "short",
+          day: "numeric",
         });
-
-      const red = [
-        210,
-        0,
-        0,
-      ];
-
-      doc.setFillColor(
-        red[0],
-        red[1],
-        red[2]
-      );
-
-      doc.rect(
-        8,
-        8,
-        281,
-        8,
-        "F"
-      );
-
-      doc.setTextColor(
-        255,
-        255,
-        255
-      );
-
-      doc.setFontSize(9);
-
-      doc.setFont(
-        "helvetica",
-        "bold"
-      );
-
-      doc.text(
-        "EMP ID",
-        12,
-        13.5
-      );
-
-      doc.text(
-        "Employee Name",
-        55,
-        13.5
-      );
-
-      doc.text(
-        "Payroll",
-        105,
-        13.5
-      );
-
-      doc.text(
-        "Campaign",
-        145,
-        13.5
-      );
-
-      doc.text(
-        "Agent WD",
-        210,
-        13.5
-      );
-
-      const rows =
-        filteredAttendance;
-
-      const uniqueDates = [
-        ...new Set(
-          rows
-            .map(
-              (row) => {
-                const parsed =
-                  parseDbDateTime(
-                    row.login_time
-                  );
-
-                if (!parsed)
-                  return "";
-
-                return `${parsed.year}-${String(
-                  parsed.month
-                ).padStart(
-                  2,
-                  "0"
-                )}-${String(
-                  parsed.day
-                ).padStart(
-                  2,
-                  "0"
-                )}`;
-              }
-            )
-        ),
-      ]
-        .filter(Boolean)
-        .sort();
-
-      const dates =
-        uniqueDates.slice(
-          0,
-          14
-        );
-
-      const firstEmployee =
-        rows[0];
-
-      const employeeId =
-        firstEmployee?.user_id ||
-        "-";
-
-      const employeeName =
-        firstEmployee?.name ||
-        "-";
-
-      const payroll =
-        firstEmployee?.payroll ||
-        "-";
-
-      const campaign =
-        firstEmployee?.campaign ||
-        "-";
-
-      const agentWD =
-        firstEmployee?.agent_wd ||
-        "-";
-
-      const headerDates =
-        dates.map(
-          (date) => {
-            const d =
-              new Date(
-                `${date}T00:00:00`
-              );
-
-            return d.toLocaleDateString(
-              "en-US",
-              {
-                weekday:
-                  "short",
-                month:
-                  "short",
-                day: "numeric",
-              }
-            );
-          }
-        );
-
-      const bodyRow = [
-        employeeId,
-        employeeName,
-        payroll,
-        campaign,
-        agentWD,
-        ...headerDates,
-      ];
-
-      autoTable(doc, {
-        startY: 17,
-
-        head: [
-          [
-            "EMP ID",
-            "Employee Name",
-            "Payroll",
-            "Campaign",
-            "Agent WD",
-            ...headerDates,
-          ],
-        ],
-
-        body: [
-          bodyRow,
-        ],
-
-        theme: "grid",
-
-        styles: {
-          fontSize: 6.5,
-          cellPadding: 1.5,
-          halign: "center",
-          valign: "middle",
-          lineColor: [
-            255,
-            255,
-            255,
-          ],
-          lineWidth: 0.25,
-        },
-
-        headStyles: {
-          fillColor: red,
-          textColor: [
-            255,
-            255,
-            255,
-          ],
-          fontStyle:
-            "bold",
-          fontSize: 6.5,
-        },
       });
 
-      let startY =
-        doc.lastAutoTable
-          ?.finalY || 30;
+      const attendanceBody = statusRows.map((type) => {
+        const values = chunkDates.map((date) => {
+          const record = rows.find((row) => {
+            const parsed = parseDbDateTime(row.login_time);
+            if (!parsed) return false;
 
-      const statusRows = [
-        "Attendance",
-        "Login",
-        "Logout",
-        "Duration",
-      ];
+            const rowDate = `${parsed.year}-${String(parsed.month).padStart(
+              2,
+              "0"
+            )}-${String(parsed.day).padStart(2, "0")}`;
 
-      const attendanceBody =
-        statusRows.map(
-          (type) => {
-            const values =
-              dates.map(
-                (date) => {
-                  const record =
-                    rows.find(
-                      (row) => {
-                        const parsed =
-                          parseDbDateTime(
-                            row.login_time
-                          );
+            return (
+              rowDate === date &&
+              String(row.user_id) === String(employeeId)
+            );
+          });
 
-                        if (!parsed)
-                          return false;
+          if (!record) return "Off";
 
-                        const rowDate =
-                          `${parsed.year}-${String(
-                            parsed.month
-                          ).padStart(
-                            2,
-                            "0"
-                          )}-${String(
-                            parsed.day
-                          ).padStart(
-                            2,
-                            "0"
-                          )}`;
+          if (type === "Attendance") return getStatus(record);
+          if (type === "Login") return formatCaliforniaTime(record.login_time);
+          if (type === "Logout") return formatCaliforniaTime(record.logout_time);
+          if (type === "Duration") return formatDuration(record.duration_seconds);
 
-                        return (
-                          rowDate ===
-                            date &&
-                          String(
-                            row.user_id
-                          ) ===
-                            String(
-                              employeeId
-                            )
-                        );
-                      }
-                    );
+          return "";
+        });
 
-                  if (!record) {
-                    return "Off";
-                  }
-
-                  if (
-                    type ===
-                    "Attendance"
-                  ) {
-                    return getStatus(
-                      record
-                    );
-                  }
-
-                  if (
-                    type ===
-                    "Login"
-                  ) {
-                    return formatCaliforniaTime(
-                      record.login_time
-                    );
-                  }
-
-                  if (
-                    type ===
-                    "Logout"
-                  ) {
-                    return formatCaliforniaTime(
-                      record.logout_time
-                    );
-                  }
-
-                  if (
-                    type ===
-                    "Duration"
-                  ) {
-                    return formatDuration(
-                      record.duration_seconds
-                    );
-                  }
-
-                  return "";
-                }
-              );
-
-            return [
-              type,
-              ...values,
-            ];
-          }
-        );
+        return [type, ...values];
+      });
 
       autoTable(doc, {
-        startY,
-
-        head: [
-          [
-            "Status",
-            ...headerDates,
-          ],
-        ],
-
-        body:
-          attendanceBody,
-
+        startY: currentY,
+        margin: { left: 8, right: 8 },
+        head: [["Status", ...headerDates]],
+        body: attendanceBody,
         theme: "grid",
-
         styles: {
-          fontSize: 6.5,
+          fontSize: 6,
           cellPadding: 1.5,
           halign: "center",
           valign: "middle",
-          lineColor: [
-            255,
-            255,
-            255,
-          ],
-          lineWidth: 0.25,
+          lineColor: [200, 200, 200],
+          lineWidth: 0.2,
         },
-
         headStyles: {
-          fillColor: red,
-          textColor: [
-            255,
-            255,
-            255,
-          ],
-          fontStyle:
-            "bold",
+          fillColor: primaryRed,
+          textColor: [255, 255, 255],
+          fontStyle: "bold",
+          fontSize: 6.5,
+          lineColor: [255, 255, 255],
+          lineWidth: 0.2,
         },
-
         columnStyles: {
           0: {
-            fontStyle:
-              "bold",
+            fontStyle: "bold",
+            fillColor: [245, 245, 245],
           },
         },
       });
 
-      startY =
-        doc.lastAutoTable
-          ?.finalY +
-          6 || 50;
+      currentY = doc.lastAutoTable.finalY + 3;
+    });
 
-      doc.setFillColor(
-        red[0],
-        red[1],
-        red[2]
-      );
-
-      doc.rect(
-        8,
-        startY,
-        281,
-        7,
-        "F"
-      );
-
-      doc.setTextColor(
-        255,
-        255,
-        255
-      );
-
-      doc.setFontSize(7);
-
-      doc.text(
-        `Present: ${stats.present}`,
-        15,
-        startY + 4.8
-      );
-
-      doc.text(
-        `Late: ${stats.late}`,
-        70,
-        startY + 4.8
-      );
-
-      doc.text(
-        `Absent: ${stats.absent}`,
-        115,
-        startY + 4.8
-      );
-
-      doc.text(
-        `Total Hours: ${stats.totalHours}`,
-        175,
-        startY + 4.8
-      );
-
-      doc.save(
-        `attendance-${fromDate}-${toDate}.pdf`
-      );
-    } catch (error) {
-      console.error(
-        "PDF ERROR:",
-        error
-      );
-
-      setError(
-        "Unable to generate PDF. Please make sure jspdf and jspdf-autotable are installed."
-      );
+    // ----------------------------------------------------
+    // 4. STATS / SUMMARY FOOTER BAR
+    // ----------------------------------------------------
+    if (currentY > 175) {
+      doc.addPage();
+      currentY = 12;
     }
+
+    autoTable(doc, {
+      startY: currentY + 2,
+      margin: { left: 8, right: 8 },
+      head: [["Present", "Late", "Absent", "Total Hours"]],
+      body: [
+        [
+          stats?.present ?? 0,
+          stats?.late ?? 0,
+          stats?.absent ?? 0,
+          stats?.totalHours ?? "0",
+        ],
+      ],
+      theme: "grid",
+      styles: {
+        fontSize: 7,
+        cellPadding: 2,
+        halign: "center",
+        valign: "middle",
+        lineColor: [200, 200, 200],
+        lineWidth: 0.2,
+      },
+      headStyles: {
+        fillColor: primaryRed,
+        textColor: [255, 255, 255],
+        fontStyle: "bold",
+        fontSize: 7,
+        lineColor: [255, 255, 255],
+        lineWidth: 0.2,
+      },
+    });
+
+    // Save document
+    doc.save(`attendance-${fromDate}-${toDate}.pdf`);
+  } catch (error) {
+    console.error("PDF ERROR:", error);
+    setError(
+      "Unable to generate PDF. Please make sure jspdf and jspdf-autotable are installed."
+    );
   }
+}
 
   /* =======================================================
      LOADING
@@ -11395,10 +11178,9 @@ export default function AttendancePage() {
             transition-transform
             duration-300
             lg:translate-x-0
-            ${
-              sidebarOpen
-                ? "translate-x-0"
-                : "-translate-x-full"
+            ${sidebarOpen
+              ? "translate-x-0"
+              : "-translate-x-full"
             }
           `}
         >
@@ -11460,11 +11242,10 @@ export default function AttendancePage() {
               className="inline-flex items-center justify-center gap-2 h-10 px-4 rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50 transition disabled:opacity-60"
             >
               <RefreshCw
-                className={`w-4 h-4 ${
-                  refreshing
-                    ? "animate-spin"
-                    : ""
-                }`}
+                className={`w-4 h-4 ${refreshing
+                  ? "animate-spin"
+                  : ""
+                  }`}
               />
 
               Refresh
@@ -11739,11 +11520,10 @@ export default function AttendancePage() {
 
             <div className="text-xs text-slate-400">
               {hiddenRecords.length > 0
-                ? `${hiddenRecords.length} attendance ${
-                    hiddenRecords.length === 1
-                      ? "record"
-                      : "records"
-                  } hidden`
+                ? `${hiddenRecords.length} attendance ${hiddenRecords.length === 1
+                  ? "record"
+                  : "records"
+                } hidden`
                 : "No hidden attendance records"}
             </div>
 
@@ -11765,19 +11545,18 @@ export default function AttendancePage() {
 
                 {hiddenRecords.length >
                   0 && (
-                  <span className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-[#741C29] text-white text-[10px] font-bold">
-                    {
-                      hiddenRecords.length
-                    }
-                  </span>
-                )}
+                    <span className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-[#741C29] text-white text-[10px] font-bold">
+                      {
+                        hiddenRecords.length
+                      }
+                    </span>
+                  )}
 
                 <ChevronDown
-                  className={`w-4 h-4 transition-transform ${
-                    showHiddenMenu
-                      ? "rotate-180"
-                      : ""
-                  }`}
+                  className={`w-4 h-4 transition-transform ${showHiddenMenu
+                    ? "rotate-180"
+                    : ""
+                    }`}
                 />
 
               </button>
@@ -11830,7 +11609,7 @@ export default function AttendancePage() {
                   {/* MENU BODY */}
 
                   {hiddenRecords.length ===
-                  0 ? (
+                    0 ? (
                     <div className="px-5 py-10 text-center">
 
                       <div className="w-11 h-11 rounded-xl bg-slate-100 mx-auto flex items-center justify-center mb-3">
@@ -11864,7 +11643,7 @@ export default function AttendancePage() {
                               <div className="w-9 h-9 shrink-0 rounded-full bg-[#741C29]/10 text-[#741C29] flex items-center justify-center font-bold text-xs">
                                 {String(
                                   row.name ||
-                                    "U"
+                                  "U"
                                 )
                                   .slice(
                                     0,
@@ -11998,7 +11777,7 @@ export default function AttendancePage() {
               <tbody className="divide-y divide-slate-100">
 
                 {visibleAttendance.length ===
-                0 ? (
+                  0 ? (
                   <tr>
 
                     <td
@@ -12013,7 +11792,7 @@ export default function AttendancePage() {
                       <div className="flex flex-col items-center">
 
                         {filteredAttendance.length >
-                        0 ? (
+                          0 ? (
                           <>
                             <EyeOff className="w-10 h-10 text-slate-300 mb-3" />
 
@@ -12085,7 +11864,7 @@ export default function AttendancePage() {
 
                                   {String(
                                     row.name ||
-                                      "U"
+                                    "U"
                                   )
                                     .slice(
                                       0,
@@ -12151,7 +11930,7 @@ export default function AttendancePage() {
                           <td className="px-5 py-4">
 
                             {status ===
-                            "Late" ? (
+                              "Late" ? (
                               <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-100">
                                 Late
                               </span>
@@ -12268,17 +12047,17 @@ export default function AttendancePage() {
 
             {hiddenRecords.length >
               0 && (
-              <>
-                {" "}
-                •{" "}
-                <span className="font-semibold text-[#741C29]">
-                  {
-                    hiddenRecords.length
-                  }{" "}
-                  hidden
-                </span>
-              </>
-            )}
+                <>
+                  {" "}
+                  •{" "}
+                  <span className="font-semibold text-[#741C29]">
+                    {
+                      hiddenRecords.length
+                    }{" "}
+                    hidden
+                  </span>
+                </>
+              )}
 
           </div>
 
@@ -12655,7 +12434,7 @@ export default function AttendancePage() {
 
                       {String(
                         deleteRecord.name ||
-                          "U"
+                        "U"
                       )
                         .slice(
                           0,

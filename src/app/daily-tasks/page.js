@@ -1930,9 +1930,11 @@ import {
   RefreshCw,
 } from "lucide-react";
 import LogoutModal from "@/components/LogoutModal";
+import toast from "react-hot-toast";
+import Loader from "@/components/Loader";
 
 export default function AdminDailyDeskPage() {
-    const router = useRouter();
+  const router = useRouter();
   const [file, setFile] = useState(null);
   const [staff, setStaff] = useState([]);
   const [selectedStaff, setSelectedStaff] = useState([]);
@@ -1943,6 +1945,10 @@ export default function AdminDailyDeskPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [csvData, setCsvData] = useState([]); // state that hold sheet data
 
   // Helper: Get local YYYY-MM-DD date string safely without UTC offset shift
   const getLocalDateString = (d = new Date()) => {
@@ -2046,58 +2052,584 @@ export default function AdminDailyDeskPage() {
     });
   }, [historyRecords, searchQuery, statusFilter]);
 
+
+
+
+
   const handleExcelUpload = async (e) => {
     const selectedFile = e.target.files?.[0];
+
     if (!selectedFile) return;
 
     setFile(selectedFile);
 
     try {
       const XLSX = await import("xlsx");
+
       const buffer = await selectedFile.arrayBuffer();
-      const workbook = XLSX.read(buffer, { type: "array" });
+
+      const workbook = XLSX.read(buffer, {
+        type: "array",
+        cellDates: true,
+      });
+
       const sheetName = workbook.SheetNames[0];
+
+      if (!sheetName) {
+        throw new Error("Excel file mein koi sheet nahi mili.");
+      }
+
       const worksheet = workbook.Sheets[sheetName];
-      const rows = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
 
-      const extracted = rows
-        .map((row, index) => {
-          // Flexible key lookup for phone
-          const phoneKey = Object.keys(row).find((k) =>
-            /phone|mobile|number|contact/i.test(k.trim())
+      const rows = XLSX.utils.sheet_to_json(worksheet, {
+        defval: "",
+        raw: true,
+      });
+
+      console.log("Excel Rows:", rows);
+
+      // -----------------------------------------
+      // Check empty Excel
+      // -----------------------------------------
+
+      if (!rows || rows.length === 0) {
+        setNumbers([]);
+        setCsvData([]);
+        setMessage("Excel file empty hai.");
+
+        showAlert(
+          "Invalid Excel",
+          "Excel file mein koi data nahi mila.",
+          "error"
+        );
+
+        return;
+      }
+
+      // -----------------------------------------
+      // Normalize Excel Headers
+      // -----------------------------------------
+
+      const normalizeKey = (key) => {
+        return String(key || "")
+          .trim()
+          .toLowerCase()
+          .replace(/[_-]+/g, " ")
+          .replace(/\s+/g, " ");
+      };
+
+      // -----------------------------------------
+      // Find Column
+      // -----------------------------------------
+
+      const findColumn = (row, possibleNames) => {
+        const key = Object.keys(row).find((originalKey) => {
+          const normalized = normalizeKey(originalKey);
+
+          return possibleNames.some(
+            (name) =>
+              normalized === name ||
+              normalized.includes(name)
           );
-          const phone = phoneKey ? row[phoneKey] : null;
-          const rawPhone = String(phone || "").trim();
+        });
 
-          if (!rawPhone) return null;
+        return key || null;
+      };
 
-          // Flexible key lookup for Task ID
-          const taskKey = Object.keys(row).find((k) =>
-            /task\s*id|id|tsk/i.test(k.trim())
+      // -----------------------------------------
+      // Excel Date Converter
+      // -----------------------------------------
+
+      const formatExcelDate = (value) => {
+        if (
+          value === null ||
+          value === undefined ||
+          value === ""
+        ) {
+          return null;
+        }
+
+        // JS Date
+        if (
+          value instanceof Date &&
+          !isNaN(value.getTime())
+        ) {
+          const year = value.getFullYear();
+
+          const month = String(
+            value.getMonth() + 1
+          ).padStart(2, "0");
+
+          const day = String(
+            value.getDate()
+          ).padStart(2, "0");
+
+          return `${year}-${month}-${day}`;
+        }
+
+        // Excel serial date
+        if (
+          typeof value === "number" &&
+          Number.isFinite(value)
+        ) {
+          try {
+            const excelDate =
+              XLSX.SSF.parse_date_code(value);
+
+            if (excelDate) {
+              const year = excelDate.y;
+
+              const month = String(
+                excelDate.m
+              ).padStart(2, "0");
+
+              const day = String(
+                excelDate.d
+              ).padStart(2, "0");
+
+              return `${year}-${month}-${day}`;
+            }
+          } catch (error) {
+            console.warn(
+              "Excel date parse error:",
+              value
+            );
+          }
+        }
+
+        // String date
+        const stringValue = String(value).trim();
+
+        if (!stringValue) {
+          return null;
+        }
+
+        // YYYY-MM-DD
+        const directMatch =
+          stringValue.match(
+            /^(\d{4})-(\d{1,2})-(\d{1,2})$/
           );
-          const rawTaskId = taskKey ? row[taskKey] : `TSK-${1001 + index}`;
 
-          return {
-            taskId: String(rawTaskId || `TSK-${1001 + index}`).trim(),
-            phone: rawPhone,
-          };
-        })
-        .filter(Boolean);
+        if (directMatch) {
+          const year = directMatch[1];
 
-      const uniqueItems = extracted.filter(
-        (item, index, self) =>
-          index === self.findIndex((t) => t.phone === item.phone)
+          const month = String(
+            directMatch[2]
+          ).padStart(2, "0");
+
+          const day = String(
+            directMatch[3]
+          ).padStart(2, "0");
+
+          return `${year}-${month}-${day}`;
+        }
+
+        const parsedDate = new Date(stringValue);
+
+        if (!isNaN(parsedDate.getTime())) {
+          const year =
+            parsedDate.getFullYear();
+
+          const month = String(
+            parsedDate.getMonth() + 1
+          ).padStart(2, "0");
+
+          const day = String(
+            parsedDate.getDate()
+          ).padStart(2, "0");
+
+          return `${year}-${month}-${day}`;
+        }
+
+        return null;
+      };
+
+      // -----------------------------------------
+      // Phone Normalizer
+      // -----------------------------------------
+
+      const normalizePhone = (value) => {
+        if (
+          value === null ||
+          value === undefined
+        ) {
+          return "";
+        }
+
+        return String(value)
+          .trim()
+          .replace(/[^\d+]/g, "");
+      };
+
+      // -----------------------------------------
+      // Status Normalizer
+      // -----------------------------------------
+
+      const normalizeStatus = (value) => {
+        return String(value || "")
+          .trim()
+          .replace(/\s+/g, " ");
+      };
+
+      // -----------------------------------------
+      // Check Required Columns
+      // -----------------------------------------
+
+      const firstRow = rows[0];
+
+      const businessColumn = findColumn(firstRow, [
+        "business name",
+        "business",
+        "company name",
+        "company",
+      ]);
+
+      const nameColumn = findColumn(firstRow, [
+        "name",
+        "full name",
+        "contact name",
+      ]);
+
+      const phoneColumn = findColumn(firstRow, [
+        "phone number",
+        "phone",
+        "mobile",
+        "mobile number",
+        "contact number",
+        "contact",
+      ]);
+
+      const dateColumn = findColumn(firstRow, [
+        "date",
+        "task date",
+      ]);
+
+      const statusColumn = findColumn(firstRow, [
+        "status",
+        "call status",
+        "lead status",
+      ]);
+
+      const commentColumn = findColumn(firstRow, [
+        "comment",
+        "comments",
+        "note",
+        "notes",
+      ]);
+
+      // -----------------------------------------
+      // Required Columns Missing
+      // -----------------------------------------
+
+      const missingColumns = [];
+
+      if (!businessColumn) {
+        missingColumns.push("Business Name");
+      }
+
+      if (!nameColumn) {
+        missingColumns.push("Name");
+      }
+
+      if (!phoneColumn) {
+        missingColumns.push("Phone Number");
+      }
+
+      if (!dateColumn) {
+        missingColumns.push("Date");
+      }
+
+      if (!statusColumn) {
+        missingColumns.push("Status");
+      }
+
+      console.log("Detected Columns:", {
+        businessColumn,
+        nameColumn,
+        phoneColumn,
+        dateColumn,
+        statusColumn,
+        commentColumn,
+      });
+
+      // -----------------------------------------
+      // Process Rows
+      // -----------------------------------------
+
+      const validRows = [];
+      const invalidRows = [];
+
+      const phoneSet = new Set();
+
+      rows.forEach((row, index) => {
+        const excelRowNumber = index + 2;
+
+        // -----------------------------------------
+        // Raw Values
+        // -----------------------------------------
+
+        const businessName = businessColumn
+          ? String(
+            row[businessColumn] || ""
+          ).trim()
+          : "";
+
+        const name = nameColumn
+          ? String(
+            row[nameColumn] || ""
+          ).trim()
+          : "";
+
+        const phone = phoneColumn
+          ? normalizePhone(row[phoneColumn])
+          : "";
+
+        const status = statusColumn
+          ? normalizeStatus(row[statusColumn])
+          : "";
+
+        const rawDate = dateColumn
+          ? row[dateColumn]
+          : "";
+
+        const date = formatExcelDate(
+          rawDate
+        );
+
+        const comment = commentColumn
+          ? String(
+            row[commentColumn] || ""
+          ).trim()
+          : "";
+
+        // -----------------------------------------
+        // Row Validation
+        // -----------------------------------------
+
+        const errors = [];
+
+        // Missing required column
+        if (!businessColumn) {
+          errors.push("Business Name column missing");
+        }
+
+        if (!nameColumn) {
+          errors.push("Name column missing");
+        }
+
+        if (!phoneColumn) {
+          errors.push("Phone Number column missing");
+        }
+
+        if (!dateColumn) {
+          errors.push("Date column missing");
+        }
+
+        if (!statusColumn) {
+          errors.push("Status column missing");
+        }
+
+        // Missing row data
+        if (businessColumn && !businessName) {
+          errors.push("Business Name missing");
+        }
+
+        if (nameColumn && !name) {
+          errors.push("Name missing");
+        }
+
+        if (phoneColumn && !phone) {
+          errors.push("Phone Number missing");
+        }
+
+        if (dateColumn && !date) {
+          errors.push("Invalid or missing Date");
+        }
+
+        if (statusColumn && !status) {
+          errors.push("Status missing");
+        }
+
+        // -----------------------------------------
+        // Phone Validation
+        // -----------------------------------------
+
+        if (phone) {
+          const phoneDigits =
+            phone.replace(/\D/g, "");
+
+          if (phoneDigits.length < 10) {
+            errors.push(
+              "Invalid Phone Number"
+            );
+          }
+        }
+
+        // -----------------------------------------
+        // Duplicate Phone
+        // -----------------------------------------
+
+        if (phone && phoneSet.has(phone)) {
+          errors.push(
+            "Duplicate Phone Number"
+          );
+        }
+
+        // -----------------------------------------
+        // Invalid Row
+        // Skip this row only
+        // -----------------------------------------
+
+        if (errors.length > 0) {
+          invalidRows.push({
+            row: excelRowNumber,
+            data: {
+              businessName,
+              name,
+              phone,
+              phoneNumber: phone,
+              date,
+              status,
+              comment,
+            },
+            errors,
+          });
+
+          return;
+        }
+
+        // -----------------------------------------
+        // Valid Row
+        // -----------------------------------------
+
+        phoneSet.add(phone);
+
+        validRows.push({
+          taskId: null,
+
+          businessName,
+          name,
+
+          // API expects phoneNumber
+          phoneNumber: phone,
+
+          // Keep phone too if your UI uses it
+          phone,
+
+          date,
+          status,
+          comment,
+        });
+      });
+
+      // -----------------------------------------
+      // Log Invalid Rows
+      // -----------------------------------------
+
+      if (invalidRows.length > 0) {
+        console.warn(
+          `${invalidRows.length} invalid row(s) skipped.`,
+          invalidRows
+        );
+      }
+
+      // -----------------------------------------
+      // No Valid Records
+      // -----------------------------------------
+
+      if (validRows.length === 0) {
+        setNumbers([]);
+        setCsvData([]);
+
+        setMessage(
+          "Excel mein koi valid record nahi mila."
+        );
+
+        const firstErrors = invalidRows
+          .slice(0, 5)
+          .map(
+            (item) =>
+              `Row ${item.row}: ${item.errors.join(
+                ", "
+              )}`
+          )
+          .join("\n");
+
+        showAlert(
+          "No Valid Records",
+          `Excel mein koi valid record nahi mila.\n\n${firstErrors}`,
+          "error"
+        );
+
+        return;
+      }
+
+      // -----------------------------------------
+      // Save Valid Data Only
+      // -----------------------------------------
+
+      setCsvData(validRows);
+
+      setNumbers(validRows);
+
+      // -----------------------------------------
+      // Message
+      // -----------------------------------------
+
+      if (invalidRows.length > 0) {
+        setMessage(
+          `${validRows.length} valid records loaded. ${invalidRows.length} invalid row(s) skipped.`
+        );
+
+        showAlert(
+          "Excel Processed",
+          `${validRows.length} valid records loaded.\n${invalidRows.length} invalid row(s) skipped.`,
+          "success"
+        );
+      } else {
+        setMessage(
+          `${validRows.length} records loaded successfully.`
+        );
+
+        showAlert(
+          "Excel Loaded",
+          `${validRows.length} records processed successfully.`,
+          "success"
+        );
+      }
+
+      console.log(
+        "Valid Excel Data:",
+        validRows
       );
 
-      setNumbers(uniqueItems);
-      setMessage(`${uniqueItems.length} unique phone records loaded successfully.`);
-      showAlert("Excel Loaded", `${uniqueItems.length} records processed successfully.`, "success");
+      console.log(
+        "Skipped Invalid Rows:",
+        invalidRows
+      );
     } catch (error) {
-      console.error("Excel error:", error);
-      setMessage("Excel file read nahi ho saki.");
-      showAlert("Upload Error", "Excel file read nahi ho saki.", "error");
+      console.error(
+        "Excel Upload Error:",
+        error
+      );
+
+      setNumbers([]);
+      setCsvData([]);
+
+      setMessage(
+        error?.message ||
+        "Excel file read nahi ho saki."
+      );
+
+      showAlert(
+        "Upload Error",
+        error?.message ||
+        "Excel file read nahi ho saki.",
+        "error"
+      );
     }
   };
+
 
   const toggleStaff = (id) => {
     setSelectedStaff((prev) =>
@@ -2147,7 +2679,7 @@ export default function AdminDailyDeskPage() {
     return assignments;
   };
 
- const handleConfirmLogout = async () => {
+  const handleConfirmLogout = async () => {
     setLoggingOut(true);
 
     try {
@@ -2175,7 +2707,7 @@ export default function AdminDailyDeskPage() {
     }
   };
 
-  const handleAssign = async () => {
+  const handleAssign2 = async () => {
     const assignments = distributeNumbers();
     if (!assignments) return;
 
@@ -2203,9 +2735,8 @@ export default function AdminDailyDeskPage() {
         throw new Error(data.message || "Numbers assign nahi ho sake.");
       }
 
-      const successMsg = `${data.data?.tasksSaved || numbers.length} tasks successfully assigned to ${
-        data.data?.staffCount || selectedStaff.length
-      } staff members!`;
+      const successMsg = `${data.data?.tasksSaved || numbers.length} tasks successfully assigned to ${data.data?.staffCount || selectedStaff.length
+        } staff members!`;
 
       setMessage(successMsg);
       showAlert("Success!", successMsg, "success");
@@ -2221,6 +2752,50 @@ export default function AdminDailyDeskPage() {
     }
   };
 
+
+  // ===== POST request
+  const handleAssign = async () => {
+    try {
+      setIsSubmitting(true);
+      const response = await fetch("/api/admin/create-task-pools", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          // title,
+          selectedEmployees: selectedStaff,
+          csvData,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to create task pool");
+      }
+
+      toast.success("Tasks assigned to selected staff.")
+      console.log("Task Pool Created:", data);
+
+      // Example:
+      // data.poolId
+      // data.totalAssigned
+
+      return data;
+    } catch (error) {
+      toast.error(error.message || "Failed to Assign tasks")
+      console.error("Create Task Pool Error:", error);
+
+      throw error;
+    } finally {
+      setIsSubmitting(false)
+    }
+  };
+
+
+
+
   return (
     <div className="min-h-screen bg-slate-50 flex relative">
       <Sidebar
@@ -2234,18 +2809,16 @@ export default function AdminDailyDeskPage() {
         {alertConfig.show && (
           <div className="fixed top-6 right-6 z-50 animate-in fade-in slide-in-from-top-4 duration-300">
             <div
-              className={`flex items-start gap-4 p-4 rounded-2xl shadow-xl border max-w-md ${
-                alertConfig.type === "success"
-                  ? "bg-emerald-50 border-emerald-200 text-emerald-900"
-                  : "bg-red-50 border-red-200 text-red-900"
-              }`}
+              className={`flex items-start gap-4 p-4 rounded-2xl shadow-xl border max-w-md ${alertConfig.type === "success"
+                ? "bg-emerald-50 border-emerald-200 text-emerald-900"
+                : "bg-red-50 border-red-200 text-red-900"
+                }`}
             >
               <div
-                className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                  alertConfig.type === "success"
-                    ? "bg-emerald-500 text-white"
-                    : "bg-red-500 text-white"
-                }`}
+                className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${alertConfig.type === "success"
+                  ? "bg-emerald-500 text-white"
+                  : "bg-red-500 text-white"
+                  }`}
               >
                 {alertConfig.type === "success" ? (
                   <CheckCircle2 size={22} />
@@ -2338,6 +2911,34 @@ export default function AdminDailyDeskPage() {
                   {numbers.length}
                 </span>
               </div>
+
+
+
+              <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-slate-100 pt-5">
+                <div>
+                  {message && <p className="text-xs font-semibold text-blue-600">{message}</p>}
+                </div>
+
+                <button
+                  onClick={handleAssign}
+                  disabled={loading || !numbers.length || !selectedStaff.length}
+                  className="w-full sm:w-auto px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold flex items-center justify-center gap-2 transition shadow-md shadow-blue-500/20"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      Assigning Tasks...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 size={16} />
+                      Assign Numbers
+                    </>
+                  )}
+                </button>
+              </div>
+
+
             </div>
 
             {/* STAFF SELECTION */}
@@ -2369,18 +2970,16 @@ export default function AdminDailyDeskPage() {
                     <button
                       key={id}
                       onClick={() => toggleStaff(id)}
-                      className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition duration-150 ${
-                        selected
-                          ? "border-blue-300 bg-blue-50/60 shadow-sm"
-                          : "border-slate-100 hover:bg-slate-50"
-                      }`}
+                      className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition duration-150 ${selected
+                        ? "border-blue-300 bg-blue-50/60 shadow-sm"
+                        : "border-slate-100 hover:bg-slate-50"
+                        }`}
                     >
                       <div
-                        className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition ${
-                          selected
-                            ? "bg-blue-600 text-white"
-                            : "bg-slate-100 text-slate-600"
-                        }`}
+                        className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition ${selected
+                          ? "bg-blue-600 text-white"
+                          : "bg-slate-100 text-slate-600"
+                          }`}
                       >
                         {(user.name || user.fullName || "U").charAt(0).toUpperCase()}
                       </div>
@@ -2401,7 +3000,7 @@ export default function AdminDailyDeskPage() {
           </div>
 
           {/* DISTRIBUTION OPTIONS & SUBMIT */}
-          <div className="bg-white border border-slate-200/80 rounded-2xl shadow-sm p-6">
+          {/* <div className="bg-white border border-slate-200/80 rounded-2xl shadow-sm p-6">
             <h2 className="font-bold text-slate-900">Number Distribution</h2>
             <p className="text-xs text-slate-500 mt-0.5">
               Select how tasks should be distributed among chosen staff members.
@@ -2456,7 +3055,7 @@ export default function AdminDailyDeskPage() {
                 )}
               </button>
             </div>
-          </div>
+          </div> */}
 
           {/* DATE-WISE HISTORY / RECORDS VIEW SECTION */}
           <div className="bg-white border border-slate-200/80 rounded-2xl shadow-sm p-6 space-y-4">
@@ -2519,11 +3118,10 @@ export default function AdminDailyDeskPage() {
                   <button
                     key={st}
                     onClick={() => setStatusFilter(st)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold capitalize transition ${
-                      statusFilter === st
-                        ? "bg-white text-slate-900 shadow-sm"
-                        : "text-slate-500 hover:text-slate-700"
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold capitalize transition ${statusFilter === st
+                      ? "bg-white text-slate-900 shadow-sm"
+                      : "text-slate-500 hover:text-slate-700"
+                      }`}
                   >
                     {st}
                   </button>
@@ -2563,11 +3161,10 @@ export default function AdminDailyDeskPage() {
                         </td>
                         <td className="p-3">
                           <span
-                            className={`px-2 py-1 rounded-md font-bold text-[10px] ${
-                              item.status === "completed"
-                                ? "bg-emerald-50 text-emerald-700"
-                                : "bg-amber-50 text-amber-700"
-                            }`}
+                            className={`px-2 py-1 rounded-md font-bold text-[10px] ${item.status === "completed"
+                              ? "bg-emerald-50 text-emerald-700"
+                              : "bg-amber-50 text-amber-700"
+                              }`}
                           >
                             {(item.status || "Pending").toUpperCase()}
                           </span>
@@ -2575,9 +3172,9 @@ export default function AdminDailyDeskPage() {
                         <td className="p-3 text-right text-slate-400">
                           {item.createdAt
                             ? new Date(item.createdAt).toLocaleTimeString([], {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })
                             : "-"}
                         </td>
                       </tr>
@@ -2595,12 +3192,19 @@ export default function AdminDailyDeskPage() {
       </div>
 
       {/* LOGOUT MODAL */}
-    <LogoutModal
-  show={showLogoutModal}
-  loggingOut={loggingOut}
-  onCancel={() => setShowLogoutModal(false)}
-  onConfirm={handleConfirmLogout}
-/>
+      <LogoutModal
+        show={showLogoutModal}
+        loggingOut={loggingOut}
+        onCancel={() => setShowLogoutModal(false)}
+        onConfirm={handleConfirmLogout}
+      />
+
+
+      {isSubmitting && (
+        <Loader />
+      )}
+
+
     </div>
   );
 }

@@ -2318,20 +2318,20 @@ export async function GET() {
       updated_at: user.updated_at || null,
     }));
 
-    console.log(
-      "GET /api/new-users:",
-      formattedUsers.map((user) => ({
-        id: user.id,
-        name: user.name,
-        role: user.role,
-        team: user.team,
-        availability_status:
-          user.availability_status,
-        break_start: user.break_start,
-        break_end: user.break_end,
-        has_break: user.has_break,
-      }))
-    );
+    // console.log(
+    //   "GET /api/new-users:",
+    //   formattedUsers.map((user) => ({
+    //     id: user.id,
+    //     name: user.name,
+    //     role: user.role,
+    //     team: user.team,
+    //     availability_status:
+    //       user.availability_status,
+    //     break_start: user.break_start,
+    //     break_end: user.break_end,
+    //     has_break: user.has_break,
+    //   }))
+    // );
 
     return NextResponse.json(
       {

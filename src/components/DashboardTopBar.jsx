@@ -4029,7 +4029,9 @@ export default function DashboardTopBar() {
   // ============================================================
 
   useEffect(() => {
-    let mounted = true;
+
+    console.log("API CALL.")
+    // let mounted = true;
 
     async function fetchUserData() {
       try {
@@ -4037,18 +4039,12 @@ export default function DashboardTopBar() {
         // CURRENT USER
         // ======================================================
 
-        const res =
-          await fetch(
-            "/api/auth/me",
-            {
-              cache: "no-store",
-              credentials:
-                "include",
-            }
-          );
+        const res = await fetch("/api/auth/me");
 
         const data =
           await res.json();
+
+          console.log(data, "data")
 
         const userObj =
           data.user ||
@@ -4073,9 +4069,9 @@ export default function DashboardTopBar() {
             userObj.fullName ||
             "";
 
-          if (!mounted) {
-            return;
-          }
+          // if (!mounted) {
+          //   return;
+          // }
 
           setCurrentUser({
             id:
@@ -4135,14 +4131,14 @@ export default function DashboardTopBar() {
               0
           );
 
-        if (mounted) {
+        // if (mounted) {
           setBreakCount(
             Math.max(
               0,
               apiBreakCount
             )
           );
-        }
+        // }
 
         // ======================================================
         // STATUS
@@ -4220,17 +4216,17 @@ export default function DashboardTopBar() {
           error
         );
       } finally {
-        if (mounted) {
+        // if (mounted) {
           setLoading(false);
-        }
+        // }
       }
     }
 
     fetchUserData();
 
-    return () => {
-      mounted = false;
-    };
+    // return () => {
+    //   mounted = false;
+    // };
   }, []);
 
   // ============================================================

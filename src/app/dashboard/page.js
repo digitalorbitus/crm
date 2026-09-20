@@ -1,1815 +1,3 @@
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// "use client";
-
-// import {
-//   Phone,
-//   Menu,
-//   X,
-//   Clock,
-//   PhoneIncoming,
-//   PhoneOff,
-//   TrendingUp,
-//   TrendingDown,
-// } from "lucide-react";
-
-// import LogoutModal from "../../components/LogoutModal";
-// import { useState, useCallback, useEffect, useMemo } from "react";
-// import { useRouter } from "next/navigation";
-// import Sidebar from "@/components/Sidebar";
-// // import CRMLoader from "@/components/CRMLoader";
-
-// import DashboardTopBar from "@/components/DashboardTopBar";
-
-// export default function DashboardPage() {
-//   const router = useRouter();
-
-//   // =========================================================
-//   // STATES
-//   // =========================================================
-
-//   const [loading, setLoading] = useState(true);
-//   const [errorMessage, setErrorMessage] = useState("");
-
-//   const [staff, setStaff] = useState(null);
-//   const [allStaff, setAllStaff] = useState([]);
-
-//   const [rawApiResponse, setRawApiResponse] = useState(null);
-
-//   const [numbers, setNumbers] = useState([]);
-//   const [calls, setCalls] = useState([]);
-
-//   const [sidebarOpen, setSidebarOpen] = useState(false);
-//   const [loggingOut, setLoggingOut] = useState(false);
-//   const [showLogoutModal, setShowLogoutModal] = useState(false);
-
-//   // =========================================================
-//   // HELPERS
-//   // =========================================================
-
-//   const normalizeExtension = (value) => {
-//     if (value === undefined || value === null) {
-//       return null;
-//     }
-
-//     const cleaned = String(value)
-//       .trim()
-//       .replace(/^Ext\.?\s*/i, "");
-
-//     return cleaned || null;
-//   };
-
-//   // =========================================================
-//   // GET CALL LIST
-//   // Handles multiple possible API response formats
-//   // =========================================================
-
-//   const getCallList = useCallback((data) => {
-//     if (!data) return [];
-
-//     // Direct array
-//     if (Array.isArray(data)) {
-//       return data;
-//     }
-
-//     const possibleKeys = [
-//       "calls",
-//       "call_history",
-//       "callHistory",
-//       "call_logs",
-//       "callLogs",
-//       "history",
-//       "records",
-//       "results",
-//       "items",
-//       "rows",
-//       "logs",
-//       "data",
-//     ];
-
-//     // Direct object keys
-//     for (const key of possibleKeys) {
-//       if (Array.isArray(data?.[key])) {
-//         return data[key];
-//       }
-//     }
-
-//     // Nested data object
-//     if (data?.data && typeof data.data === "object") {
-//       if (Array.isArray(data.data)) {
-//         return data.data;
-//       }
-
-//       for (const key of possibleKeys) {
-//         if (Array.isArray(data.data?.[key])) {
-//           return data.data[key];
-//         }
-//       }
-//     }
-
-//     // Nested response object
-//     if (data?.response && typeof data.response === "object") {
-//       if (Array.isArray(data.response)) {
-//         return data.response;
-//       }
-
-//       for (const key of possibleKeys) {
-//         if (Array.isArray(data.response?.[key])) {
-//           return data.response[key];
-//         }
-//       }
-//     }
-
-//     // Nested result object
-//     if (data?.result && typeof data.result === "object") {
-//       if (Array.isArray(data.result)) {
-//         return data.result;
-//       }
-
-//       for (const key of possibleKeys) {
-//         if (Array.isArray(data.result?.[key])) {
-//           return data.result[key];
-//         }
-//       }
-//     }
-
-//     return [];
-//   }, []);
-
-//   // =========================================================
-//   // GET CALL DATE
-//   // =========================================================
-
-//   const getCallDate = useCallback((call) => {
-//     if (!call) return null;
-
-//     const value =
-//       call?.start_time ||
-//       call?.startTime ||
-//       call?.start_datetime ||
-//       call?.startDateTime ||
-//       call?.date_time ||
-//       call?.datetime ||
-//       call?.created_at ||
-//       call?.createdAt ||
-//       call?.timestamp ||
-//       call?.time ||
-//       call?.date;
-
-//     if (!value) return null;
-
-//     const date = new Date(value);
-
-//     if (Number.isNaN(date.getTime())) {
-//       return null;
-//     }
-
-//     return date;
-//   }, []);
-
-//   // =========================================================
-//   // GET DURATION
-//   // =========================================================
-
-//   const getDurationSeconds = useCallback((call) => {
-//     if (!call) return 0;
-
-//     const value =
-//       call?.duration_seconds ??
-//       call?.durationSeconds ??
-//       call?.duration ??
-//       call?.talk_time ??
-//       call?.talkTime ??
-//       call?.seconds ??
-//       call?.duration_sec ??
-//       0;
-
-//     if (typeof value === "number") {
-//       return Number.isFinite(value) ? value : 0;
-//     }
-
-//     if (typeof value === "string") {
-//       const trimmed = value.trim();
-
-//       // HH:MM:SS
-//       const timeMatch = trimmed.match(
-//         /^(\d{1,2}):(\d{1,2}):(\d{1,2})$/
-//       );
-
-//       if (timeMatch) {
-//         return (
-//           Number(timeMatch[1]) * 3600 +
-//           Number(timeMatch[2]) * 60 +
-//           Number(timeMatch[3])
-//         );
-//       }
-
-//       // MM:SS
-//       const shortTimeMatch = trimmed.match(
-//         /^(\d{1,3}):(\d{1,2})$/
-//       );
-
-//       if (shortTimeMatch) {
-//         return (
-//           Number(shortTimeMatch[1]) * 60 +
-//           Number(shortTimeMatch[2])
-//         );
-//       }
-
-//       // "1h 20m 10s"
-//       const hMatch = trimmed.match(/(\d+)\s*h/i);
-//       const mMatch = trimmed.match(/(\d+)\s*m/i);
-//       const sMatch = trimmed.match(/(\d+)\s*s/i);
-
-//       if (hMatch || mMatch || sMatch) {
-//         return (
-//           Number(hMatch?.[1] || 0) * 3600 +
-//           Number(mMatch?.[1] || 0) * 60 +
-//           Number(sMatch?.[1] || 0)
-//         );
-//       }
-
-//       const numeric = Number(trimmed);
-
-//       if (!Number.isNaN(numeric)) {
-//         return numeric;
-//       }
-//     }
-
-//     return 0;
-//   }, []);
-
-//   // =========================================================
-//   // GET STATUS
-//   // =========================================================
-
-//   const getCallStatus = useCallback(
-//     (call) => {
-//       if (!call) return "missed";
-
-//       const raw =
-//         call?.status ??
-//         call?.call_status ??
-//         call?.callStatus ??
-//         call?.result ??
-//         call?.disposition ??
-//         call?.connect_type ??
-//         call?.connectType ??
-//         "";
-
-//       const status = String(raw).toLowerCase().trim();
-
-//       // Missed / unanswered
-//       if (
-//         status.includes("miss") ||
-//         status.includes("no answer") ||
-//         status.includes("no_answer") ||
-//         status.includes("unanswered") ||
-//         status.includes("failed") ||
-//         status.includes("cancel") ||
-//         status.includes("busy") ||
-//         status.includes("voicemail")
-//       ) {
-//         return "missed";
-//       }
-
-//       // Answered
-//       if (
-//         status.includes("answer") ||
-//         status.includes("answered") ||
-//         status.includes("completed") ||
-//         status.includes("connected") ||
-//         status.includes("success") ||
-//         status.includes("connected")
-//       ) {
-//         return "answered";
-//       }
-
-//       // Duration is a strong fallback
-//       if (getDurationSeconds(call) > 0) {
-//         return "answered";
-//       }
-
-//       return "missed";
-//     },
-//     [getDurationSeconds]
-//   );
-
-//   // =========================================================
-//   // GET STAFF NAME
-//   // =========================================================
-
-//   const getStaffName = useCallback((call) => {
-//     if (!call) return "Unknown Staff";
-
-//     const name =
-//       call?.user_name ||
-//       call?.userName ||
-//       call?.agent_name ||
-//       call?.agentName ||
-//       call?.staff_name ||
-//       call?.staffName ||
-//       call?.owner_name ||
-//       call?.ownerName ||
-//       call?.extension_name ||
-//       call?.extensionName ||
-//       call?.caller_name ||
-//       call?.callerName ||
-//       call?.from_name ||
-//       call?.fromName ||
-//       call?.display_name ||
-//       call?.displayName ||
-//       call?.user?.name ||
-//       call?.agent?.name ||
-//       call?.staff?.name ||
-//       call?.owner?.name ||
-//       "";
-
-//     return name ? String(name) : "Unknown Staff";
-//   }, []);
-
-//   // =========================================================
-//   // GET DIRECTION
-//   // =========================================================
-
-//   const getCallDirection = useCallback((call) => {
-//     const raw =
-//       call?.direction ||
-//       call?.call_direction ||
-//       call?.callDirection ||
-//       "";
-
-//     const direction = String(raw).toLowerCase().trim();
-
-//     if (
-//       direction.includes("inbound") ||
-//       direction === "in"
-//     ) {
-//       return "inbound";
-//     }
-
-//     if (
-//       direction.includes("outbound") ||
-//       direction === "out"
-//     ) {
-//       return "outbound";
-//     }
-
-//     return "";
-//   }, []);
-
-//   // =========================================================
-//   // GET CALL OWNER EXTENSION
-//   // =========================================================
-
-//   const getCallOwnerExtension = useCallback(
-//     (call) => {
-//       if (!call) return null;
-
-//       const direction = getCallDirection(call);
-
-//       const callerExtension =
-//         normalizeExtension(call?.caller_extension) ||
-//         normalizeExtension(call?.caller_ext_number) ||
-//         normalizeExtension(call?.callerExtension) ||
-//         normalizeExtension(call?.extension) ||
-//         normalizeExtension(call?.extension_number) ||
-//         normalizeExtension(call?.owner_extension) ||
-//         normalizeExtension(call?.user_extension) ||
-//         normalizeExtension(call?.raw_zoom_data?.caller_ext_number) ||
-//         normalizeExtension(call?.raw_zoom_data?.caller_ext_id);
-
-//       const receiverExtension =
-//         normalizeExtension(call?.receiver_extension) ||
-//         normalizeExtension(call?.receiver_ext_number) ||
-//         normalizeExtension(call?.receiverExtension) ||
-//         normalizeExtension(call?.callee_extension) ||
-//         normalizeExtension(call?.callee_ext_number) ||
-//         normalizeExtension(call?.raw_zoom_data?.callee_ext_number) ||
-//         normalizeExtension(call?.raw_zoom_data?.callee_ext_id);
-
-//       // Inbound call belongs to receiver/staff
-//       if (direction === "inbound") {
-//         return receiverExtension || callerExtension || null;
-//       }
-
-//       // Outbound call belongs to caller/staff
-//       if (direction === "outbound") {
-//         return callerExtension || receiverExtension || null;
-//       }
-
-//       return callerExtension || receiverExtension || null;
-//     },
-//     [getCallDirection]
-//   );
-
-//   // =========================================================
-//   // FIND STAFF BY EXTENSION
-//   // =========================================================
-
-//   const findStaffByExtension = useCallback(
-//     (extension) => {
-//       if (!extension) return null;
-
-//       const normalized = normalizeExtension(extension);
-
-//       if (!normalized) return null;
-
-//       return (
-//         allStaff.find((user) => {
-//           const staffExtension = normalizeExtension(
-//             user?.zoom_extension
-//           );
-
-//           return (
-//             staffExtension &&
-//             staffExtension === normalized
-//           );
-//         }) || null
-//       );
-//     },
-//     [allStaff]
-//   );
-
-//   // =========================================================
-//   // LOAD ALL DASHBOARD DATA
-//   // =========================================================
-
-//   const loadStaffData = useCallback(async () => {
-//     try {
-//       setLoading(true);
-//       setErrorMessage("");
-
-//       // =====================================================
-//       // CURRENT USER
-//       // =====================================================
-
-//       const meRes = await fetch("/api/auth/me", {
-//         cache: "no-store",
-//       });
-
-//       const meData = await meRes.json();
-
-//       if (!meRes.ok) {
-//         throw new Error(
-//           meData?.message ||
-//             meData?.error ||
-//             "Unable to load current user."
-//         );
-//       }
-
-//       const currentUser =
-//         meData?.user ||
-//         meData?.data ||
-//         meData;
-
-//       setStaff(currentUser);
-
-//       // =====================================================
-//       // STAFF LIST
-//       // =====================================================
-
-//       try {
-//         const staffRes = await fetch("/api/staffes/list", {
-//           cache: "no-store",
-//         });
-
-//         const staffData = await staffRes.json();
-
-//         if (staffRes.ok) {
-//           const staffList =
-//             staffData?.staff ||
-//             staffData?.users ||
-//             staffData?.data ||
-//             staffData?.results ||
-//             [];
-
-//           setAllStaff(
-//             Array.isArray(staffList)
-//               ? staffList
-//               : []
-//           );
-//         }
-//       } catch (staffError) {
-//         console.error(
-//           "STAFF LIST ERROR:",
-//           staffError
-//         );
-
-//         setAllStaff([]);
-//       }
-
-//       // =====================================================
-//       // DAILY DESK
-//       // =====================================================
-
-//       try {
-//         const deskRes = await fetch(
-//           "/api/staff/daily-desk",
-//           {
-//             cache: "no-store",
-//           }
-//         );
-
-//         const deskData = await deskRes.json();
-
-//         if (deskRes.ok) {
-//           const deskNumbers =
-//             deskData?.numbers ||
-//             deskData?.data ||
-//             deskData?.extensions ||
-//             [];
-
-//           setNumbers(
-//             Array.isArray(deskNumbers)
-//               ? deskNumbers
-//               : []
-//           );
-//         }
-//       } catch (deskError) {
-//         console.error(
-//           "DAILY DESK ERROR:",
-//           deskError
-//         );
-
-//         setNumbers([]);
-//       }
-
-//       // =====================================================
-//       // ZOOM CALL HISTORY
-//       // =====================================================
-
-//       const callRes = await fetch(
-//         "/api/zoom/call-history",
-//         {
-//           method: "GET",
-//           cache: "no-store",
-//           headers: {
-//             Accept: "application/json",
-//           },
-//         }
-//       );
-
-//       const callData = await callRes.json();
-
-//       console.log(
-//         "===================================="
-//       );
-//       console.log(
-//         "ZOOM CALL HISTORY FULL RESPONSE:"
-//       );
-//       console.log(callData);
-//       console.log(
-//         "===================================="
-//       );
-
-//       setRawApiResponse(callData);
-
-//       if (!callRes.ok) {
-//         throw new Error(
-//           callData?.message ||
-//             callData?.error ||
-//             "Failed to load Zoom call history."
-//         );
-//       }
-
-//       const callList = getCallList(callData);
-
-//       console.log(
-//         "NORMALIZED CALL LIST:",
-//         callList
-//       );
-
-//       console.log(
-//         "CALL COUNT:",
-//         callList.length
-//       );
-
-//       if (callList.length > 0) {
-//         console.log(
-//           "FIRST CALL OBJECT:",
-//           callList[0]
-//         );
-//       }
-
-//       setCalls(
-//         Array.isArray(callList)
-//           ? callList
-//           : []
-//       );
-//     } catch (error) {
-//       console.error(
-//         "DASHBOARD LOAD ERROR:",
-//         error
-//       );
-
-//       setErrorMessage(
-//         error?.message ||
-//           "Unable to load dashboard data."
-//       );
-
-//       setCalls([]);
-//     } finally {
-//       setLoading(false);
-//     }
-//   }, [getCallList]);
-
-//   // =========================================================
-//   // INITIAL LOAD
-//   // =========================================================
-
-//   useEffect(() => {
-//     loadStaffData();
-//   }, [loadStaffData]);
-
-//   // =========================================================
-//   // LAST 7 DAYS
-//   // =========================================================
-
-//   const lastSevenDays = useMemo(() => {
-//     const days = [];
-
-//     const today = new Date();
-
-//     today.setHours(
-//       0,
-//       0,
-//       0,
-//       0
-//     );
-
-//     for (let i = 6; i >= 0; i--) {
-//       const date = new Date(today);
-
-//       date.setDate(
-//         today.getDate() - i
-//       );
-
-//       days.push(date);
-//     }
-
-//     return days;
-//   }, []);
-
-//   // =========================================================
-//   // NORMALIZED CALLS
-//   // =========================================================
-
-//   const normalizedCalls = useMemo(() => {
-//     if (!Array.isArray(calls)) {
-//       return [];
-//     }
-
-//     return calls
-//       .map((call) => {
-//         const date = getCallDate(call);
-//         const status = getCallStatus(call);
-//         const staffName = getStaffName(call);
-//         const duration =
-//           getDurationSeconds(call);
-
-//         const ownerExtension =
-//           getCallOwnerExtension(call);
-
-//         const staffFromExtension =
-//           findStaffByExtension(
-//             ownerExtension
-//           );
-
-//         const finalStaffName =
-//           staffFromExtension?.name ||
-//           staffFromExtension?.full_name ||
-//           staffFromExtension?.display_name ||
-//           staffName;
-
-//         return {
-//           original: call,
-//           date,
-//           status,
-//           staffName:
-//             finalStaffName ||
-//             "Unknown Staff",
-//           duration,
-//           ownerExtension,
-//           direction:
-//             getCallDirection(call),
-//         };
-//       })
-//       .filter((call) => call.date);
-//   }, [
-//     calls,
-//     getCallDate,
-//     getCallStatus,
-//     getStaffName,
-//     getDurationSeconds,
-//     getCallOwnerExtension,
-//     findStaffByExtension,
-//     getCallDirection,
-//   ]);
-
-//   // =========================================================
-//   // TOTAL CALLS
-//   // =========================================================
-
-//   // const totalCalls = normalizedCalls.length;
-
-//   const todayCalls = useMemo(() => {
-//   const now = new Date();
-
-//   const startOfToday = new Date(now);
-//   startOfToday.setHours(0, 0, 0, 0);
-
-//   const endOfToday = new Date(now);
-//   endOfToday.setHours(23, 59, 59, 999);
-
-//   return normalizedCalls.filter(({ date }) => {
-//     if (!date) return false;
-
-//     return date >= startOfToday && date <= endOfToday;
-//   });
-// }, [normalizedCalls]);
-
-// const totalCalls = todayCalls.length;
-
-//   // =========================================================
-//   // ANSWERED CALLS
-//   // =========================================================
-
-//   // const answeredCalls = useMemo(() => {
-//   //   return normalizedCalls.filter(
-//   //     (call) =>
-//   //       call.status === "answered"
-//   //   );
-//   // }, [normalizedCalls]);
-//   const answeredCalls = useMemo(() => {
-//   return todayCalls.filter(
-//     (call) => call.status === "answered"
-//   );
-// }, [todayCalls]);
-
-//   // =========================================================
-//   // MISSED CALLS
-//   // =========================================================
-
-//   // const missedCalls = useMemo(() => {
-//   //   return normalizedCalls.filter(
-//   //     (call) =>
-//   //       call.status === "missed"
-//   //   );
-//   // }, [normalizedCalls]);
-
-//   const missedCalls = useMemo(() => {
-//   return todayCalls.filter(
-//     (call) => call.status === "missed"
-//   );
-// }, [todayCalls]);
-//   // =========================================================
-//   // ANSWERED PERCENTAGE
-//   // =========================================================
-
-//   // const answeredPercentage = useMemo(() => {
-//   //   if (totalCalls === 0) return 0;
-
-//   //   return Math.round(
-//   //     (answeredCalls.length /
-//   //       totalCalls) *
-//   //       100
-//   //   );
-//   // }, [
-//   //   answeredCalls.length,
-//   //   totalCalls,
-//   // ]);
-
-
-//   const answeredPercentage = useMemo(() => {
-//   if (totalCalls === 0) return 0;
-
-//   return Math.round(
-//     (answeredCalls.length / totalCalls) * 100
-//   );
-// }, [answeredCalls.length, totalCalls]);
-
-// const missedPercentage = useMemo(() => {
-//   if (totalCalls === 0) return 0;
-
-//   return Math.round(
-//     (missedCalls.length / totalCalls) * 100
-//   );
-// }, [missedCalls.length, totalCalls]);
-//   // =========================================================
-//   // MISSED PERCENTAGE
-//   // =========================================================
-
-//   // const missedPercentage = useMemo(() => {
-//   //   if (totalCalls === 0) return 0;
-
-//   //   return Math.round(
-//   //     (missedCalls.length /
-//   //       totalCalls) *
-//   //       100
-//   //   );
-//   // }, [
-//   //   missedCalls.length,
-//   //   totalCalls,
-//   // ]);
-
-//   // =========================================================
-//   // TOTAL TALK TIME
-//   // =========================================================
-
-//   const totalTalkSeconds = useMemo(() => {
-//     return answeredCalls.reduce(
-//       (total, call) =>
-//         total +
-//         (Number(call.duration) || 0),
-//       0
-//     );
-//   }, [answeredCalls]);
-
-//   // =========================================================
-//   // FORMAT DURATION
-//   // =========================================================
-
-//   const formatDuration = (seconds) => {
-//     const value =
-//       Number(seconds) || 0;
-
-//     const hours = Math.floor(
-//       value / 3600
-//     );
-
-//     const minutes = Math.floor(
-//       (value % 3600) / 60
-//     );
-
-//     const secs = Math.floor(
-//       value % 60
-//     );
-
-//     if (hours > 0) {
-//       return `${hours}h ${minutes}m`;
-//     }
-
-//     if (minutes > 0) {
-//       return `${minutes}m ${secs}s`;
-//     }
-
-//     return `${secs}s`;
-//   };
-
-//   // =========================================================
-//   // TOP STAFF
-//   // =========================================================
-
-//   const topStaff = useMemo(() => {
-//     if (!Array.isArray(allStaff)) {
-//       return [];
-//     }
-
-//     return allStaff
-//       .map((user) => {
-//         const extension =
-//           normalizeExtension(
-//             user?.zoom_extension
-//           );
-
-//         const userCalls =
-//           normalizedCalls.filter(
-//             ({ ownerExtension }) => {
-//               return (
-//                 extension &&
-//                 ownerExtension &&
-//                 extension ===
-//                   normalizeExtension(
-//                     ownerExtension
-//                   )
-//               );
-//             }
-//           );
-
-//         const answered =
-//           userCalls.filter(
-//             (call) =>
-//               call.status === "answered"
-//           ).length;
-
-//         const missed =
-//           userCalls.filter(
-//             (call) =>
-//               call.status === "missed"
-//           ).length;
-
-//         const talkTime =
-//           userCalls.reduce(
-//             (total, call) =>
-//               total +
-//               (Number(call.duration) ||
-//                 0),
-//             0
-//           );
-
-//         return {
-//           ...user,
-//           extension,
-//           totalCalls:
-//             userCalls.length,
-//           answered,
-//           missed,
-//           talkTime,
-//         };
-//       })
-//       .filter(
-//         (user) =>
-//           user.totalCalls > 0
-//       )
-//       .sort(
-//         (a, b) =>
-//           b.totalCalls -
-//           a.totalCalls
-//       )
-//       .slice(0, 5);
-//   }, [
-//     allStaff,
-//     normalizedCalls,
-//   ]);
-
-//   // =========================================================
-//   // LAST 7 DAYS CHART
-//   // =========================================================
-
-//   const chartData = useMemo(() => {
-//     return lastSevenDays.map(
-//       (day) => {
-//         const start = new Date(day);
-
-//         start.setHours(
-//           0,
-//           0,
-//           0,
-//           0
-//         );
-
-//         const end = new Date(day);
-
-//         end.setHours(
-//           23,
-//           59,
-//           59,
-//           999
-//         );
-
-//         const dayCalls =
-//           normalizedCalls.filter(
-//             ({ date }) =>
-//               date >= start &&
-//               date <= end
-//           );
-
-//         const answered =
-//           dayCalls.filter(
-//             (call) =>
-//               call.status ===
-//               "answered"
-//           ).length;
-
-//         const missed =
-//           dayCalls.filter(
-//             (call) =>
-//               call.status ===
-//               "missed"
-//           ).length;
-
-//         return {
-//           date: day,
-//           total: dayCalls.length,
-//           answered,
-//           missed,
-//           label: day.toLocaleDateString(
-//             "en-US",
-//             {
-//               weekday: "short",
-//             }
-//           ),
-//         };
-//       }
-//     );
-//   }, [
-//     lastSevenDays,
-//     normalizedCalls,
-//   ]);
-
-//   const chartMax = Math.max(
-//     ...chartData.map(
-//       (item) => item.total
-//     ),
-//     1
-//   );
-
-//   // =========================================================
-//   // LIVE ACTIVITIES
-//   // =========================================================
-
-//   const liveActivities = useMemo(() => {
-//     return [...normalizedCalls]
-//       .sort(
-//         (a, b) =>
-//           b.date.getTime() -
-//           a.date.getTime()
-//       )
-//       .slice(0, 8)
-//       .map((call, index) => {
-//         const original =
-//           call.original;
-
-//         const phone =
-//           original?.caller_number ||
-//           original?.callerNumber ||
-//           original?.from_number ||
-//           original?.fromNumber ||
-//           original?.receiver_number ||
-//           original?.receiverNumber ||
-//           original?.to_number ||
-//           original?.toNumber ||
-//           "Unknown Number";
-
-//         return {
-//           id:
-//             original?.id ||
-//             original?.zoom_call_id ||
-//             original?.call_history_uuid ||
-//             index,
-//           name:
-//             call.staffName ||
-//             "Unknown Staff",
-//           extension:
-//             call.ownerExtension ||
-//             "-",
-//           phone,
-//           status:
-//             call.status,
-//           direction:
-//             call.direction,
-//           duration:
-//             call.duration,
-//           date:
-//             call.date,
-//         };
-//       });
-//   }, [normalizedCalls]);
-
-//   // =========================================================
-//   // HANDLE LOGOUT
-//   // =========================================================
-
-//   const handleLogout = async () => {
-//     try {
-//       setLoggingOut(true);
-
-//       await fetch(
-//         "/api/auth/logout",
-//         {
-//           method: "POST",
-//           credentials: "include",
-//         }
-//       );
-
-//       router.push("/login");
-//       router.refresh();
-//     } catch (error) {
-//       console.error(
-//         "LOGOUT ERROR:",
-//         error
-//       );
-
-//       router.push("/login");
-//     } finally {
-//       setLoggingOut(false);
-//       setShowLogoutModal(false);
-//     }
-//   };
-
-//   // =========================================================
-//   // LOADING
-//   // =========================================================
-
-//   // if (loading) {
-//   //   return <CRMLoader />;
-//   // }
-
-//   // =========================================================
-//   // DASHBOARD
-//   // =========================================================
-
-//   return (
-//     <div className="min-h-screen bg-[#f7f8fa] text-[#171717]">
-//       {/* =====================================================
-//           MOBILE SIDEBAR OVERLAY
-//       ====================================================== */}
-
-//       {sidebarOpen && (
-//         <div
-//           className="fixed inset-0 z-40 bg-black/40 lg:hidden"
-//           onClick={() =>
-//             setSidebarOpen(false)
-//           }
-//         />
-//       )}
-
-//       {/* =====================================================
-//           SIDEBAR
-//       ====================================================== */}
-
-//       <div
-//         className={`
-//           fixed inset-y-0 left-0 z-50
-//           w-[270px]
-//           transform
-//           bg-white
-//           shadow-xl
-//           transition-transform
-//           duration-300
-//           lg:translate-x-0
-//           ${
-//             sidebarOpen
-//               ? "translate-x-0"
-//               : "-translate-x-full"
-//           }
-//         `}
-//       >
-//         <Sidebar
-//           staff={staff}
-//           allStaff={allStaff}
-//           numbers={numbers}
-//           onLogout={() =>
-//             setShowLogoutModal(true)
-//           }
-//         />
-//       </div>
-
-//       {/* =====================================================
-//           MAIN
-//       ====================================================== */}
-
-//       <main className="min-h-screen lg:pl-[270px]">
-//         {/* ===================================================
-//             TOP BAR
-//         ==================================================== */}
-
-//         <div className="sticky top-0 z-30 bg-[#f7f8fa]/95 backdrop-blur">
-//           <div className="flex items-center gap-3 px-4 py-3 lg:hidden">
-//             <button
-//               type="button"
-//               onClick={() =>
-//                 setSidebarOpen(
-//                   !sidebarOpen
-//                 )
-//               }
-//               className="flex h-10 w-10 items-center justify-center rounded-xl bg-white shadow-sm"
-//             >
-//               {sidebarOpen ? (
-//                 <X size={20} />
-//               ) : (
-//                 <Menu size={20} />
-//               )}
-//             </button>
-//           </div>
-
-//           <DashboardTopBar
-//             staff={staff}
-//             onLogout={() =>
-//               setShowLogoutModal(true)
-//             }
-//           />
-//         </div>
-
-//         {/* ===================================================
-//             CONTENT
-//         ==================================================== */}
-
-//         <div className="px-4 pb-10 pt-4 sm:px-6 lg:px-8">
-//           {/* =================================================
-//               ERROR
-//           ================================================== */}
-
-//           {errorMessage && (
-//             <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-//               <div className="font-semibold">
-//                 Dashboard data issue
-//               </div>
-
-//               <div className="mt-1">
-//                 {errorMessage}
-//               </div>
-//             </div>
-//           )}
-
-//           {/* =================================================
-//               HEADER
-//           ================================================== */}
-
-//           <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-//             <div>
-//               <p className="text-sm font-medium text-[#790214]">
-//                 Call Analytics
-//               </p>
-
-//               <h1 className="mt-1 text-2xl font-bold tracking-tight text-[#191919] sm:text-3xl">
-//                 Dashboard
-//               </h1>
-
-//               <p className="mt-1 text-sm text-gray-500">
-//                 Monitor your team's Zoom
-//                 call activity.
-//               </p>
-//             </div>
-
-//             <div className="rounded-xl bg-white px-4 py-2 text-sm shadow-sm ring-1 ring-black/5">
-//               <span className="text-gray-500">
-//                 Total records:
-//               </span>{" "}
-//               <span className="font-semibold text-[#790214]">
-//                 {totalCalls}
-//               </span>
-//             </div>
-//           </div>
-
-//           {/* =================================================
-//               STATS
-//           ================================================== */}
-
-//           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-//             {/* TOTAL CALLS */}
-
-//             <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
-//               <div className="flex items-start justify-between">
-//                 <div>
-//                   <p className="text-sm font-medium text-gray-500">
-//                     Total Calls
-//                   </p>
-
-//                   <h2 className="mt-2 text-3xl font-bold">
-//                     {totalCalls}
-//                   </h2>
-//                 </div>
-
-//                 <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#790214]/10 text-[#790214]">
-//                   <Phone size={21} />
-//                 </div>
-//               </div>
-
-//               <div className="mt-4 flex items-center gap-2 text-xs text-gray-500">
-//                 <TrendingUp
-//                   size={14}
-//                 />
-
-//                 <span>
-//                   Live call history
-//                 </span>
-//               </div>
-//             </div>
-
-//             {/* ANSWERED */}
-
-//             <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
-//               <div className="flex items-start justify-between">
-//                 <div>
-//                   <p className="text-sm font-medium text-gray-500">
-//                     Answered
-//                   </p>
-
-//                   <h2 className="mt-2 text-3xl font-bold text-green-600">
-//                     {answeredCalls.length}
-//                   </h2>
-//                 </div>
-
-//                 <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-green-50 text-green-600">
-//                   <PhoneIncoming
-//                     size={21}
-//                   />
-//                 </div>
-//               </div>
-
-//               <div className="mt-4 flex items-center gap-2 text-xs text-gray-500">
-//                 <span>
-//                   {answeredPercentage}% answer
-//                   rate
-//                 </span>
-//               </div>
-//             </div>
-
-//             {/* MISSED */}
-
-//             <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
-//               <div className="flex items-start justify-between">
-//                 <div>
-//                   <p className="text-sm font-medium text-gray-500">
-//                     Missed
-//                   </p>
-
-//                   <h2 className="mt-2 text-3xl font-bold text-red-600">
-//                     {missedCalls.length}
-//                   </h2>
-//                 </div>
-
-//                 <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-red-50 text-red-600">
-//                   <PhoneOff size={21} />
-//                 </div>
-//               </div>
-
-//               <div className="mt-4 flex items-center gap-2 text-xs text-gray-500">
-//                 <TrendingDown
-//                   size={14}
-//                 />
-
-//                 <span>
-//                   {missedPercentage}% missed
-//                   rate
-//                 </span>
-//               </div>
-//             </div>
-
-//             {/* TALK TIME */}
-
-//             <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
-//               <div className="flex items-start justify-between">
-//                 <div>
-//                   <p className="text-sm font-medium text-gray-500">
-//                     Talk Time
-//                   </p>
-
-//                   <h2 className="mt-2 text-3xl font-bold">
-//                     {formatDuration(
-//                       totalTalkSeconds
-//                     )}
-//                   </h2>
-//                 </div>
-
-//                 <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-//                   <Clock size={21} />
-//                 </div>
-//               </div>
-
-//               <div className="mt-4 text-xs text-gray-500">
-//                 Total answered-call duration
-//               </div>
-//             </div>
-//           </div>
-
-//           {/* =================================================
-//               CHART + DONUT
-//           ================================================== */}
-
-//           <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-3">
-//             {/* CHART */}
-
-//             <div className="xl:col-span-2 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5 sm:p-6">
-//               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-//                 <div>
-//                   <h2 className="text-lg font-bold">
-//                     Call Activity
-//                   </h2>
-
-//                   <p className="text-sm text-gray-500">
-//                     Last 7 days
-//                   </p>
-//                 </div>
-
-//                 <div className="text-sm text-gray-500">
-//                   Peak:
-//                   <span className="ml-1 font-semibold text-[#790214]">
-//                     {chartMax}
-//                   </span>
-//                 </div>
-//               </div>
-
-//               <div className="mt-7">
-//                 <div className="flex h-[180px] items-end gap-2 sm:gap-4">
-//                   {chartData.map(
-//                     (item, index) => {
-//                       const height =
-//                         Math.max(
-//                           (item.total /
-//                             chartMax) *
-//                             100,
-//                           item.total > 0
-//                             ? 6
-//                             : 0
-//                         );
-
-//                       return (
-//                         <div
-//                           key={index}
-//                           className="flex h-full flex-1 flex-col justify-end"
-//                         >
-//                           <div className="flex h-full items-end justify-center">
-//                             <div
-//                               title={`${item.total} calls`}
-//                               className="w-full max-w-[42px] rounded-t-xl bg-[#790214] transition-all duration-300 hover:opacity-80"
-//                               style={{
-//                                 height: `${height}%`,
-//                               }}
-//                             />
-//                           </div>
-
-//                           <div className="mt-3 text-center text-[11px] font-medium text-gray-500">
-//                             {item.label}
-//                           </div>
-
-//                           <div className="mt-1 text-center text-xs font-bold text-gray-700">
-//                             {item.total}
-//                           </div>
-//                         </div>
-//                       );
-//                     }
-//                   )}
-//                 </div>
-//               </div>
-//             </div>
-
-//             {/* DONUT */}
-
-//             <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5 sm:p-6">
-//               <h2 className="text-lg font-bold">
-//                 Call Outcome
-//               </h2>
-
-//               <p className="text-sm text-gray-500">
-//                 Answered vs missed
-//               </p>
-
-//               <div className="mt-7 flex items-center justify-center">
-//                 <div className="relative h-48 w-48">
-//                   <div
-//                     className="absolute inset-0 rounded-full"
-//                     style={{
-//                       background: `conic-gradient(
-//                         #16a34a 0% ${answeredPercentage}%,
-//                         #dc2626 ${answeredPercentage}% 100%
-//                       )`,
-//                     }}
-//                   />
-
-//                   <div className="absolute inset-[22px] flex flex-col items-center justify-center rounded-full bg-white">
-//                     <div className="text-3xl font-bold">
-//                       {answeredPercentage}%
-//                     </div>
-
-//                     <div className="text-xs text-gray-500">
-//                       Answered
-//                     </div>
-//                   </div>
-//                 </div>
-//               </div>
-
-//               <div className="mt-7 grid grid-cols-2 gap-3">
-//                 <div className="rounded-xl bg-green-50 p-3">
-//                   <div className="text-xs text-green-700">
-//                     Answered
-//                   </div>
-
-//                   <div className="mt-1 text-lg font-bold text-green-700">
-//                     {answeredCalls.length}
-//                   </div>
-//                 </div>
-
-//                 <div className="rounded-xl bg-red-50 p-3">
-//                   <div className="text-xs text-red-700">
-//                     Missed
-//                   </div>
-
-//                   <div className="mt-1 text-lg font-bold text-red-700">
-//                     {missedCalls.length}
-//                   </div>
-//                 </div>
-//               </div>
-//             </div>
-//           </div>
-
-//           {/* =================================================
-//               STAFF + LIVE ACTIVITY
-//           ================================================== */}
-
-//           <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
-//             {/* TOP STAFF */}
-
-//             <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5 sm:p-6">
-//               <div className="flex items-center justify-between">
-//                 <div>
-//                   <h2 className="text-lg font-bold">
-//                     Top Staff
-//                   </h2>
-
-//                   <p className="text-sm text-gray-500">
-//                     Calls by extension
-//                   </p>
-//                 </div>
-
-//                 <Phone
-//                   size={20}
-//                   className="text-[#790214]"
-//                 />
-//               </div>
-
-//               <div className="mt-5 space-y-3">
-//                 {topStaff.length === 0 ? (
-//                   <div className="rounded-xl bg-gray-50 p-5 text-center text-sm text-gray-500">
-//                     No staff call data found.
-//                   </div>
-//                 ) : (
-//                   topStaff.map(
-//                     (user, index) => (
-//                       <div
-//                         key={
-//                           user?.id ||
-//                           user?.extension ||
-//                           index
-//                         }
-//                         className="flex items-center justify-between rounded-xl border border-gray-100 p-3 transition hover:bg-gray-50"
-//                       >
-//                         <div className="flex min-w-0 items-center gap-3">
-//                           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#790214]/10 text-sm font-bold text-[#790214]">
-//                             {String(
-//                               user?.name ||
-//                                 user?.full_name ||
-//                                 "U"
-//                             )
-//                               .charAt(0)
-//                               .toUpperCase()}
-//                           </div>
-
-//                           <div className="min-w-0">
-//                             <div className="truncate text-sm font-semibold">
-//                               {user?.name ||
-//                                 user?.full_name ||
-//                                 user?.display_name ||
-//                                 "Unknown Staff"}
-//                             </div>
-
-//                             <div className="text-xs text-gray-500">
-//                               Ext.{" "}
-//                               {user.extension ||
-//                                 "-"}
-//                             </div>
-//                           </div>
-//                         </div>
-
-//                         <div className="text-right">
-//                           <div className="text-sm font-bold">
-//                             {user.totalCalls}
-//                           </div>
-
-//                           <div className="text-[11px] text-gray-500">
-//                             {user.answered} answered
-//                           </div>
-//                         </div>
-//                       </div>
-//                     )
-//                   )
-//                 )}
-//               </div>
-//             </div>
-
-//             {/* LIVE ACTIVITY */}
-
-//             <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5 sm:p-6">
-//               <div className="flex items-center justify-between">
-//                 <div>
-//                   <h2 className="text-lg font-bold">
-//                     Recent Calls
-//                   </h2>
-
-//                   <p className="text-sm text-gray-500">
-//                     Latest Zoom call activity
-//                   </p>
-//                 </div>
-
-//                 <div className="flex items-center gap-2 text-xs font-medium text-green-600">
-//                   <span className="h-2 w-2 animate-pulse rounded-full bg-green-500" />
-//                   Live
-//                 </div>
-//               </div>
-
-//               <div className="mt-5 space-y-2">
-//                 {liveActivities.length === 0 ? (
-//                   <div className="rounded-xl bg-gray-50 p-5 text-center text-sm text-gray-500">
-//                     No call activity found.
-//                   </div>
-//                 ) : (
-//                   liveActivities.map(
-//                     (activity) => (
-//                       <div
-//                         key={activity.id}
-//                         className="flex items-center justify-between gap-3 rounded-xl border border-gray-100 p-3"
-//                       >
-//                         <div className="flex min-w-0 items-center gap-3">
-//                           <div
-//                             className={`
-//                               flex h-9 w-9 shrink-0
-//                               items-center justify-center
-//                               rounded-full
-//                               ${
-//                                 activity.status ===
-//                                 "answered"
-//                                   ? "bg-green-50 text-green-600"
-//                                   : "bg-red-50 text-red-600"
-//                               }
-//                             `}
-//                           >
-//                             {activity.status ===
-//                             "answered" ? (
-//                               <PhoneIncoming
-//                                 size={16}
-//                               />
-//                             ) : (
-//                               <PhoneOff
-//                                 size={16}
-//                               />
-//                             )}
-//                           </div>
-
-//                           <div className="min-w-0">
-//                             <div className="truncate text-sm font-semibold">
-//                               {activity.name}
-//                             </div>
-
-//                             <div className="truncate text-xs text-gray-500">
-//                               Ext.{" "}
-//                               {activity.extension}
-//                               {" • "}
-//                               {activity.phone}
-//                             </div>
-//                           </div>
-//                         </div>
-
-//                         <div className="shrink-0 text-right">
-//                           <div
-//                             className={`
-//                               text-xs font-semibold
-//                               ${
-//                                 activity.status ===
-//                                 "answered"
-//                                   ? "text-green-600"
-//                                   : "text-red-600"
-//                               }
-//                             `}
-//                           >
-//                             {activity.status ===
-//                             "answered"
-//                               ? "Answered"
-//                               : "Missed"}
-//                           </div>
-
-//                           <div className="mt-1 text-[11px] text-gray-500">
-//                             {formatDuration(
-//                               activity.duration
-//                             )}
-//                           </div>
-//                         </div>
-//                       </div>
-//                     )
-//                   )
-//                 )}
-//               </div>
-//             </div>
-//           </div>
-
-//           {/* =================================================
-//               DEBUG INFORMATION
-//               Remove after everything works
-//           ================================================== */}
-
-//           <div className="mt-6 rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-4">
-//             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-//               <div>
-//                 <p className="text-sm font-semibold text-gray-700">
-//                   API Debug
-//                 </p>
-
-//                 <p className="text-xs text-gray-500">
-//                   Calls detected:
-//                   {" "}
-//                   {calls.length}
-//                 </p>
-//               </div>
-
-//               <div className="text-xs text-gray-500">
-//                 Answered:{" "}
-//                 {answeredCalls.length}
-//                 {" • "}
-//                 Missed:{" "}
-//                 {missedCalls.length}
-//               </div>
-//             </div>
-//           </div>
-//         </div>
-//       </main>
-
-//       {/* =====================================================
-//           LOGOUT MODAL
-//       ====================================================== */}
-
-//       {showLogoutModal && (
-//         <LogoutModal
-//           open={showLogoutModal}
-//           loading={loggingOut}
-//           onCancel={() =>
-//             setShowLogoutModal(false)
-//           }
-//           onConfirm={handleLogout}
-//         />
-//       )}
-//     </div>
-//   );
-// }
-
-
-
-
-
-
-
 "use client";
 
 import {
@@ -1828,6 +16,113 @@ import { useState, useCallback, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import DashboardTopBar from "@/components/DashboardTopBar";
+
+function DashboardSkeleton() {
+  const SkeletonBlock = ({ className = "" }) => (
+    <div
+      className={`animate-pulse rounded-lg bg-gray-200 ${className}`}
+    />
+  );
+
+  return (
+    <div className="space-y-6" aria-label="Loading dashboard">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="space-y-2">
+          <SkeletonBlock className="h-4 w-28" />
+          <SkeletonBlock className="h-9 w-44" />
+          <SkeletonBlock className="h-4 w-64 max-w-full" />
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <SkeletonBlock className="h-11 w-44" />
+          <SkeletonBlock className="h-11 w-44" />
+          <SkeletonBlock className="h-11 w-32" />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div
+            key={index}
+            className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5"
+          >
+            <div className="flex items-start justify-between">
+              <div className="space-y-3">
+                <SkeletonBlock className="h-4 w-24" />
+                <SkeletonBlock className="h-9 w-16" />
+              </div>
+              <SkeletonBlock className="h-11 w-11 rounded-xl" />
+            </div>
+            <SkeletonBlock className="mt-5 h-3 w-36" />
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <div className="h-[330px] rounded-2xl bg-white p-6 shadow-sm ring-1 ring-black/5 xl:col-span-2">
+          <SkeletonBlock className="h-6 w-36" />
+          <SkeletonBlock className="mt-2 h-4 w-28" />
+          <div className="mt-8 flex h-[210px] items-end gap-4">
+            {Array.from({ length: 7 }).map((_, index) => (
+              <SkeletonBlock
+                key={index}
+                className={`w-full max-w-[42px] rounded-t-xl ${[
+                  "h-20",
+                  "h-32",
+                  "h-24",
+                  "h-40",
+                  "h-28",
+                  "h-36",
+                  "h-16",
+                ][index]}`}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-black/5">
+          <SkeletonBlock className="h-6 w-32" />
+          <SkeletonBlock className="mt-2 h-4 w-36" />
+          <SkeletonBlock className="mx-auto mt-8 h-48 w-48 rounded-full" />
+          <div className="mt-7 grid grid-cols-2 gap-3">
+            <SkeletonBlock className="h-16 rounded-xl" />
+            <SkeletonBlock className="h-16 rounded-xl" />
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        {Array.from({ length: 2 }).map((_, cardIndex) => (
+          <div
+            key={cardIndex}
+            className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-black/5"
+          >
+            <SkeletonBlock className="h-6 w-32" />
+            <SkeletonBlock className="mt-2 h-4 w-44" />
+            <div className="mt-6 space-y-3">
+              {Array.from({ length: 4 }).map((__, rowIndex) => (
+                <div
+                  key={rowIndex}
+                  className="flex items-center justify-between rounded-xl border border-gray-100 p-3"
+                >
+                  <div className="flex items-center gap-3">
+                    <SkeletonBlock className="h-10 w-10 rounded-full" />
+                    <div className="space-y-2">
+                      <SkeletonBlock className="h-4 w-28" />
+                      <SkeletonBlock className="h-3 w-20" />
+                    </div>
+                  </div>
+                  <SkeletonBlock className="h-4 w-14" />
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <SkeletonBlock className="h-20 rounded-2xl" />
+    </div>
+  );
+}
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -1868,34 +163,34 @@ export default function DashboardPage() {
 
 
   const getTodayDate = () => {
-  const date = new Date();
+    const date = new Date();
 
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
 
-  return `${year}-${month}-${day}`;
-};
+    return `${year}-${month}-${day}`;
+  };
 
-const getPrevious7DaysDate = () => {
-  const date = new Date();
+  const getPrevious7DaysDate = () => {
+    const date = new Date();
 
-  date.setDate(date.getDate() - 7);
+    date.setDate(date.getDate() - 7);
 
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
 
-  return `${year}-${month}-${day}`;
-};
+    return `${year}-${month}-${day}`;
+  };
 
-const [startDate, setStartDate] = useState(
-  getPrevious7DaysDate()
-);
+  const [startDate, setStartDate] = useState(
+    getPrevious7DaysDate()
+  );
 
-const [endDate, setEndDate] = useState(
-  getTodayDate()
-);
+  const [endDate, setEndDate] = useState(
+    getTodayDate()
+  );
 
   // const [startDate, setStartDate] = useState(getTodayDate());
   // const [endDate, setEndDate] = useState(getTodayDate());
@@ -2480,264 +775,246 @@ const [endDate, setEndDate] = useState(
 
 
 
+  // =========================================================
+  // STAFF DATA LOADER
+  // =========================================================
+  const loadStaffData = useCallback(async (isInitialLoad = false) => {
+    try {
+      // Sirf pehli baar loading state ko true set karein
+      if (isInitialLoad) {
+        setLoading(true);
+      }
+      setErrorMessage("");
 
-  const loadStaffData = useCallback(async () => {
-  try {
-    setLoading(true);
-    setErrorMessage("");
+      // =====================================================
+      // 1. CURRENT USER + STAFF + DAILY DESK
+      // =====================================================
 
-    // =====================================================
-    // 1. CURRENT USER + STAFF + DAILY DESK
-    //    These are needed for initial page
-    // =====================================================
+      const [meResult, staffResult, deskResult] =
+        await Promise.allSettled([
+          fetch("/api/auth/me", {
+            cache: "no-store",
+          }),
 
-    const [meResult, staffResult, deskResult] =
-      await Promise.allSettled([
-        fetch("/api/auth/me", {
-          cache: "no-store",
-        }),
+          fetch("/api/staffes/list", {
+            cache: "no-store",
+          }),
 
-        fetch("/api/staffes/list", {
-          cache: "no-store",
-        }),
+          fetch("/api/staff/daily", {
+            cache: "no-store",
+          }),
+        ]);
 
-        fetch("/api/staff/daily-desk", {
-          cache: "no-store",
-        }),
-      ]);
+      // =====================================================
+      // CURRENT USER
+      // =====================================================
 
-    // =====================================================
-    // CURRENT USER
-    // =====================================================
+      if (meResult.status === "fulfilled") {
+        try {
+          const meRes = meResult.value;
+          const meData = await meRes.json();
 
-    if (meResult.status === "fulfilled") {
-      try {
-        const meRes = meResult.value;
-        const meData = await meRes.json();
-
-        if (!meRes.ok) {
-          throw new Error(
-            meData?.message ||
+          if (!meRes.ok) {
+            throw new Error(
+              meData?.message ||
               meData?.error ||
               "Unable to load current user."
+            );
+          }
+
+          const currentUser =
+            meData?.user ||
+            meData?.data ||
+            meData;
+
+          setStaff(currentUser);
+        } catch (error) {
+          console.error(
+            "CURRENT USER ERROR:",
+            error
           );
+
+          throw error;
         }
-
-        const currentUser =
-          meData?.user ||
-          meData?.data ||
-          meData;
-
-        setStaff(currentUser);
-      } catch (error) {
-        console.error(
-          "CURRENT USER ERROR:",
-          error
+      } else {
+        throw new Error(
+          "Unable to connect to current user API."
         );
-
-        throw error;
       }
-    } else {
-      throw new Error(
-        "Unable to connect to current user API."
-      );
-    }
 
-    // =====================================================
-    // STAFF LIST
-    // =====================================================
+      // =====================================================
+      // STAFF LIST
+      // =====================================================
 
-    if (staffResult.status === "fulfilled") {
-      try {
-        const staffRes = staffResult.value;
-        const staffData = await staffRes.json();
+      if (staffResult.status === "fulfilled") {
+        try {
+          const staffRes = staffResult.value;
+          const staffData = await staffRes.json();
 
-        if (staffRes.ok) {
-          const staffList =
-            staffData?.staff ||
-            staffData?.users ||
-            staffData?.data ||
-            staffData?.results ||
-            [];
+          if (staffRes.ok) {
+            const staffList =
+              staffData?.staff ||
+              staffData?.users ||
+              staffData?.data ||
+              staffData?.results ||
+              [];
 
-          setAllStaff(
-            Array.isArray(staffList)
-              ? staffList
-              : []
+            setAllStaff(
+              Array.isArray(staffList)
+                ? staffList
+                : []
+            );
+          } else {
+            setAllStaff([]);
+          }
+        } catch (staffError) {
+          console.error(
+            "STAFF LIST ERROR:",
+            staffError
           );
-        } else {
+
           setAllStaff([]);
         }
-      } catch (staffError) {
+      } else {
         console.error(
-          "STAFF LIST ERROR:",
-          staffError
+          "STAFF LIST REQUEST FAILED:",
+          staffResult.reason
         );
 
         setAllStaff([]);
       }
-    } else {
-      console.error(
-        "STAFF LIST REQUEST FAILED:",
-        staffResult.reason
-      );
 
-      setAllStaff([]);
-    }
+      // =====================================================
+      // DAILY DESK
+      // =====================================================
 
-    // =====================================================
-    // DAILY DESK
-    // =====================================================
+      if (deskResult.status === "fulfilled") {
+        try {
+          const deskRes = deskResult.value;
+          const deskData = await deskRes.json();
 
-    if (deskResult.status === "fulfilled") {
-      try {
-        const deskRes = deskResult.value;
-        const deskData = await deskRes.json();
+          if (deskRes.ok) {
+            const deskNumbers =
+              deskData?.numbers ||
+              deskData?.data ||
+              deskData?.extensions ||
+              [];
 
-        if (deskRes.ok) {
-          const deskNumbers =
-            deskData?.numbers ||
-            deskData?.data ||
-            deskData?.extensions ||
-            [];
-
-          setNumbers(
-            Array.isArray(deskNumbers)
-              ? deskNumbers
-              : []
+            setNumbers(
+              Array.isArray(deskNumbers)
+                ? deskNumbers
+                : []
+            );
+          } else {
+            setNumbers([]);
+          }
+        } catch (deskError) {
+          console.error(
+            "DAILY DESK ERROR:",
+            deskError
           );
-        } else {
+
           setNumbers([]);
         }
-      } catch (deskError) {
+      } else {
         console.error(
-          "DAILY DESK ERROR:",
-          deskError
+          "DAILY DESK REQUEST FAILED:",
+          deskResult.reason
         );
 
         setNumbers([]);
       }
-    } else {
-      console.error(
-        "DAILY DESK REQUEST FAILED:",
-        deskResult.reason
-      );
 
-      setNumbers([]);
-    }
+      // =====================================================
+      // 2. ZOOM CALL HISTORY
+      // =====================================================
 
-    // =====================================================
-    // STOP MAIN LOADER
-    //
-    // IMPORTANT:
-    // Zoom API will NOT block page rendering anymore.
-    // =====================================================
+      fetch("/api/zoom/call-history", {
+        method: "GET",
+        cache: "no-store",
+        headers: {
+          Accept: "application/json",
+        },
+      })
+        .then(async (callRes) => {
+          const callData = await callRes.json();
 
-    setLoading(false);
+          console.log("====================================");
+          console.log("ZOOM CALL HISTORY FULL RESPONSE:", callData);
+          console.log("====================================");
 
-    // =====================================================
-    // 2. ZOOM CALL HISTORY
-    //    LOAD IN BACKGROUND
-    // =====================================================
+          setRawApiResponse(callData);
 
-    fetch("/api/zoom/call-history", {
-      method: "GET",
-      cache: "no-store",
-      headers: {
-        Accept: "application/json",
-      },
-    })
-      .then(async (callRes) => {
-        const callData = await callRes.json();
-
-        console.log(
-          "===================================="
-        );
-
-        console.log(
-          "ZOOM CALL HISTORY FULL RESPONSE:"
-        );
-
-        console.log(callData);
-
-        console.log(
-          "===================================="
-        );
-
-        setRawApiResponse(callData);
-
-        if (!callRes.ok) {
-          throw new Error(
-            callData?.message ||
+          if (!callRes.ok) {
+            throw new Error(
+              callData?.message ||
               callData?.error ||
               "Failed to load Zoom call history."
+            );
+          }
+
+          const callList = getCallList(callData);
+
+          console.log("NORMALIZED CALL LIST:", callList);
+          console.log("CALL COUNT:", callList.length);
+
+          if (callList.length > 0) {
+            console.log("FIRST CALL OBJECT:", callList[0]);
+          }
+
+          setCalls(
+            Array.isArray(callList)
+              ? callList
+              : []
           );
-        }
-
-        const callList =
-          getCallList(callData);
-
-        console.log(
-          "NORMALIZED CALL LIST:",
-          callList
-        );
-
-        console.log(
-          "CALL COUNT:",
-          callList.length
-        );
-
-        if (callList.length > 0) {
-          console.log(
-            "FIRST CALL OBJECT:",
-            callList[0]
+        })
+        .catch((callError) => {
+          console.error(
+            "ZOOM CALL HISTORY ERROR:",
+            callError
           );
-        }
 
-        // =================================================
-        // UPDATE CALLS WHEN ZOOM API FINISHES
-        // =================================================
+          setCalls([]);
+        })
+        .finally(() => {
+          if (isInitialLoad) {
+            setLoading(false);
+          }
+        });
 
-        setCalls(
-          Array.isArray(callList)
-            ? callList
-            : []
-        );
-      })
-      .catch((callError) => {
-        console.error(
-          "ZOOM CALL HISTORY ERROR:",
-          callError
-        );
+    } catch (error) {
+      console.error(
+        "DASHBOARD LOAD ERROR:",
+        error
+      );
 
-        // Don't block / break the whole dashboard
-        setCalls([]);
-      });
-
-  } catch (error) {
-    console.error(
-      "DASHBOARD LOAD ERROR:",
-      error
-    );
-
-    setErrorMessage(
-      error?.message ||
+      setErrorMessage(
+        error?.message ||
         "Unable to load dashboard data."
-    );
+      );
 
-    setCalls([]);
+      setCalls([]);
 
-    // Make sure page loader stops
-    setLoading(false);
-  }
-}, [getCallList]);
+      if (isInitialLoad) {
+        setLoading(false);
+      }
+    }
+  }, [getCallList]);
 
   // =========================================================
-  // INITIAL LOAD
+  // INITIAL LOAD & 5 MINUTE INTERVAL
   // =========================================================
 
   useEffect(() => {
-    loadStaffData();
+    // First load par true Pass karein taake Loading state trigger ho
+    loadStaffData(true);
+
+    // Har 5 min (5 * 60 * 1000 ms) me bina parameter ke call hoga (Background Refetch)
+    const interval = setInterval(() => {
+      loadStaffData(false);
+    }, 5 * 60 * 1000);
+
+    return () => clearInterval(interval);
   }, [loadStaffData]);
 
   // =========================================================
@@ -2904,7 +1181,7 @@ const [endDate, setEndDate] = useState(
     return Math.round(
       (answeredCalls.length /
         totalCalls) *
-        100
+      100
     );
   }, [
     answeredCalls.length,
@@ -2921,7 +1198,7 @@ const [endDate, setEndDate] = useState(
     return Math.round(
       (missedCalls.length /
         totalCalls) *
-        100
+      100
     );
   }, [
     missedCalls.length,
@@ -2995,9 +1272,9 @@ const [endDate, setEndDate] = useState(
                 extension &&
                 ownerExtension &&
                 extension ===
-                  normalizeExtension(
-                    ownerExtension
-                  )
+                normalizeExtension(
+                  ownerExtension
+                )
               );
             }
           );
@@ -3054,71 +1331,66 @@ const [endDate, setEndDate] = useState(
   // =========================================================
   // CHART DATA
   // =========================================================
+  const CALIFORNIA_TZ = "America/Los_Angeles";
+
+  const getCaliforniaDateKey = (date) => {
+    return new Intl.DateTimeFormat("en-CA", {
+      timeZone: CALIFORNIA_TZ,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(date);
+  };
+
+  const getCaliforniaWeekday = (date) => {
+    return new Intl.DateTimeFormat("en-US", {
+      timeZone: CALIFORNIA_TZ,
+      weekday: "short",
+    }).format(date);
+  };
 
   const chartData = useMemo(() => {
-    return lastSevenDays.map(
-      (day) => {
-        const start =
-          new Date(day);
+    const californiaFormatter = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Los_Angeles",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
 
-        start.setHours(
-          0,
-          0,
-          0,
-          0
-        );
+    const weekdayFormatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/Los_Angeles",
+      weekday: "short",
+    });
 
-        const end =
-          new Date(day);
+    return lastSevenDays.map((day) => {
+      const dayKey = californiaFormatter.format(day);
 
-        end.setHours(
-          23,
-          59,
-          59,
-          999
-        );
+      const dayCalls = filteredCalls.filter((call) => {
+        if (!call?.date) return false;
 
-        const dayCalls =
-          filteredCalls.filter(
-            ({ date }) =>
-              date >= start &&
-              date <= end
-          );
+        return californiaFormatter.format(
+          new Date(call.date)
+        ) === dayKey;
+      });
 
-        const answered =
-          dayCalls.filter(
-            (call) =>
-              call.status ===
-              "answered"
-          ).length;
+      const answered = dayCalls.filter(
+        (call) => call.status === "answered"
+      ).length;
 
-        const missed =
-          dayCalls.filter(
-            (call) =>
-              call.status ===
-              "missed"
-          ).length;
+      const missed = dayCalls.filter(
+        (call) => call.status === "missed"
+      ).length;
 
-        return {
-          date: day,
-          total:
-            dayCalls.length,
-          answered,
-          missed,
-          label:
-            day.toLocaleDateString(
-              "en-US",
-              {
-                weekday: "short",
-              }
-            ),
-        };
-      }
-    );
-  }, [
-    lastSevenDays,
-    filteredCalls,
-  ]);
+      return {
+        date: day,
+        total: dayCalls.length,
+        answered,
+        missed,
+        label: weekdayFormatter.format(day),
+      };
+    });
+  }, [lastSevenDays, filteredCalls]);
+
 
   const chartMax = Math.max(
     ...chartData.map(
@@ -3190,72 +1462,72 @@ const [endDate, setEndDate] = useState(
   // HANDLE LOGOUT
   // =========================================================
 
- // =========================================================
-// HANDLE LOGOUT
-// =========================================================
-const handleLogout = async () => {
-  if (loggingOut) return;
-
-  try {
-    setLoggingOut(true);
-
-    const res = await fetch("/api/auth/logout", {
-      method: "POST",
-      credentials: "include",
-      cache: "no-store",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-    });
-
-    let data = null;
+  // =========================================================
+  // HANDLE LOGOUT
+  // =========================================================
+  const handleLogout = async () => {
+    if (loggingOut) return;
 
     try {
-      data = await res.json();
-    } catch {
-      data = null;
+      setLoggingOut(true);
+
+      const res = await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+        cache: "no-store",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+      });
+
+      let data = null;
+
+      try {
+        data = await res.json();
+      } catch {
+        data = null;
+      }
+
+      console.log("LOGOUT RESPONSE:", {
+        status: res.status,
+        ok: res.ok,
+        data,
+      });
+
+      // Clear browser-side login/session data
+      try {
+        localStorage.removeItem("crm_login_time");
+        localStorage.removeItem("crm_status_timer");
+        sessionStorage.clear();
+      } catch (storageError) {
+        console.error("STORAGE CLEAR ERROR:", storageError);
+      }
+
+      // Clear dashboard state
+      setStaff(null);
+      setAllStaff([]);
+      setCalls([]);
+      setNumbers([]);
+
+      // Always go to login after logout request
+      window.location.replace("/login");
+    } catch (error) {
+      console.error("LOGOUT ERROR:", error);
+
+      // Even if API fails, don't keep user on dashboard
+      try {
+        localStorage.removeItem("crm_login_time");
+        localStorage.removeItem("crm_status_timer");
+        sessionStorage.clear();
+      } catch { }
+
+      window.location.replace("/login");
+    } finally {
+      setLoggingOut(false);
+      setShowLogoutModal(false);
     }
-
-    console.log("LOGOUT RESPONSE:", {
-      status: res.status,
-      ok: res.ok,
-      data,
-    });
-
-    // Clear browser-side login/session data
-    try {
-      localStorage.removeItem("crm_login_time");
-      localStorage.removeItem("crm_status_timer");
-      sessionStorage.clear();
-    } catch (storageError) {
-      console.error("STORAGE CLEAR ERROR:", storageError);
-    }
-
-    // Clear dashboard state
-    setStaff(null);
-    setAllStaff([]);
-    setCalls([]);
-    setNumbers([]);
-
-    // Always go to login after logout request
-    window.location.replace("/login");
-  } catch (error) {
-    console.error("LOGOUT ERROR:", error);
-
-    // Even if API fails, don't keep user on dashboard
-    try {
-      localStorage.removeItem("crm_login_time");
-      localStorage.removeItem("crm_status_timer");
-      sessionStorage.clear();
-    } catch {}
-
-    window.location.replace("/login");
-  } finally {
-    setLoggingOut(false);
-    setShowLogoutModal(false);
-  }
-};
+  };
 
   // =========================================================
   // DASHBOARD
@@ -3287,10 +1559,9 @@ const handleLogout = async () => {
           transition-transform
           duration-300
           lg:translate-x-0
-          ${
-            sidebarOpen
-              ? "translate-x-0"
-              : "-translate-x-full"
+          ${sidebarOpen
+            ? "translate-x-0"
+            : "-translate-x-full"
           }
         `}
       >
@@ -3342,707 +1613,713 @@ const handleLogout = async () => {
 
         <div className="px-4 pb-10 pt-4 sm:px-6 lg:px-8">
 
-          {/* ERROR */}
+          {loading ? (
+            <DashboardSkeleton />
+          ) : (
+            <>
 
-          {errorMessage && (
-            <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {/* ERROR */}
 
-              <div className="font-semibold">
-                Dashboard data issue
-              </div>
+              {errorMessage && (
+                <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
 
-              <div className="mt-1">
-                {errorMessage}
-              </div>
+                  <div className="font-semibold">
+                    Dashboard data issue
+                  </div>
 
-            </div>
-          )}
-
-          {/* HEADER */}
-
-          <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-
-            <div>
-
-              <p className="text-sm font-medium text-[#790214]">
-                Call Analytics
-              </p>
-
-              <h1 className="mt-1 text-2xl font-bold tracking-tight text-[#191919] sm:text-3xl">
-                Dashboard
-              </h1>
-
-              <p className="mt-1 text-sm text-gray-500">
-                Monitor your team's Zoom
-                call activity.
-              </p>
-
-            </div>
-
-            {/* DATE FILTERS */}
-
-            <div className="flex flex-wrap items-center gap-3">
-
-              {/* START DATE */}
-
-              <div className="rounded-xl bg-white px-4 py-2 shadow-sm ring-1 ring-black/5">
-
-                <div className="flex items-center gap-2">
-
-                  <span className="whitespace-nowrap text-sm text-gray-500">
-                    Start Date:
-                  </span>
-
-                  <input
-                    type="date"
-                    value={startDate}
-                    max={endDate}
-                    onChange={(e) =>
-                      setStartDate(
-                        e.target.value
-                      )
-                    }
-                    className="cursor-pointer bg-transparent text-sm font-semibold text-gray-700 outline-none"
-                  />
+                  <div className="mt-1">
+                    {errorMessage}
+                  </div>
 
                 </div>
+              )}
 
-              </div>
+              {/* HEADER */}
 
-              {/* END DATE */}
-
-              <div className="rounded-xl bg-white px-4 py-2 shadow-sm ring-1 ring-black/5">
-
-                <div className="flex items-center gap-2">
-
-                  <span className="whitespace-nowrap text-sm text-gray-500">
-                    End Date:
-                  </span>
-
-                  <input
-                    type="date"
-                    value={endDate}
-                    min={startDate}
-                    onChange={(e) =>
-                      setEndDate(
-                        e.target.value
-                      )
-                    }
-                    className="cursor-pointer bg-transparent text-sm font-semibold text-gray-700 outline-none"
-                  />
-
-                </div>
-
-              </div>
-
-              {/* TOTAL RECORDS */}
-
-              <div className="rounded-xl bg-white px-4 py-2 text-sm shadow-sm ring-1 ring-black/5">
-
-                <span className="text-gray-500">
-                  Total records:
-                </span>{" "}
-
-                <span className="font-semibold text-[#790214]">
-                  {totalCalls}
-                </span>
-
-              </div>
-
-            </div>
-
-          </div>
-
-          {/* STATS */}
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-
-            {/* TOTAL CALLS */}
-
-            <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
-
-              <div className="flex items-start justify-between">
+              <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
 
                 <div>
 
-                  <p className="text-sm font-medium text-gray-500">
-                    Total Calls
+                  <p className="text-sm font-medium text-[#790214]">
+                    Call Analytics
                   </p>
 
-                  <h2 className="mt-2 text-3xl font-bold">
-                    {totalCalls}
-                  </h2>
+                  <h1 className="mt-1 text-2xl font-bold tracking-tight text-[#191919] sm:text-3xl">
+                    Dashboard
+                  </h1>
 
-                </div>
-
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#790214]/10 text-[#790214]">
-                  <Phone size={21} />
-                </div>
-
-              </div>
-
-              <div className="mt-4 flex items-center gap-2 text-xs text-gray-500">
-
-                <TrendingUp size={14} />
-
-                <span>
-                  Selected date range
-                </span>
-
-              </div>
-
-            </div>
-
-            {/* ANSWERED */}
-
-            <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
-
-              <div className="flex items-start justify-between">
-
-                <div>
-
-                  <p className="text-sm font-medium text-gray-500">
-                    Answered
+                  <p className="mt-1 text-sm text-gray-500">
+                    Monitor your team's Zoom
+                    call activity.
                   </p>
 
-                  <h2 className="mt-2 text-3xl font-bold text-green-600">
-                    {answeredCalls.length}
-                  </h2>
-
                 </div>
 
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-green-50 text-green-600">
-                  <PhoneIncoming
-                    size={21}
-                  />
-                </div>
+                {/* DATE FILTERS */}
 
-              </div>
+                <div className="flex flex-wrap items-center gap-3">
 
-              <div className="mt-4 flex items-center gap-2 text-xs text-gray-500">
+                  {/* START DATE */}
 
-                <span>
-                  {answeredPercentage}% answer
-                  rate
-                </span>
+                  <div className="rounded-xl bg-white px-4 py-2 shadow-sm ring-1 ring-black/5">
 
-              </div>
+                    <div className="flex items-center gap-2">
 
-            </div>
+                      <span className="whitespace-nowrap text-sm text-gray-500">
+                        Start Date:
+                      </span>
 
-            {/* MISSED */}
+                      <input
+                        type="date"
+                        value={startDate}
+                        max={endDate}
+                        onChange={(e) =>
+                          setStartDate(
+                            e.target.value
+                          )
+                        }
+                        className="cursor-pointer bg-transparent text-sm font-semibold text-gray-700 outline-none"
+                      />
 
-            <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
+                    </div>
 
-              <div className="flex items-start justify-between">
+                  </div>
 
-                <div>
+                  {/* END DATE */}
 
-                  <p className="text-sm font-medium text-gray-500">
-                    Missed
-                  </p>
+                  <div className="rounded-xl bg-white px-4 py-2 shadow-sm ring-1 ring-black/5">
 
-                  <h2 className="mt-2 text-3xl font-bold text-red-600">
-                    {missedCalls.length}
-                  </h2>
+                    <div className="flex items-center gap-2">
 
-                </div>
+                      <span className="whitespace-nowrap text-sm text-gray-500">
+                        End Date:
+                      </span>
 
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-red-50 text-red-600">
-                  <PhoneOff size={21} />
-                </div>
+                      <input
+                        type="date"
+                        value={endDate}
+                        min={startDate}
+                        onChange={(e) =>
+                          setEndDate(
+                            e.target.value
+                          )
+                        }
+                        className="cursor-pointer bg-transparent text-sm font-semibold text-gray-700 outline-none"
+                      />
 
-              </div>
+                    </div>
 
-              <div className="mt-4 flex items-center gap-2 text-xs text-gray-500">
+                  </div>
 
-                <TrendingDown
-                  size={14}
-                />
+                  {/* TOTAL RECORDS */}
 
-                <span>
-                  {missedPercentage}% missed
-                  rate
-                </span>
+                  <div className="rounded-xl bg-white px-4 py-2 text-sm shadow-sm ring-1 ring-black/5">
 
-              </div>
+                    <span className="text-gray-500">
+                      Total records:
+                    </span>{" "}
 
-            </div>
+                    <span className="font-semibold text-[#790214]">
+                      {totalCalls}
+                    </span>
 
-            {/* TALK TIME */}
+                  </div>
 
-            <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
-
-              <div className="flex items-start justify-between">
-
-                <div>
-
-                  <p className="text-sm font-medium text-gray-500">
-                    Talk Time
-                  </p>
-
-                  <h2 className="mt-2 text-3xl font-bold">
-                    {formatDuration(
-                      totalTalkSeconds
-                    )}
-                  </h2>
-
-                </div>
-
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-                  <Clock size={21} />
                 </div>
 
               </div>
 
-              <div className="mt-4 text-xs text-gray-500">
-                Total answered-call duration
+              {/* STATS */}
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+
+                {/* TOTAL CALLS */}
+
+                <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
+
+                  <div className="flex items-start justify-between">
+
+                    <div>
+
+                      <p className="text-sm font-medium text-gray-500">
+                        Total Calls
+                      </p>
+
+                      <h2 className="mt-2 text-3xl font-bold">
+                        {totalCalls}
+                      </h2>
+
+                    </div>
+
+                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#790214]/10 text-[#790214]">
+                      <Phone size={21} />
+                    </div>
+
+                  </div>
+
+                  <div className="mt-4 flex items-center gap-2 text-xs text-gray-500">
+
+                    <TrendingUp size={14} />
+
+                    <span>
+                      Selected date range
+                    </span>
+
+                  </div>
+
+                </div>
+
+                {/* ANSWERED */}
+
+                <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
+
+                  <div className="flex items-start justify-between">
+
+                    <div>
+
+                      <p className="text-sm font-medium text-gray-500">
+                        Answered
+                      </p>
+
+                      <h2 className="mt-2 text-3xl font-bold text-green-600">
+                        {answeredCalls.length}
+                      </h2>
+
+                    </div>
+
+                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-green-50 text-green-600">
+                      <PhoneIncoming
+                        size={21}
+                      />
+                    </div>
+
+                  </div>
+
+                  <div className="mt-4 flex items-center gap-2 text-xs text-gray-500">
+
+                    <span>
+                      {answeredPercentage}% answer
+                      rate
+                    </span>
+
+                  </div>
+
+                </div>
+
+                {/* MISSED */}
+
+                <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
+
+                  <div className="flex items-start justify-between">
+
+                    <div>
+
+                      <p className="text-sm font-medium text-gray-500">
+                        Missed
+                      </p>
+
+                      <h2 className="mt-2 text-3xl font-bold text-red-600">
+                        {missedCalls.length}
+                      </h2>
+
+                    </div>
+
+                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-red-50 text-red-600">
+                      <PhoneOff size={21} />
+                    </div>
+
+                  </div>
+
+                  <div className="mt-4 flex items-center gap-2 text-xs text-gray-500">
+
+                    <TrendingDown
+                      size={14}
+                    />
+
+                    <span>
+                      {missedPercentage}% missed
+                      rate
+                    </span>
+
+                  </div>
+
+                </div>
+
+                {/* TALK TIME */}
+
+                <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
+
+                  <div className="flex items-start justify-between">
+
+                    <div>
+
+                      <p className="text-sm font-medium text-gray-500">
+                        Talk Time
+                      </p>
+
+                      <h2 className="mt-2 text-3xl font-bold">
+                        {formatDuration(
+                          totalTalkSeconds
+                        )}
+                      </h2>
+
+                    </div>
+
+                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                      <Clock size={21} />
+                    </div>
+
+                  </div>
+
+                  <div className="mt-4 text-xs text-gray-500">
+                    Total answered-call duration
+                  </div>
+
+                </div>
+
               </div>
 
-            </div>
+              {/* CHART + DONUT */}
 
-          </div>
+              <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-3">
 
-          {/* CHART + DONUT */}
+                {/* CHART */}
 
-          <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-3">
+                <div className="xl:col-span-2 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5 sm:p-6">
 
-            {/* CHART */}
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
 
-            <div className="xl:col-span-2 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5 sm:p-6">
+                    <div>
 
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <h2 className="text-lg font-bold">
+                        Call Activity
+                      </h2>
 
-                <div>
+                      <p className="text-sm text-gray-500">
+                        Selected date range
+                      </p>
+
+                    </div>
+
+                    <div className="text-sm text-gray-500">
+
+                      Peak:
+
+                      <span className="ml-1 font-semibold text-[#790214]">
+                        {chartMax}
+                      </span>
+
+                    </div>
+
+                  </div>
+
+                  <div className="mt-7">
+
+                    <div className="flex h-[180px] items-end gap-2 sm:gap-4">
+
+                      {chartData.map(
+                        (item, index) => {
+
+                          const height =
+                            Math.max(
+                              (item.total /
+                                chartMax) *
+                              100,
+                              item.total > 0
+                                ? 6
+                                : 0
+                            );
+
+                          return (
+                            <div
+                              key={index}
+                              className="flex h-full flex-1 flex-col justify-end"
+                            >
+
+                              <div className="flex h-full items-end justify-center">
+
+                                <div
+                                  title={`${item.total} calls`}
+                                  className="w-full max-w-[42px] rounded-t-xl bg-[#790214] transition-all duration-300 hover:opacity-80"
+                                  style={{
+                                    height: `${height}%`,
+                                  }}
+                                />
+
+                              </div>
+
+                              <div className="mt-3 text-center text-[11px] font-medium text-gray-500">
+                                {item.label}
+                              </div>
+
+                              <div className="mt-1 text-center text-xs font-bold text-gray-700">
+                                {item.total}
+                              </div>
+
+                            </div>
+                          );
+                        }
+                      )}
+
+                    </div>
+
+                  </div>
+
+                </div>
+
+                {/* DONUT */}
+
+                <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5 sm:p-6">
 
                   <h2 className="text-lg font-bold">
-                    Call Activity
+                    Call Outcome
                   </h2>
 
                   <p className="text-sm text-gray-500">
-                    Selected date range
+                    Answered vs missed
                   </p>
 
-                </div>
+                  <div className="mt-7 flex items-center justify-center">
 
-                <div className="text-sm text-gray-500">
+                    <div className="relative h-48 w-48">
 
-                  Peak:
-
-                  <span className="ml-1 font-semibold text-[#790214]">
-                    {chartMax}
-                  </span>
-
-                </div>
-
-              </div>
-
-              <div className="mt-7">
-
-                <div className="flex h-[180px] items-end gap-2 sm:gap-4">
-
-                  {chartData.map(
-                    (item, index) => {
-
-                      const height =
-                        Math.max(
-                          (item.total /
-                            chartMax) *
-                            100,
-                          item.total > 0
-                            ? 6
-                            : 0
-                        );
-
-                      return (
-                        <div
-                          key={index}
-                          className="flex h-full flex-1 flex-col justify-end"
-                        >
-
-                          <div className="flex h-full items-end justify-center">
-
-                            <div
-                              title={`${item.total} calls`}
-                              className="w-full max-w-[42px] rounded-t-xl bg-[#790214] transition-all duration-300 hover:opacity-80"
-                              style={{
-                                height: `${height}%`,
-                              }}
-                            />
-
-                          </div>
-
-                          <div className="mt-3 text-center text-[11px] font-medium text-gray-500">
-                            {item.label}
-                          </div>
-
-                          <div className="mt-1 text-center text-xs font-bold text-gray-700">
-                            {item.total}
-                          </div>
-
-                        </div>
-                      );
-                    }
-                  )}
-
-                </div>
-
-              </div>
-
-            </div>
-
-            {/* DONUT */}
-
-            <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5 sm:p-6">
-
-              <h2 className="text-lg font-bold">
-                Call Outcome
-              </h2>
-
-              <p className="text-sm text-gray-500">
-                Answered vs missed
-              </p>
-
-              <div className="mt-7 flex items-center justify-center">
-
-                <div className="relative h-48 w-48">
-
-                  <div
-                    className="absolute inset-0 rounded-full"
-                    style={{
-                      background: `conic-gradient(
+                      <div
+                        className="absolute inset-0 rounded-full"
+                        style={{
+                          background: `conic-gradient(
                         #16a34a 0% ${answeredPercentage}%,
                         #dc2626 ${answeredPercentage}% 100%
                       )`,
-                    }}
-                  />
+                        }}
+                      />
 
-                  <div className="absolute inset-[22px] flex flex-col items-center justify-center rounded-full bg-white">
+                      <div className="absolute inset-[22px] flex flex-col items-center justify-center rounded-full bg-white">
 
-                    <div className="text-3xl font-bold">
-                      {answeredPercentage}%
-                    </div>
-
-                    <div className="text-xs text-gray-500">
-                      Answered
-                    </div>
-
-                  </div>
-
-                </div>
-
-              </div>
-
-              <div className="mt-7 grid grid-cols-2 gap-3">
-
-                <div className="rounded-xl bg-green-50 p-3">
-
-                  <div className="text-xs text-green-700">
-                    Answered
-                  </div>
-
-                  <div className="mt-1 text-lg font-bold text-green-700">
-                    {answeredCalls.length}
-                  </div>
-
-                </div>
-
-                <div className="rounded-xl bg-red-50 p-3">
-
-                  <div className="text-xs text-red-700">
-                    Missed
-                  </div>
-
-                  <div className="mt-1 text-lg font-bold text-red-700">
-                    {missedCalls.length}
-                  </div>
-
-                </div>
-
-              </div>
-
-            </div>
-
-          </div>
-
-          {/* STAFF + LIVE ACTIVITY */}
-
-          <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
-
-            {/* TOP STAFF */}
-
-            <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5 sm:p-6">
-
-              <div className="flex items-center justify-between">
-
-                <div>
-
-                  <h2 className="text-lg font-bold">
-                    Top Staff
-                  </h2>
-
-                  <p className="text-sm text-gray-500">
-                    Calls by extension
-                  </p>
-
-                </div>
-
-                <Phone
-                  size={20}
-                  className="text-[#790214]"
-                />
-
-              </div>
-
-              <div className="mt-5 space-y-3">
-
-                {topStaff.length === 0 ? (
-
-                  <div className="rounded-xl bg-gray-50 p-5 text-center text-sm text-gray-500">
-                    No staff call data found.
-                  </div>
-
-                ) : (
-
-                  topStaff.map(
-                    (user, index) => (
-
-                      <div
-                        key={
-                          user?.id ||
-                          user?.extension ||
-                          index
-                        }
-                        className="flex items-center justify-between rounded-xl border border-gray-100 p-3 transition hover:bg-gray-50"
-                      >
-
-                        <div className="flex min-w-0 items-center gap-3">
-
-                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#790214]/10 text-sm font-bold text-[#790214]">
-
-                            {String(
-                              user?.name ||
-                                user?.full_name ||
-                                "U"
-                            )
-                              .charAt(0)
-                              .toUpperCase()}
-
-                          </div>
-
-                          <div className="min-w-0">
-
-                            <div className="truncate text-sm font-semibold">
-                              {user?.name ||
-                                user?.full_name ||
-                                user?.display_name ||
-                                "Unknown Staff"}
-                            </div>
-
-                            <div className="text-xs text-gray-500">
-                              Ext.{" "}
-                              {user.extension ||
-                                "-"}
-                            </div>
-
-                          </div>
-
+                        <div className="text-3xl font-bold">
+                          {answeredPercentage}%
                         </div>
 
-                        <div className="text-right">
-
-                          <div className="text-sm font-bold">
-                            {user.totalCalls}
-                          </div>
-
-                          <div className="text-[11px] text-gray-500">
-                            {user.answered} answered
-                          </div>
-
+                        <div className="text-xs text-gray-500">
+                          Answered
                         </div>
 
                       </div>
 
-                    )
-                  )
+                    </div>
 
-                )}
-
-              </div>
-
-            </div>
-
-            {/* LIVE ACTIVITY */}
-
-            <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5 sm:p-6">
-
-              <div className="flex items-center justify-between">
-
-                <div>
-
-                  <h2 className="text-lg font-bold">
-                    Recent Calls
-                  </h2>
-
-                  <p className="text-sm text-gray-500">
-                    Latest Zoom call activity
-                  </p>
-
-                </div>
-
-                <div className="flex items-center gap-2 text-xs font-medium text-green-600">
-
-                  <span className="h-2 w-2 animate-pulse rounded-full bg-green-500" />
-
-                  Live
-
-                </div>
-
-              </div>
-
-              <div className="mt-5 space-y-2">
-
-                {liveActivities.length === 0 ? (
-
-                  <div className="rounded-xl bg-gray-50 p-5 text-center text-sm text-gray-500">
-                    No call activity found.
                   </div>
 
-                ) : (
+                  <div className="mt-7 grid grid-cols-2 gap-3">
 
-                  liveActivities.map(
-                    (activity) => (
+                    <div className="rounded-xl bg-green-50 p-3">
 
-                      <div
-                        key={activity.id}
-                        className="flex items-center justify-between gap-3 rounded-xl border border-gray-100 p-3"
-                      >
+                      <div className="text-xs text-green-700">
+                        Answered
+                      </div>
 
-                        <div className="flex min-w-0 items-center gap-3">
+                      <div className="mt-1 text-lg font-bold text-green-700">
+                        {answeredCalls.length}
+                      </div>
+
+                    </div>
+
+                    <div className="rounded-xl bg-red-50 p-3">
+
+                      <div className="text-xs text-red-700">
+                        Missed
+                      </div>
+
+                      <div className="mt-1 text-lg font-bold text-red-700">
+                        {missedCalls.length}
+                      </div>
+
+                    </div>
+
+                  </div>
+
+                </div>
+
+              </div>
+
+              {/* STAFF + LIVE ACTIVITY */}
+
+              <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
+
+                {/* TOP STAFF */}
+
+                <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5 sm:p-6">
+
+                  <div className="flex items-center justify-between">
+
+                    <div>
+
+                      <h2 className="text-lg font-bold">
+                        Top Staff
+                      </h2>
+
+                      <p className="text-sm text-gray-500">
+                        Calls by extension
+                      </p>
+
+                    </div>
+
+                    <Phone
+                      size={20}
+                      className="text-[#790214]"
+                    />
+
+                  </div>
+
+                  <div className="mt-5 space-y-3">
+
+                    {topStaff.length === 0 ? (
+
+                      <div className="rounded-xl bg-gray-50 p-5 text-center text-sm text-gray-500">
+                        No staff call data found.
+                      </div>
+
+                    ) : (
+
+                      topStaff.map(
+                        (user, index) => (
 
                           <div
-                            className={`
+                            key={
+                              user?.id ||
+                              user?.extension ||
+                              index
+                            }
+                            className="flex items-center justify-between rounded-xl border border-gray-100 p-3 transition hover:bg-gray-50"
+                          >
+
+                            <div className="flex min-w-0 items-center gap-3">
+
+                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#790214]/10 text-sm font-bold text-[#790214]">
+
+                                {String(
+                                  user?.name ||
+                                  user?.full_name ||
+                                  "U"
+                                )
+                                  .charAt(0)
+                                  .toUpperCase()}
+
+                              </div>
+
+                              <div className="min-w-0">
+
+                                <div className="truncate text-sm font-semibold">
+                                  {user?.name ||
+                                    user?.full_name ||
+                                    user?.display_name ||
+                                    "Unknown Staff"}
+                                </div>
+
+                                <div className="text-xs text-gray-500">
+                                  Ext.{" "}
+                                  {user.extension ||
+                                    "-"}
+                                </div>
+
+                              </div>
+
+                            </div>
+
+                            <div className="text-right">
+
+                              <div className="text-sm font-bold">
+                                {user.totalCalls}
+                              </div>
+
+                              <div className="text-[11px] text-gray-500">
+                                {user.answered} answered
+                              </div>
+
+                            </div>
+
+                          </div>
+
+                        )
+                      )
+
+                    )}
+
+                  </div>
+
+                </div>
+
+                {/* LIVE ACTIVITY */}
+
+                <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5 sm:p-6">
+
+                  <div className="flex items-center justify-between">
+
+                    <div>
+
+                      <h2 className="text-lg font-bold">
+                        Recent Calls
+                      </h2>
+
+                      <p className="text-sm text-gray-500">
+                        Latest Zoom call activity
+                      </p>
+
+                    </div>
+
+                    <div className="flex items-center gap-2 text-xs font-medium text-green-600">
+
+                      <span className="h-2 w-2 animate-pulse rounded-full bg-green-500" />
+
+                      Live
+
+                    </div>
+
+                  </div>
+
+                  <div className="mt-5 space-y-2">
+
+                    {liveActivities.length === 0 ? (
+
+                      <div className="rounded-xl bg-gray-50 p-5 text-center text-sm text-gray-500">
+                        No call activity found.
+                      </div>
+
+                    ) : (
+
+                      liveActivities.map(
+                        (activity) => (
+
+                          <div
+                            key={activity.id}
+                            className="flex items-center justify-between gap-3 rounded-xl border border-gray-100 p-3"
+                          >
+
+                            <div className="flex min-w-0 items-center gap-3">
+
+                              <div
+                                className={`
                               flex h-9 w-9 shrink-0
                               items-center justify-center
                               rounded-full
-                              ${
-                                activity.status ===
-                                "answered"
-                                  ? "bg-green-50 text-green-600"
-                                  : "bg-red-50 text-red-600"
-                              }
+                              ${activity.status ===
+                                    "answered"
+                                    ? "bg-green-50 text-green-600"
+                                    : "bg-red-50 text-red-600"
+                                  }
                             `}
-                          >
+                              >
 
-                            {activity.status ===
-                            "answered" ? (
-                              <PhoneIncoming
-                                size={16}
-                              />
-                            ) : (
-                              <PhoneOff
-                                size={16}
-                              />
-                            )}
+                                {activity.status ===
+                                  "answered" ? (
+                                  <PhoneIncoming
+                                    size={16}
+                                  />
+                                ) : (
+                                  <PhoneOff
+                                    size={16}
+                                  />
+                                )}
 
-                          </div>
+                              </div>
 
-                          <div className="min-w-0">
+                              <div className="min-w-0">
 
-                            <div className="truncate text-sm font-semibold">
-                              {activity.name}
+                                <div className="truncate text-sm font-semibold">
+                                  {activity.name}
+                                </div>
+
+                                <div className="truncate text-xs text-gray-500">
+                                  Ext.{" "}
+                                  {activity.extension}
+                                  {" • "}
+                                  {activity.phone}
+                                </div>
+
+                              </div>
+
                             </div>
 
-                            <div className="truncate text-xs text-gray-500">
-                              Ext.{" "}
-                              {activity.extension}
-                              {" • "}
-                              {activity.phone}
-                            </div>
+                            <div className="shrink-0 text-right">
 
-                          </div>
-
-                        </div>
-
-                        <div className="shrink-0 text-right">
-
-                          <div
-                            className={`
+                              <div
+                                className={`
                               text-xs font-semibold
-                              ${
-                                activity.status ===
-                                "answered"
-                                  ? "text-green-600"
-                                  : "text-red-600"
-                              }
+                              ${activity.status ===
+                                    "answered"
+                                    ? "text-green-600"
+                                    : "text-red-600"
+                                  }
                             `}
-                          >
+                              >
 
-                            {activity.status ===
-                            "answered"
-                              ? "Answered"
-                              : "Missed"}
+                                {activity.status ===
+                                  "answered"
+                                  ? "Answered"
+                                  : "Missed"}
+
+                              </div>
+
+                              <div className="mt-1 text-[11px] text-gray-500">
+                                {formatDuration(
+                                  activity.duration
+                                )}
+                              </div>
+
+                            </div>
 
                           </div>
 
-                          <div className="mt-1 text-[11px] text-gray-500">
-                            {formatDuration(
-                              activity.duration
-                            )}
-                          </div>
+                        )
+                      )
 
-                        </div>
+                    )}
 
-                      </div>
+                  </div>
 
-                    )
-                  )
-
-                )}
+                </div>
 
               </div>
 
-            </div>
+              {/* DEBUG */}
 
-          </div>
+              <div className="mt-6 rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-4">
 
-          {/* DEBUG */}
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
 
-          <div className="mt-6 rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-4">
+                  <div>
 
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-sm font-semibold text-gray-700">
+                      API Debug
+                    </p>
 
-              <div>
+                    <p className="text-xs text-gray-500">
+                      Calls detected:
+                      {" "}
+                      {calls.length}
+                    </p>
 
-                <p className="text-sm font-semibold text-gray-700">
-                  API Debug
-                </p>
+                  </div>
 
-                <p className="text-xs text-gray-500">
-                  Calls detected:
-                  {" "}
-                  {calls.length}
-                </p>
+                  <div className="text-xs text-gray-500">
+
+                    Answered:
+                    {" "}
+                    {answeredCalls.length}
+
+                    {" • "}
+
+                    Missed:
+                    {" "}
+                    {missedCalls.length}
+
+                  </div>
+
+                </div>
 
               </div>
 
-              <div className="text-xs text-gray-500">
-
-                Answered:
-                {" "}
-                {answeredCalls.length}
-
-                {" • "}
-
-                Missed:
-                {" "}
-                {missedCalls.length}
-
-              </div>
-
-            </div>
-
-          </div>
+            </>
+          )}
 
         </div>
 

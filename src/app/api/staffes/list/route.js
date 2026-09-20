@@ -9,7 +9,6 @@ export async function GET() {
         name,
         email,
         role,
-        department,
         status,
         zoom_extension
       FROM users

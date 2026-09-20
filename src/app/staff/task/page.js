@@ -22,7 +22,7 @@
 
 //   const [numbers, setNumbers] = useState([]);
 //   const [staff, setStaff] = useState(null);
-  
+
 //   const [loading, setLoading] = useState(true);
 //   const [errorMessage, setErrorMessage] = useState("");
 //   const [rawApiResponse, setRawApiResponse] = useState(null);
@@ -1485,6 +1485,8 @@ import {
 import Sidebar from "@/components/Sidebar";
 import LogoutModal from "@/components/LogoutModal";
 import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
+import Loader from "@/components/Loader";
 
 const PAGE_SIZE = 50;
 const DAILY_TASK_LIMIT = 500;
@@ -1651,6 +1653,7 @@ export default function StaffDashboardPage() {
   const router = useRouter();
 
   const [tasks, setTasks] = useState([]);
+  const [status, setStatus] = useState([]); // sttaus fetch from db
   const [staff, setStaff] = useState(null);
 
   const [loading, setLoading] = useState(true);
@@ -1661,6 +1664,8 @@ export default function StaffDashboardPage() {
   const [apiDate, setApiDate] = useState("");
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [page, setPage] = useState(1);
 
@@ -1708,152 +1713,152 @@ export default function StaffDashboardPage() {
      LOAD DAILY DESK
   ======================================================= */
 
-  const loadDailyDesk = useCallback(
-    async (showRefresh = false) => {
-      if (showRefresh) {
-        setRefreshing(true);
-      } else {
-        setLoading(true);
-      }
+  // const loadDailyDesk = useCallback(
+  //   async (showRefresh = false) => {
+  //     if (showRefresh) {
+  //       setRefreshing(true);
+  //     } else {
+  //       setLoading(true);
+  //     }
 
-      setError("");
+  //     setError("");
 
-      try {
-        const currentStaff = await loadStaff();
+  //     try {
+  //       const currentStaff = await loadStaff();
 
-        if (!currentStaff) {
-          return;
-        }
+  //       if (!currentStaff) {
+  //         return;
+  //       }
 
-        const californiaDate = getCaliforniaDate();
+  //       const californiaDate = getCaliforniaDate();
 
-        const response = await fetch(
-          `/api/staff/daily-desk?date=${encodeURIComponent(
-            californiaDate
-          )}`,
-          {
-            method: "GET",
-            cache: "no-store",
-            headers: {
-              "Cache-Control": "no-cache, no-store, must-revalidate",
-              Pragma: "no-cache",
-              Expires: "0",
-            },
-          }
-        );
+  //       const response = await fetch(
+  //         `/api/staff/daily-desk?date=${encodeURIComponent(
+  //           californiaDate
+  //         )}`,
+  //         {
+  //           method: "GET",
+  //           cache: "no-store",
+  //           headers: {
+  //             "Cache-Control": "no-cache, no-store, must-revalidate",
+  //             Pragma: "no-cache",
+  //             Expires: "0",
+  //           },
+  //         }
+  //       );
 
-        const data = await response.json();
+  //       const data = await response.json();
 
-        if (!response.ok || !data?.success) {
-          throw new Error(
-            data?.message ||
-              data?.error ||
-              "Unable to load Daily Desk."
-          );
-        }
+  //       if (!response.ok || !data?.success) {
+  //         throw new Error(
+  //           data?.message ||
+  //           data?.error ||
+  //           "Unable to load Daily Desk."
+  //         );
+  //       }
 
-        setApiDate(
-          data?.california_date ||
-            data?.date ||
-            californiaDate
-        );
+  //       setApiDate(
+  //         data?.california_date ||
+  //         data?.date ||
+  //         californiaDate
+  //       );
 
-        const rows = Array.isArray(data?.data)
-          ? data.data
-          : [];
+  //       const rows = Array.isArray(data?.data)
+  //         ? data.data
+  //         : [];
 
-        /*
-          Hard UI safety limit.
+  //       /*
+  //         Hard UI safety limit.
 
-          API should already return maximum 500.
-        */
+  //         API should already return maximum 500.
+  //       */
 
-        const normalizedRows = rows
-          .slice(0, DAILY_TASK_LIMIT)
-          .map((item, index) => {
-            const assignmentId =
-              item?.assignment_id ??
-              item?.id ??
-              item?.assignmentId ??
-              index + 2;
+  //       const normalizedRows = rows
+  //         .slice(0, DAILY_TASK_LIMIT)
+  //         .map((item, index) => {
+  //           const assignmentId =
+  //             item?.assignment_id ??
+  //             item?.id ??
+  //             item?.assignmentId ??
+  //             index + 2;
 
-            const phone =
-              item?.phone ??
-              item?.phone_number ??
-              item?.number ??
-              "";
+  //           const phone =
+  //             item?.phone ??
+  //             item?.phone_number ??
+  //             item?.number ??
+  //             "";
 
-            const taskId =
-              item?.task_id ??
-              item?.taskId ??
-              item?.id ??
-              "";
+  //           const taskId =
+  //             item?.task_id ??
+  //             item?.taskId ??
+  //             item?.id ??
+  //             "";
 
-            const normalizedCallStatus =
-              normalizeStatus(
-                item?.status ??
-                  item?.call_status ??
-                  item?.result ??
-                  item?.disposition
-              );
+  //           const normalizedCallStatus =
+  //             normalizeStatus(
+  //               item?.status ??
+  //               item?.call_status ??
+  //               item?.result ??
+  //               item?.disposition
+  //             );
 
-            return {
-              ...item,
+  //           return {
+  //             ...item,
 
-              id: assignmentId,
+  //             id: assignmentId,
 
-              assignment_id: assignmentId,
+  //             assignment_id: assignmentId,
 
-              task_id: taskId,
+  //             task_id: taskId,
 
-              phone,
+  //             phone,
 
-              name: getName(item),
+  //             name: getName(item),
 
-              business: getBusiness(item),
+  //             business: getBusiness(item),
 
-              notes: getNotes(item),
+  //             notes: getNotes(item),
 
-              date:
-                item?.assigned_date ||
-                item?.date ||
-                data?.california_date ||
-                californiaDate,
+  //             date:
+  //               item?.assigned_date ||
+  //               item?.date ||
+  //               data?.california_date ||
+  //               californiaDate,
 
-              status: normalizedCallStatus,
+  //             status: normalizedCallStatus,
 
-              displayStatus: getDisplayStatus({
-                ...item,
-                status: item?.status,
-              }),
-            };
-          });
+  //             displayStatus: getDisplayStatus({
+  //               ...item,
+  //               status: item?.status,
+  //             }),
+  //           };
+  //         });
 
-        setTasks(normalizedRows);
+  //       setTasks(normalizedRows);
 
-        setPage(1);
-      } catch (err) {
-        console.error("Daily Desk error:", err);
+  //       setPage(1);
+  //     } catch (err) {
+  //       console.error("Daily Desk error:", err);
 
-        setError(
-          err?.message ||
-            "Something went wrong while loading Daily Desk."
-        );
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
-      }
-    },
-    [loadStaff]
-  );
+  //       setError(
+  //         err?.message ||
+  //         "Something went wrong while loading Daily Desk."
+  //       );
+  //     } finally {
+  //       setLoading(false);
+  //       setRefreshing(false);
+  //     }
+  //   },
+  //   [loadStaff]
+  // );
 
   /* =======================================================
      INITIAL LOAD
   ======================================================= */
 
-  useEffect(() => {
-    loadDailyDesk(false);
-  }, [loadDailyDesk]);
+  // useEffect(() => {
+  //   loadDailyDesk(false);
+  // }, [loadDailyDesk]);
 
   /* =======================================================
      AUTO REFRESH EVERY 15 SEC
@@ -1901,9 +1906,7 @@ export default function StaffDashboardPage() {
 
   const completedTasks = tasks.filter(
     (task) =>
-      task.status === "completed" ||
-      String(task.displayStatus).toLowerCase() ===
-        "completed"
+      task.is_completed
   ).length;
 
   const pendingTasks = totalTasks - completedTasks;
@@ -1916,32 +1919,47 @@ export default function StaffDashboardPage() {
     const query = search.trim().toLowerCase();
 
     return tasks.filter((task) => {
-      const status = task.status;
+      // API se actual status
+      const status = String(task.assignment_status || "").toLowerCase();
 
+      // API se actual completed state
+      const isCompleted =
+        task.is_completed === true ||
+        task.is_completed === 1 ||
+        status === "completed";
+
+      // =========================
+      // STATUS FILTER
+      // =========================
       const matchesFilter =
         filter === "all" ||
-        (filter === "pending" &&
-          status !== "completed") ||
-        (filter === "completed" &&
-          status === "completed");
+        (filter === "pending" && !isCompleted) ||
+        (filter === "completed" && isCompleted);
 
       if (!matchesFilter) {
         return false;
       }
 
+      // =========================
+      // SEARCH
+      // =========================
       if (!query) {
         return true;
       }
 
       const searchable = [
         task.task_id,
-        task.phone,
+        task.phone_number,
         task.name,
-        task.business,
+        task.business_name,
         task.source_file,
         task.notes,
+        task.comment,
+        task.assignment_id,
       ]
-        .filter(Boolean)
+        .filter(
+          (value) => value !== null && value !== undefined
+        )
         .join(" ")
         .toLowerCase();
 
@@ -2007,18 +2025,31 @@ export default function StaffDashboardPage() {
   /* =======================================================
      STATUS CHANGE
   ======================================================= */
+  const handleCommentChange = (id, newComment) => {
+    setTasks((prev) =>
+      prev.map((row) =>
+        row.assignment_id === id
+          ? {
+            ...row,
+            comment: newComment,
+          }
+          : row
+      )
+    );
+  };
 
   const handleStatusChange = (id, newStatus) => {
     setTasks((prev) =>
       prev.map((row) =>
-        row.id === id
+        row.assignment_id === id
           ? {
-              ...row,
-              displayStatus: newStatus,
-            }
+            ...row,
+            status: newStatus,
+          }
           : row
       )
     );
+
 
     /*
       IMPORTANT:
@@ -2057,7 +2088,7 @@ export default function StaffDashboardPage() {
     try {
       localStorage.removeItem("crm_login_time");
       localStorage.removeItem("crm_status_timer");
-    } catch {}
+    } catch { }
 
     router.replace("/login");
   };
@@ -2099,6 +2130,164 @@ export default function StaffDashboardPage() {
   /* =======================================================
      UI
   ======================================================= */
+
+
+
+  // ==== data bete
+  const fetchData = async () => {
+    try {
+      setLoading(true)
+      const res = await fetch(`/api/employee/tasks`);
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data?.message || "failed to load daily tasks")
+      }
+
+      setTasks(data?.tasks || []);
+
+      console.log(data)
+
+    } catch (error) {
+      toast.error(error.message || "fail to load data.")
+      console.error("Error: ", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+
+  const fetchStatus = async () => {
+    try {
+      const res = await fetch(`/api/employee/tasks-status`);
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data?.message || "failed to load daily tasks")
+      }
+
+      setStatus(data?.data || []);
+
+      console.log(data)
+
+    } catch (error) {
+      toast.error(error.message || "fail to load data.")
+      console.error("Error: ", error)
+    }
+  }
+
+
+  useEffect(() => {
+    fetchData();
+    fetchStatus();
+  }, []);
+
+
+
+  // ======= PATCH Call Handler
+  const handleCallClick = async (id, status, comment) => {
+    if(isSubmitting) return;
+    if (!id || !status || !comment) {
+      toast.error("Please select status and add comment to proceed");
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      const response = await fetch(`/api/employee/tasks/${id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          status: status || "PENDING",
+          comment: comment || "", // Undefined check before sending
+        }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        // =========================================================
+        // LIVE STATE UPDATE LOGIC (Fixed variable names)
+        // =========================================================
+        setTasks((prevTasks) =>
+          prevTasks
+            .map((task) => {
+              if (task.assignment_id === id) {
+                return {
+                  ...task,
+                  assignment_status: status,
+                  comment: comment || null,
+                  is_completed: true,
+                  is_locked: result.isLocked,
+                };
+              }
+              return task;
+            })
+          // Filter out lock hit non-repeatable status
+          // .filter((task) => !(task.assignment_id === id && result.isLocked))
+        );
+
+        toast.success("Task updated successfully!");
+        return result;
+      } else {
+        toast.error(`Error: ${result.error || "Failed to update"}`);
+        return null;
+      }
+    } catch (error) {
+      console.error("Call button error:", error);
+      toast.error(error.message || "Failed to execute request");
+      return null;
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+
+
+
+  // ============= skeleton ================
+
+  const renderStatsSkeleton = () => (
+    <div className="px-4 md:px-6 mt-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {[1, 2, 3].map((item) => (
+          <div
+            key={item}
+            className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm animate-pulse"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="h-3 w-20 bg-gray-200 rounded" />
+                <div className="h-7 w-12 bg-gray-200 rounded mt-2" />
+              </div>
+
+              <div className="w-10 h-10 rounded-lg bg-gray-200" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  const renderTableSkeleton = () => (
+    <tbody>
+      {[1, 2, 3, 4, 5, 6].map((row) => (
+        <tr
+          key={row}
+          className="border-b border-gray-200 animate-pulse"
+        >
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((col) => (
+            <td key={col} className="py-2 px-2">
+              <div className="h-5 bg-gray-200 rounded w-full" />
+            </td>
+          ))}
+        </tr>
+      ))}
+    </tbody>
+  );
+
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -2208,69 +2397,74 @@ export default function StaffDashboardPage() {
             STATS
         ================================================= */}
 
-        <div className="px-4 md:px-6 mt-4">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {/* TOTAL */}
+        {loading ? (
+          renderStatsSkeleton()
+        ) : (
+          <div className="px-4 md:px-6 mt-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* TOTAL */}
 
-            <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-gray-500">
-                    Total Tasks
-                  </p>
+              <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-gray-500">
+                      Total Tasks
+                    </p>
 
-                  <p className="text-2xl font-bold text-gray-900 mt-1">
-                    {totalTasks}
-                  </p>
-                </div>
+                    <p className="text-2xl font-bold text-gray-900 mt-1">
+                      {totalTasks}
+                    </p>
+                  </div>
 
-                <div className="w-10 h-10 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center">
-                  <CalendarDays className="w-5 h-5" />
-                </div>
-              </div>
-            </div>
-
-            {/* COMPLETED */}
-
-            <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-gray-500">
-                    Completed
-                  </p>
-
-                  <p className="text-2xl font-bold text-green-600 mt-1">
-                    {completedTasks}
-                  </p>
-                </div>
-
-                <div className="w-10 h-10 rounded-lg bg-green-50 text-green-700 flex items-center justify-center">
-                  <CheckCircle2 className="w-5 h-5" />
+                  <div className="w-10 h-10 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center">
+                    <CalendarDays className="w-5 h-5" />
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* PENDING */}
+              {/* COMPLETED */}
 
-            <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-gray-500">
-                    Remaining
-                  </p>
+              <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-gray-500">
+                      Completed
+                    </p>
 
-                  <p className="text-2xl font-bold text-orange-600 mt-1">
-                    {pendingTasks}
-                  </p>
+                    <p className="text-2xl font-bold text-green-600 mt-1">
+                      {completedTasks}
+                    </p>
+                  </div>
+
+                  <div className="w-10 h-10 rounded-lg bg-green-50 text-green-700 flex items-center justify-center">
+                    <CheckCircle2 className="w-5 h-5" />
+                  </div>
                 </div>
+              </div>
 
-                <div className="w-10 h-10 rounded-lg bg-orange-50 text-orange-700 flex items-center justify-center">
-                  <Clock3 className="w-5 h-5" />
+              {/* PENDING */}
+
+              <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-gray-500">
+                      Remaining
+                    </p>
+
+                    <p className="text-2xl font-bold text-orange-600 mt-1">
+                      {pendingTasks}
+                    </p>
+                  </div>
+
+                  <div className="w-10 h-10 rounded-lg bg-orange-50 text-orange-700 flex items-center justify-center">
+                    <Clock3 className="w-5 h-5" />
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
+
+        )}
 
         {/* =================================================
             SEARCH / FILTER
@@ -2328,11 +2522,10 @@ export default function StaffDashboardPage() {
                     onClick={() =>
                       handleFilter(item.value)
                     }
-                    className={`px-3 py-2 rounded-md text-xs font-medium transition ${
-                      filter === item.value
-                        ? "bg-white text-[#741C29] shadow-sm"
-                        : "text-gray-500 hover:text-gray-800"
-                    }`}
+                    className={`px-3 py-2 rounded-md text-xs font-medium transition ${filter === item.value
+                      ? "bg-white text-[#741C29] shadow-sm"
+                      : "text-gray-500 hover:text-gray-800"
+                      }`}
                   >
                     {item.label}
                   </button>
@@ -2420,7 +2613,7 @@ export default function StaffDashboardPage() {
                   </td>
 
                   <td className="py-2">
-                    Notes
+                    Comments
                   </td>
 
                   <td className="py-2">
@@ -2437,183 +2630,162 @@ export default function StaffDashboardPage() {
                   BODY
               ================================================= */}
 
-              <tbody>
-                {paginatedTasks.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={9}
-                      className="py-16 text-center"
-                    >
-                      <div className="flex flex-col items-center">
-                        <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
-                          <Search className="w-5 h-5 text-gray-400" />
-                        </div>
-
-                        <p className="mt-3 font-medium text-gray-700">
-                          No tasks found
-                        </p>
-
-                        <p className="mt-1 text-xs text-gray-400">
-                          Try changing your search or filter.
-                        </p>
-                      </div>
-                    </td>
-                  </tr>
-                ) : (
-                  paginatedTasks.map((row, index) => {
-                    const isCompleted =
-                      row.status === "completed";
-
-                    const phone = cleanPhone(row.phone);
-
-                    return (
-                      <tr
-                        key={row.id}
-                        className={`divide-x divide-gray-300 border-b border-gray-300 text-center transition ${
-                          isCompleted
-                            ? "bg-green-50"
-                            : "hover:bg-blue-50"
-                        }`}
+              {loading ? (
+                renderTableSkeleton()
+              ) : (
+                <tbody>
+                  {paginatedTasks.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={9}
+                        className="py-16 text-center"
                       >
-                        {/* ROW NUMBER */}
-
-                        <td
-                          className={`text-gray-600 text-center font-normal py-1 ${
-                            isCompleted
-                              ? "bg-green-100"
-                              : "bg-gray-100"
-                          }`}
-                        >
-                          {getRowNumber(index)}
-                        </td>
-
-                        {/* DATE */}
-
-                        <td className="py-1 px-2 whitespace-nowrap">
-                          {formatCaliforniaDate(
-                            row.date
-                          )}
-                        </td>
-
-                        {/* NAME */}
-
-                        <td className="py-1 px-2 font-medium text-gray-800">
-                          {row.name}
-                        </td>
-
-                        {/* PHONE */}
-
-                        <td className="py-1 px-2">
-                          <div className="flex items-center justify-center gap-2">
-                            <span className="font-mono text-gray-800">
-                              {row.phone || "—"}
-                            </span>
+                        <div className="flex flex-col items-center">
+                          <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
+                            <Search className="w-5 h-5 text-gray-400" />
                           </div>
-                        </td>
 
-                        {/* BUSINESS */}
+                          <p className="mt-3 font-medium text-gray-700">
+                            No tasks found
+                          </p>
 
-                        <td className="py-1 px-2 text-left text-gray-800">
-                          <div
-                            className="truncate max-w-[280px]"
-                            title={row.business}
-                          >
-                            {row.business}
-                          </div>
-                        </td>
+                          <p className="mt-1 text-xs text-gray-400">
+                            Try changing your search or filter.
+                          </p>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    paginatedTasks.map((row, index) => {
+                      const isCompleted =
+                        row.is_completed;
 
-                        {/* STATUS */}
+                      const phone = cleanPhone(row.phone);
 
-                        <td className="py-1 px-1">
-                          <select
-                            value={
-                              row.displayStatus ||
-                              "Pending"
-                            }
-                            onChange={(e) =>
-                              handleStatusChange(
-                                row.id,
-                                e.target.value
-                              )
-                            }
-                            className={`w-full min-w-[155px] bg-white border rounded px-2 py-1.5 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-[#741C29] ${
-                              isCompleted
-                                ? "border-green-300 text-green-700"
-                                : "border-gray-300 text-gray-800"
+                      return (
+                        <tr
+                          key={row.assignment_id}
+                          className={`divide-x divide-gray-300 border-b border-gray-300 text-center transition ${row.is_completed
+                            ? "bg-gray-100 text-gray-400 opacity-60 pointer-events-none"
+                              : "hover:bg-blue-50"
                             }`}
+                        >
+
+                          {/* ROW NUMBER */}
+
+                          <td
+                            className={`text-gray-600 text-center font-normal py-1 bg-gray-100 `}
                           >
-                            <option value="Pending">
-                              Pending
-                            </option>
+                            {getRowNumber(index)}
+                          </td>
 
-                            <option value="Completed">
-                              Completed
-                            </option>
+                          {/* DATE */}
 
-                            <option value="Straight to Voicemail">
-                              Straight to Voicemail
-                            </option>
+                          <td className="py-1 px-2 whitespace-nowrap">
+                            {formatCaliforniaDate(
+                              row.assignment_date
+                            )}
+                          </td>
 
-                            <option value="No Business">
-                              No Business
-                            </option>
+                          {/* NAME */}
 
-                            <option value="No Answer">
-                              No Answer
-                            </option>
+                          <td className="py-1 px-2 font-medium text-gray-800">
+                            {row.name}
+                          </td>
 
-                            <option value="Hang Up">
-                              Hang Up
-                            </option>
-                          </select>
-                        </td>
+                          {/* PHONE */}
 
-                        {/* NOTES */}
+                          <td className="py-1 px-2">
+                            <div className="flex items-center justify-center gap-2">
+                              <span className="font-mono text-gray-800">
+                                {row.phone_number || "—"}
+                              </span>
+                            </div>
+                          </td>
 
-                        <td className="py-1 px-2 text-left text-gray-700">
-                          <div
-                            className="truncate max-w-[200px]"
-                            title={row.notes}
-                          >
-                            {row.notes || ""}
-                          </div>
-                        </td>
+                          {/* BUSINESS */}
 
-                        {/* TASK ID */}
-
-                        <td className="py-1 px-2 font-mono text-gray-500">
-                          {row.task_id || "—"}
-                        </td>
-
-                        {/* ACTION */}
-
-                        <td className="py-1 px-1">
-                          {phone ? (
-                            <a
-                              href={`tel:${phone}`}
-                              className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition ${
-                                isCompleted
-                                  ? "bg-green-100 text-green-700 hover:bg-green-200"
-                                  : "bg-[#741C29] text-white hover:bg-[#5f1722]"
-                              }`}
+                          <td className="py-1 px-2 text-left text-gray-800">
+                            <div
+                              className="truncate max-w-[280px]"
+                              title={row.business_name}
                             >
-                              <Phone className="w-3.5 h-3.5" />
+                              {row.business_name}
+                            </div>
+                          </td>
 
-                              {isCompleted
-                                ? "Call Again"
-                                : "Call"}
-                            </a>
-                          ) : (
-                            <span className="text-gray-400">
-                              —
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
+                          {/* STATUS */}
+                          <td className="py-1 px-1">
+                            <select
+                              value={row.status || ""}
+                              onChange={(e) =>
+                                handleStatusChange(
+                                  row.assignment_id,
+                                  e.target.value
+                                )
+                              }
+                              className={`w-full min-w-[155px] bg-white border border-gray-300 text-gray-800 rounded px-2 py-1.5 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-[#741C29]`}
+                            >
+                              <option value="">
+                                Select Status
+                              </option>
+
+                              {status.map((statusOption) => (
+                                <option
+                                  key={statusOption.status_name}
+                                  value={statusOption.status_name}
+                                >
+                                  {statusOption.status_name}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+
+                          {/* NOTES */}
+                          <td className="py-1 px-2 text-left text-gray-700">
+                            <input
+                              type="text"
+                              value={row.comment || ""}
+                              onChange={(e) => handleCommentChange(row.assignment_id, e.target.value)}
+                              placeholder="Add comment..."
+                              className="w-full max-w-[200px] border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                              title={row.comment || ""}
+                            />
+                          </td>
+
+                          {/* TASK ID */}
+
+                          <td className="py-1 px-2 font-mono text-gray-500">
+                            {row.assignment_id || "—"}
+                          </td>
+
+                          {/* ACTION */}
+
+                          <td className="py-1 px-1">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleCallClick(
+                                  row.assignment_id,
+                                  row.status,
+                                  row.comment || ""
+                                )
+                              }
+                              className="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-md bg-[#741C29] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#5f1722]"
+                            >
+                              Save
+                            </button>
+                          </td>
+
+
+
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              )}
+
             </table>
           </div>
         </div>
@@ -2716,6 +2888,13 @@ export default function StaffDashboardPage() {
           onConfirm={handleLogout}
         />
       )}
+
+
+      {isSubmitting && (
+        <Loader />
+      )}
+
+
     </div>
   );
 }
