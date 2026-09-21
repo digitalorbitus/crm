@@ -2,6 +2,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import BreakTimerModal from "@/components/BreakTimerModal";
 import { Toaster } from "react-hot-toast";
+import LogoutModal from "@/components/LogoutModal";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -27,7 +28,7 @@ export default function RootLayout({ children }) {
     >
       <body className="min-h-full flex flex-col">
         <BreakTimerModal />
-        {children}
+        {children} 
         <Toaster position="top-right" />
       </body>
     </html>

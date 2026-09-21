@@ -1549,7 +1549,7 @@ export default function DashboardPage() {
 
       {/* SIDEBAR */}
 
-      <div
+      {/* <div
         className={`
           fixed inset-y-0 left-0 z-50
           w-[270px]
@@ -1564,13 +1564,9 @@ export default function DashboardPage() {
             : "-translate-x-full"
           }
         `}
-      >
-        <Sidebar
-          sidebarOpen={sidebarOpen}
-          setSidebarOpen={setSidebarOpen}
-          setShowLogoutModal={setShowLogoutModal}
-        />
-      </div>
+      > */}
+        <Sidebar/>
+      {/* </div> */}
 
       {/* MAIN */}
 

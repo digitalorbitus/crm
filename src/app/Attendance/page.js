@@ -11168,34 +11168,7 @@ async function exportPDF() {
 
         {/* SIDEBAR */}
 
-        <div
-          className={`
-            fixed inset-y-0 left-0 z-50
-            w-[270px]
-            transform
-            bg-white
-            shadow-xl
-            transition-transform
-            duration-300
-            lg:translate-x-0
-            ${sidebarOpen
-              ? "translate-x-0"
-              : "-translate-x-full"
-            }
-          `}
-        >
-          <Sidebar
-            sidebarOpen={
-              sidebarOpen
-            }
-            setSidebarOpen={
-              setSidebarOpen
-            }
-            setShowLogoutModal={
-              setShowLogoutModal
-            }
-          />
-        </div>
+ <Sidebar/>
 
         {/* =================================================
             HEADER

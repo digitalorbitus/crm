@@ -166,6 +166,25 @@ export async function GET(request) {
       }
     );
   } catch (error) {
+    if (
+      error?.code === "ER_NO_SUCH_TABLE" ||
+      error?.errno === 1146
+    ) {
+      return NextResponse.json(
+        {
+          success: true,
+          notifications: [],
+          unread_count: 0,
+        },
+        {
+          status: 200,
+          headers: {
+            "Cache-Control": "no-store",
+          },
+        }
+      );
+    }
+
     console.error(
       "GET /api/notifications error:",
       error
