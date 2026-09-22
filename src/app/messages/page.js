@@ -121,8 +121,13 @@ export default function MessagesDashboard() {
 
   const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);
-  const unreadCount = conversations.filter(
-  (conversation) => conversation.unreadCount > 0
+//   const unreadCount = conversations.filter(
+//   (conversation) => conversation.unreadCount > 0
+// ).length;
+
+const unreadCount = conversations.filter(
+  (conversation) =>
+    Number(conversation.unread_count || 0) > 0
 ).length;
 
   /* ==================================================
@@ -136,54 +141,8 @@ export default function MessagesDashboard() {
     });
   };
 
-  /* ==================================================
-     LOGOUT
-  ================================================== */
+  
 
-  // const handleConfirmLogout = async () => {
-  //   setLoggingOut(true);
-
-  //   try {
-  //     localStorage.removeItem("crm_login_time");
-
-  //     const response = await fetch("/api/logout", {
-  //       method: "POST",
-  //       credentials: "include",
-  //     });
-
-  //     const data = await response.json();
-
-  //     if (!response.ok || !data.success) {
-  //       alert(data.message || "Logout failed");
-  //       setLoggingOut(false);
-  //       setShowLogoutModal(false);
-  //       return;
-  //     }
-
-  //     router.push("/login");
-  //   } catch (error) {
-  //     console.error("Logout error:", error);
-  //     alert("Something went wrong during logout.");
-  //     setLoggingOut(false);
-  //     setShowLogoutModal(false);
-  //   }
-  // };
-
-  // // =========  loder start  ==========
-  // if (loading) {
-  //   return (
-  //     <CRMLoader
-  //       title="CRM"
-  //  subtitle="message"
-  //       message="Loading admin workspace..."
-  //     />
-  //   );
-  // }
-  // =========  loder end  ==========
-
-  /* ==================================================
-     MESSAGE DATE HELPERS
-  ================================================== */
 
   const formatMessageDate = (dateValue) => {
     if (!dateValue) return "";
@@ -218,445 +177,793 @@ export default function MessagesDashboard() {
      LOAD CONVERSATIONS
   ================================================== */
 
-  const loadConversations = async () => {
-    try {
-      const response = await fetch("/api/conversations", {
-        method: "GET",
-        credentials: "include",
-        cache: "no-store",
-      });
-      const data = await response.json();
+//   const loadConversations = async () => {
+//     try {
+//       const response = await fetch("/api/conversations", {
+//         method: "GET",
+//         credentials: "include",
+//         cache: "no-store",
+//       });
+//       const data = await response.json();
 
-      if (!response.ok || !data.success) {
-        throw new Error(data.message || "Failed to load conversations");
-      }
+//       if (!response.ok || !data.success) {
+//         throw new Error(data.message || "Failed to load conversations");
+//       }
 
-      const loggedInUser = data.currentUser || currentUser;
-      const currentUserId = Number(loggedInUser?.id);
-      const existingConversations = Array.isArray(data.conversations)
-        ? data.conversations
-        : [];
-      const allUsers = Array.isArray(data.users) ? data.users : [];
+//       const loggedInUser = data.currentUser || currentUser;
+//       const currentUserId = Number(loggedInUser?.id);
+//       const existingConversations = Array.isArray(data.conversations)
+//         ? data.conversations
+//         : [];
+//       const allUsers = Array.isArray(data.users) ? data.users : [];
 
-      if (loggedInUser && loggedInUser.id) {
-        setCurrentUser(loggedInUser);
-      }
-      setUsers(allUsers);
+//       if (loggedInUser && loggedInUser.id) {
+//         setCurrentUser(loggedInUser);
+//       }
+//       setUsers(allUsers);
 
-    /* ==================================================
-       GROUP CHATS
-    ================================================== */
+//     /* ==================================================
+//        GROUP CHATS
+//     ================================================== */
 
-    const groupChatsMap = new Map();
+//     const groupChatsMap = new Map();
 
-    existingConversations
-      .filter(
-        (chat) =>
-          String(chat.type).toLowerCase() === "group"
-      )
-      .forEach((chat) => {
-        const conversationId = Number(chat.id);
+//     existingConversations
+//       .filter(
+//         (chat) =>
+//           String(chat.type).toLowerCase() === "group"
+//       )
+//       .forEach((chat) => {
+//         const conversationId = Number(chat.id);
 
-        if (
-          Number.isInteger(conversationId) &&
-          conversationId > 0
-        ) {
-          groupChatsMap.set(conversationId, {
-            ...chat,
-            id: conversationId,
-            conversationId: conversationId,
-            type: "group",
-          });
-        }
-      });
+//         if (
+//           Number.isInteger(conversationId) &&
+//           conversationId > 0
+//         ) {
+//           groupChatsMap.set(conversationId, {
+//             ...chat,
+//             id: conversationId,
+//             conversationId: conversationId,
+//             type: "group",
+//           });
+//         }
+//       });
 
-    const groupChats = Array.from(
-      groupChatsMap.values()
-    );
+//     const groupChats = Array.from(
+//       groupChatsMap.values()
+//     );
 
-    /* ==================================================
-       EXISTING DIRECT CHATS
-    ================================================== */
+//     /* ==================================================
+//        EXISTING DIRECT CHATS
+//     ================================================== */
 
-    const existingDirectChats =
-      existingConversations.filter(
-        (chat) =>
-          String(chat.type).toLowerCase() === "direct"
-      );
+//     const existingDirectChats =
+//       existingConversations.filter(
+//         (chat) =>
+//           String(chat.type).toLowerCase() === "direct"
+//       );
 
-    /* ==================================================
-       DIRECT CHAT MAP
+//     /* ==================================================
+//        DIRECT CHAT MAP
        
-       IMPORTANT:
-       userId => only ONE chat
-    ================================================== */
+//        IMPORTANT:
+//        userId => only ONE chat
+//     ================================================== */
+
+//     const directChatsMap = new Map();
+
+//     /* ==================================================
+//        FIRST:
+//        Add REAL DIRECT CONVERSATIONS
+//     ================================================== */
+
+//     existingDirectChats.forEach((chat) => {
+//       const memberUserId = chat.members?.find(
+//         (member) =>
+//           Number(member.user_id ?? member.id) !==
+//           currentUserId
+//       )?.user_id ?? chat.members?.find(
+//         (member) =>
+//           Number(member.user_id ?? member.id) !==
+//           currentUserId
+//       )?.id;
+
+//       const rawUserId =
+//         chat.user_id ??
+//         chat.userId ??
+//         chat.other_user_id ??
+//         chat.otherUserId ??
+//         memberUserId;
+
+//       const userId = Number(rawUserId);
+
+//       if (
+//         !Number.isInteger(userId) ||
+//         userId <= 0
+//       ) {
+//         return;
+//       }
+
+//       /* Never show current user */
+//       if (userId === currentUserId) {
+//         return;
+//       }
+
+//       /*
+//         Real conversation gets priority.
+//         If same user already exists, don't add again.
+//       */
+
+//       if (!directChatsMap.has(userId)) {
+//         const otherUser = chat.members?.find(
+//           (member) =>
+//             Number(member.user_id ?? member.id) ===
+//             userId
+//         );
+
+//         directChatsMap.set(userId, {
+//           ...chat,
+
+//           id:
+//             Number(chat.id) > 0
+//               ? Number(chat.id)
+//               : null,
+
+//           conversationId:
+//             Number(chat.id) > 0
+//               ? Number(chat.id)
+//               : `direct-${userId}`,
+
+//           user_id: userId,
+//           userId: userId,
+
+//           name:
+//             otherUser?.name ||
+//             otherUser?.email ||
+//             chat.name ||
+//             "Unknown User",
+
+//           email:
+//             otherUser?.email ||
+//             chat.email ||
+//             "",
+
+//           phone:
+//             otherUser?.phone ||
+//             chat.phone ||
+//             "",
+
+//           initials:
+//             otherUser?.initials ||
+//             chat.initials ||
+//             (otherUser?.name ||
+//               otherUser?.email ||
+//               chat.name ||
+//               "U")
+//               .slice(0, 2)
+//               .toUpperCase(),
+
+//           type: "direct",
+
+//           messages: Array.isArray(chat.messages)
+//             ? chat.messages
+//             : [],
+
+//           unread_count:
+//             Number(chat.unread_count) || 0,
+//         });
+//       }
+//     });
+
+//     /* ==================================================
+//        SECOND:
+//        ADD USERS WITHOUT A REAL CONVERSATION
+       
+//        These become fake direct chats.
+//     ================================================== */
+
+//     allUsers.forEach((user) => {
+//       const userId = Number(user.id);
+
+//       /* Invalid user */
+//       if (
+//         !Number.isInteger(userId) ||
+//         userId <= 0
+//       ) {
+//         return;
+//       }
+
+//       /* Never show current logged-in user */
+//       if (userId === currentUserId) {
+//         return;
+//       }
+
+//       /*
+//         VERY IMPORTANT:
+//         If this user already has a real direct chat,
+//         DO NOT CREATE ANOTHER CHAT.
+//       */
+
+//       if (directChatsMap.has(userId)) {
+//         return;
+//       }
+
+//       const userName =
+//         user.name?.trim() || "Unknown";
+
+//       const initials =
+//         userName
+//           .slice(0, 2)
+//           .toUpperCase() || "U";
+
+//       directChatsMap.set(userId, {
+//         id: null,
+
+//         conversationId: `direct-${userId}`,
+
+//         user_id: userId,
+//         userId: userId,
+
+//         name: userName,
+
+//         email: user.email || "",
+
+//         phone: user.phone || "",
+
+//         role: user.role || "",
+
+//         type: "direct",
+
+//         initials,
+
+//         avatar_bg:
+//           "bg-emerald-100 text-emerald-600",
+
+//         avatarBg:
+//           "bg-emerald-100 text-emerald-600",
+
+//         lastMsg: "No messages yet",
+
+//         last_msg: "No messages yet",
+
+//         last_msg_time: null,
+
+//         unread_count: 0,
+
+//         messages: [],
+//       });
+//     });
+
+//     /* ==================================================
+//        FINAL DIRECT CHATS
+//     ================================================== */
+
+//     const directChats = Array.from(
+//       directChatsMap.values()
+//     );
+
+//     /* ==================================================
+//        FINAL CHATS
+//     ================================================== */
+
+//     const chats = [
+//       ...directChats,
+//       ...groupChats,
+//     ];
+
+//     console.log("=================================");
+//     console.log(
+//       "REAL DIRECT CHATS:",
+//       existingDirectChats
+//     );
+//     console.log(
+//       "UNIQUE DIRECT CHATS:",
+//       directChats
+//     );
+//     console.log(
+//       "GROUP CHATS:",
+//       groupChats
+//     );
+//     console.log(
+//       "FINAL CHATS:",
+//       chats
+//     );
+//     console.log(
+//       "FINAL CHAT COUNT:",
+//       chats.length
+//     );
+//     console.log("=================================");
+
+//     /* ==================================================
+//        SAVE CONVERSATIONS
+//     ================================================== */
+
+//     setConversations(chats);
+
+//     /* ==================================================
+//        KEEP SELECTED CHAT
+//     ================================================== */
+
+//     setSelectedChat((current) => {
+//       /* No chats */
+//       if (!chats.length) {
+//         return null;
+//       }
+
+//       /* Nothing selected */
+//       if (!current) {
+//         return chats[0];
+//       }
+
+//       const currentConversationId =
+//         Number(current.id);
+
+//       const currentUserIdFromChat =
+//         Number(
+//           current.user_id ??
+//           current.userId
+//         );
+
+//       /* ==================================================
+//          FIND UPDATED CHAT
+//       ================================================== */
+
+//       const updatedChat = chats.find((chat) => {
+//         const chatConversationId =
+//           Number(chat.id);
+
+//         const chatUserId =
+//           Number(
+//             chat.user_id ??
+//             chat.userId
+//           );
+
+//         /* -----------------------------------------------
+//            MATCH REAL CONVERSATION ID
+//         ------------------------------------------------ */
+
+//         if (
+//           Number.isInteger(
+//             currentConversationId
+//           ) &&
+//           currentConversationId > 0 &&
+//           Number.isInteger(
+//             chatConversationId
+//           ) &&
+//           chatConversationId > 0 &&
+//           chatConversationId ===
+//             currentConversationId
+//         ) {
+//           return true;
+//         }
+
+//         /* -----------------------------------------------
+//            MATCH USER ID
+//         ------------------------------------------------ */
+
+//         if (
+//           Number.isInteger(
+//             currentUserIdFromChat
+//           ) &&
+//           currentUserIdFromChat > 0 &&
+//           Number.isInteger(chatUserId) &&
+//           chatUserId > 0 &&
+//           chatUserId ===
+//             currentUserIdFromChat
+//         ) {
+//           return true;
+//         }
+
+//         /* -----------------------------------------------
+//            MATCH fake direct-userId
+//         ------------------------------------------------ */
+
+//         if (
+//           typeof current.conversationId ===
+//             "string" &&
+//           current.conversationId.startsWith(
+//             "direct-"
+//           ) &&
+//           typeof chat.conversationId ===
+//             "string" &&
+//           chat.conversationId ===
+//             current.conversationId
+//         ) {
+//           return true;
+//         }
+
+//         return false;
+//       });
+
+//       /* ==================================================
+//          RETURN UPDATED CHAT
+//       ================================================== */
+
+//       if (updatedChat) {
+//         return {
+//           ...updatedChat,
+
+//           /*
+//             Keep already loaded messages
+//             if they exist.
+//           */
+//           messages:
+//             Array.isArray(current.messages) &&
+//             current.messages.length > 0
+//               ? current.messages
+//               : Array.isArray(
+//                   updatedChat.messages
+//                 )
+//               ? updatedChat.messages
+//               : [],
+//         };
+//       }
+
+//       /* ==================================================
+//          CURRENT CHAT NO LONGER EXISTS
+//          SELECT FIRST CHAT
+//       ================================================== */
+
+//       return chats[0];
+//     });
+//   } catch (error) {
+//     console.error(
+//       "Load Conversations Error:",
+//       error
+//     );
+//   } finally {
+//     setLoadingConversations(false);
+//   }
+// };
+const loadConversations = useCallback(async () => {
+  try {
+    setLoadingConversations(true);
+
+    const res = await fetch("/api/conversations", {
+      method: "GET",
+      credentials: "include",
+      cache: "no-store",
+      headers: {
+        "Cache-Control": "no-cache",
+      },
+    });
+
+    if (!res.ok) {
+      throw new Error("Failed to load conversations");
+    }
+
+    const data = await res.json();
+
+    const current = data?.currentUser || null;
+    const apiUsers = Array.isArray(data?.users) ? data.users : [];
+    const apiConversations = Array.isArray(data?.conversations)
+      ? data.conversations
+      : [];
+
+    setCurrentUser(current);
+    setUsers(apiUsers);
+
+    const currentUserId = Number(current?.id);
+
+    // ============================================================
+    // DIRECT CHAT MAP
+    // One direct chat per target user
+    // ============================================================
 
     const directChatsMap = new Map();
+    const groupChats = [];
 
-    /* ==================================================
-       FIRST:
-       Add REAL DIRECT CONVERSATIONS
-    ================================================== */
+    for (const chat of apiConversations) {
+      const chatType = String(chat?.type || "").toLowerCase();
 
-    existingDirectChats.forEach((chat) => {
-      const memberUserId = chat.members?.find(
-        (member) =>
-          Number(member.user_id ?? member.id) !==
-          currentUserId
-      )?.user_id ?? chat.members?.find(
-        (member) =>
-          Number(member.user_id ?? member.id) !==
-          currentUserId
-      )?.id;
+      // ==========================================================
+      // GROUP
+      // ==========================================================
 
-      const rawUserId =
+      if (chatType === "group") {
+        groupChats.push({
+          ...chat,
+          type: "group",
+          conversationId: chat.id,
+          messages: Array.isArray(chat.messages)
+            ? chat.messages
+            : [],
+          lastMsg:
+            chat.lastMsg ??
+            chat.last_msg ??
+            "No messages yet",
+          last_msg:
+            chat.last_msg ??
+            chat.lastMsg ??
+            "No messages yet",
+          unread_count: Number(chat.unread_count || 0),
+        });
+
+        continue;
+      }
+
+      // ==========================================================
+      // DIRECT CHAT
+      // ==========================================================
+
+      const members = Array.isArray(chat.members)
+        ? chat.members
+        : [];
+
+      const otherMember = members.find((member) => {
+        const memberId = Number(
+          member?.user_id ??
+          member?.userId ??
+          member?.id
+        );
+
+        return (
+          Number.isFinite(memberId) &&
+          memberId !== currentUserId
+        );
+      });
+
+      const targetUserId = Number(
         chat.user_id ??
         chat.userId ??
         chat.other_user_id ??
         chat.otherUserId ??
-        memberUserId;
-
-      const userId = Number(rawUserId);
+        otherMember?.user_id ??
+        otherMember?.userId ??
+        otherMember?.id
+      );
 
       if (
-        !Number.isInteger(userId) ||
-        userId <= 0
+        !Number.isFinite(targetUserId) ||
+        targetUserId === currentUserId
       ) {
-        return;
+        continue;
       }
 
-      /* Never show current user */
-      if (userId === currentUserId) {
-        return;
-      }
+      const targetUser =
+        apiUsers.find(
+          (user) => Number(user.id) === targetUserId
+        ) || otherMember;
 
-      /*
-        Real conversation gets priority.
-        If same user already exists, don't add again.
-      */
+      const normalizedChat = {
+        ...chat,
 
-      if (!directChatsMap.has(userId)) {
-        const otherUser = chat.members?.find(
-          (member) =>
-            Number(member.user_id ?? member.id) ===
-            userId
+        id: Number(chat.id),
+        conversationId: Number(chat.id),
+
+        type: "direct",
+
+        user_id: targetUserId,
+        userId: targetUserId,
+
+        // IMPORTANT:
+        // Admin side should show ONLY the target user name.
+        name:
+          targetUser?.name ||
+          otherMember?.name ||
+          chat.name ||
+          "User",
+
+        email:
+          targetUser?.email ||
+          otherMember?.email ||
+          chat.email ||
+          "",
+
+        phone:
+          targetUser?.phone ||
+          otherMember?.phone ||
+          chat.phone ||
+          "",
+
+        role:
+          targetUser?.role ||
+          otherMember?.role ||
+          chat.role ||
+          "",
+
+        messages: Array.isArray(chat.messages)
+          ? chat.messages
+          : [],
+
+        lastMsg:
+          chat.lastMsg ??
+          chat.last_msg ??
+          "No messages yet",
+
+        last_msg:
+          chat.last_msg ??
+          chat.lastMsg ??
+          "No messages yet",
+
+        last_msg_time:
+          chat.last_msg_time ??
+          chat.lastMsgTime ??
+          null,
+
+        unread_count: Number(chat.unread_count || 0),
+      };
+
+      // ==========================================================
+      // VERY IMPORTANT
+      // One conversation per Admin <-> User
+      // ==========================================================
+
+      const existing = directChatsMap.get(targetUserId);
+
+      if (!existing) {
+        directChatsMap.set(
+          targetUserId,
+          normalizedChat
         );
+      } else {
+        // Prefer the real/latest conversation
+        const existingTime = existing.last_msg_time
+          ? new Date(existing.last_msg_time).getTime()
+          : 0;
 
-        directChatsMap.set(userId, {
-          ...chat,
+        const newTime = normalizedChat.last_msg_time
+          ? new Date(normalizedChat.last_msg_time).getTime()
+          : 0;
 
-          id:
-            Number(chat.id) > 0
-              ? Number(chat.id)
-              : null,
-
-          conversationId:
-            Number(chat.id) > 0
-              ? Number(chat.id)
-              : `direct-${userId}`,
-
-          user_id: userId,
-          userId: userId,
-
-          name:
-            otherUser?.name ||
-            otherUser?.email ||
-            chat.name ||
-            "Unknown User",
-
-          email:
-            otherUser?.email ||
-            chat.email ||
-            "",
-
-          phone:
-            otherUser?.phone ||
-            chat.phone ||
-            "",
-
-          initials:
-            otherUser?.initials ||
-            chat.initials ||
-            (otherUser?.name ||
-              otherUser?.email ||
-              chat.name ||
-              "U")
-              .slice(0, 2)
-              .toUpperCase(),
-
-          type: "direct",
-
-          messages: Array.isArray(chat.messages)
-            ? chat.messages
-            : [],
-
-          unread_count:
-            Number(chat.unread_count) || 0,
-        });
+        if (
+          newTime >= existingTime ||
+          Number(normalizedChat.id) > Number(existing.id)
+        ) {
+          directChatsMap.set(
+            targetUserId,
+            normalizedChat
+          );
+        }
       }
-    });
+    }
 
-    /* ==================================================
-       SECOND:
-       ADD USERS WITHOUT A REAL CONVERSATION
-       
-       These become fake direct chats.
-    ================================================== */
+    // ============================================================
+    // CREATE UI-ONLY DIRECT CHATS FOR USERS
+    // THAT DON'T HAVE A CONVERSATION YET
+    // ============================================================
 
-    allUsers.forEach((user) => {
-      const userId = Number(user.id);
+    for (const user of apiUsers) {
+      const userId = Number(user?.id);
 
-      /* Invalid user */
       if (
-        !Number.isInteger(userId) ||
-        userId <= 0
+        !Number.isFinite(userId) ||
+        userId === currentUserId
       ) {
-        return;
+        continue;
       }
-
-      /* Never show current logged-in user */
-      if (userId === currentUserId) {
-        return;
-      }
-
-      /*
-        VERY IMPORTANT:
-        If this user already has a real direct chat,
-        DO NOT CREATE ANOTHER CHAT.
-      */
 
       if (directChatsMap.has(userId)) {
-        return;
+        continue;
       }
-
-      const userName =
-        user.name?.trim() || "Unknown";
-
-      const initials =
-        userName
-          .slice(0, 2)
-          .toUpperCase() || "U";
 
       directChatsMap.set(userId, {
         id: null,
 
+        // Temporary UI ID only.
+        // It is NOT a database conversation.
         conversationId: `direct-${userId}`,
 
         user_id: userId,
-        userId: userId,
+        userId,
 
-        name: userName,
+        name:
+          user?.name ||
+          user?.email ||
+          "User",
 
-        email: user.email || "",
-
-        phone: user.phone || "",
-
-        role: user.role || "",
+        email: user?.email || "",
+        phone: user?.phone || "",
+        role: user?.role || "",
 
         type: "direct",
 
-        initials,
-
-        avatar_bg:
-          "bg-emerald-100 text-emerald-600",
-
-        avatarBg:
-          "bg-emerald-100 text-emerald-600",
+        messages: [],
 
         lastMsg: "No messages yet",
-
         last_msg: "No messages yet",
 
         last_msg_time: null,
 
         unread_count: 0,
 
-        messages: [],
+        isNew: true,
       });
-    });
-
-    /* ==================================================
-       FINAL DIRECT CHATS
-    ================================================== */
+    }
 
     const directChats = Array.from(
       directChatsMap.values()
     );
 
-    /* ==================================================
-       FINAL CHATS
-    ================================================== */
+    // ============================================================
+    // FINAL CHAT LIST
+    // ============================================================
 
-    const chats = [
+    const finalChats = [
       ...directChats,
       ...groupChats,
     ];
 
-    console.log("=================================");
-    console.log(
-      "REAL DIRECT CHATS:",
-      existingDirectChats
-    );
-    console.log(
-      "UNIQUE DIRECT CHATS:",
-      directChats
-    );
-    console.log(
-      "GROUP CHATS:",
-      groupChats
-    );
-    console.log(
-      "FINAL CHATS:",
-      chats
-    );
-    console.log(
-      "FINAL CHAT COUNT:",
-      chats.length
-    );
-    console.log("=================================");
+    setConversations(finalChats);
 
-    /* ==================================================
-       SAVE CONVERSATIONS
-    ================================================== */
+    // ============================================================
+    // PRESERVE CURRENT SELECTED CHAT
+    // ============================================================
 
-    setConversations(chats);
-
-    /* ==================================================
-       KEEP SELECTED CHAT
-    ================================================== */
-
-    setSelectedChat((current) => {
-      /* No chats */
-      if (!chats.length) {
-        return null;
+    setSelectedChat((previous) => {
+      if (!previous) {
+        return finalChats[0] || null;
       }
 
-      /* Nothing selected */
-      if (!current) {
-        return chats[0];
-      }
+      const previousUserId = Number(
+        previous.user_id ??
+        previous.userId
+      );
 
-      const currentConversationId =
-        Number(current.id);
-
-      const currentUserIdFromChat =
-        Number(
-          current.user_id ??
-          current.userId
-        );
-
-      /* ==================================================
-         FIND UPDATED CHAT
-      ================================================== */
-
-      const updatedChat = chats.find((chat) => {
-        const chatConversationId =
-          Number(chat.id);
-
-        const chatUserId =
-          Number(
-            chat.user_id ??
-            chat.userId
+      // First preference: exact real conversation
+      if (previous.id) {
+        const exactConversation =
+          finalChats.find(
+            (chat) =>
+              Number(chat.id) ===
+              Number(previous.id)
           );
 
-        /* -----------------------------------------------
-           MATCH REAL CONVERSATION ID
-        ------------------------------------------------ */
-
-        if (
-          Number.isInteger(
-            currentConversationId
-          ) &&
-          currentConversationId > 0 &&
-          Number.isInteger(
-            chatConversationId
-          ) &&
-          chatConversationId > 0 &&
-          chatConversationId ===
-            currentConversationId
-        ) {
-          return true;
+        if (exactConversation) {
+          return exactConversation;
         }
-
-        /* -----------------------------------------------
-           MATCH USER ID
-        ------------------------------------------------ */
-
-        if (
-          Number.isInteger(
-            currentUserIdFromChat
-          ) &&
-          currentUserIdFromChat > 0 &&
-          Number.isInteger(chatUserId) &&
-          chatUserId > 0 &&
-          chatUserId ===
-            currentUserIdFromChat
-        ) {
-          return true;
-        }
-
-        /* -----------------------------------------------
-           MATCH fake direct-userId
-        ------------------------------------------------ */
-
-        if (
-          typeof current.conversationId ===
-            "string" &&
-          current.conversationId.startsWith(
-            "direct-"
-          ) &&
-          typeof chat.conversationId ===
-            "string" &&
-          chat.conversationId ===
-            current.conversationId
-        ) {
-          return true;
-        }
-
-        return false;
-      });
-
-      /* ==================================================
-         RETURN UPDATED CHAT
-      ================================================== */
-
-      if (updatedChat) {
-        return {
-          ...updatedChat,
-
-          /*
-            Keep already loaded messages
-            if they exist.
-          */
-          messages:
-            Array.isArray(current.messages) &&
-            current.messages.length > 0
-              ? current.messages
-              : Array.isArray(
-                  updatedChat.messages
-                )
-              ? updatedChat.messages
-              : [],
-        };
       }
 
-      /* ==================================================
-         CURRENT CHAT NO LONGER EXISTS
-         SELECT FIRST CHAT
-      ================================================== */
+      // Second preference: same target user
+      if (
+        Number.isFinite(previousUserId)
+      ) {
+        const sameUserChat =
+          finalChats.find(
+            (chat) =>
+              chat.type === "direct" &&
+              Number(
+                chat.user_id ??
+                chat.userId
+              ) === previousUserId
+          );
 
-      return chats[0];
+        if (sameUserChat) {
+          return sameUserChat;
+        }
+      }
+
+      // Third preference: temporary direct ID
+      if (
+        typeof previous.conversationId ===
+          "string" &&
+        previous.conversationId.startsWith(
+          "direct-"
+        )
+      ) {
+        const sameFakeChat =
+          finalChats.find(
+            (chat) =>
+              chat.conversationId ===
+              previous.conversationId
+          );
+
+        if (sameFakeChat) {
+          return sameFakeChat;
+        }
+      }
+
+      return finalChats[0] || null;
     });
   } catch (error) {
     console.error(
-      "Load Conversations Error:",
+      "loadConversations error:",
       error
     );
   } finally {
     setLoadingConversations(false);
   }
-};
-
+}, []);
   /* ==================================================
      LOAD MESSAGES
   ================================================== */
@@ -854,256 +1161,597 @@ const handleSelectChat = async (chat) => {
      SEND TEXT MESSAGE
   ================================================== */
 
-  const handleSendMessage = async (e) => {
-    e?.preventDefault();
+//   const handleSendMessage = async (e) => {
+//     e?.preventDefault();
 
-    const text = inputMessage.trim();
+//     const text = inputMessage.trim();
 
-    if (!text || sendingMessage) {
-      return;
-    }
+//     if (!text || sendingMessage) {
+//       return;
+//     }
 
-    const currentUserId = Number(currentUser?.id);
+//     const currentUserId = Number(currentUser?.id);
 
-    const rawConversationId =
-      selectedChat?.id ??
-      selectedChat?.conversationId ??
-      null;
+//     const rawConversationId =
+//       selectedChat?.id ??
+//       selectedChat?.conversationId ??
+//       null;
 
-    const rawTargetUserId =
-      selectedChat?.user_id ??
-      selectedChat?.userId ??
-      null;
+//     const rawTargetUserId =
+//       selectedChat?.user_id ??
+//       selectedChat?.userId ??
+//       null;
 
-    let conversationId = null;
-    let targetUserId = null;
+//     let conversationId = null;
+//     let targetUserId = null;
+
+//     if (
+//       rawConversationId !== null &&
+//       rawConversationId !== undefined &&
+//       rawConversationId !== ""
+//     ) {
+//       const numericConversationId = Number(rawConversationId);
+
+//       if (
+//         Number.isInteger(numericConversationId) &&
+//         numericConversationId > 0
+//       ) {
+//         conversationId = numericConversationId;
+//       }
+//     }
+
+//     if (
+//       typeof rawConversationId === "string" &&
+//       rawConversationId.startsWith("direct-")
+//     ) {
+//       conversationId = null;
+//     }
+
+//     if (
+//       rawTargetUserId !== null &&
+//       rawTargetUserId !== undefined &&
+//       rawTargetUserId !== ""
+//     ) {
+//       const numericTargetUserId = Number(rawTargetUserId);
+
+//       if (
+//         Number.isInteger(numericTargetUserId) &&
+//         numericTargetUserId > 0
+//       ) {
+//         targetUserId = numericTargetUserId;
+//       }
+//     }
+
+//     console.log("SEND MESSAGE DEBUG:", {
+//       currentUserId,
+//       selectedChat,
+//       conversationId,
+//       targetUserId,
+//     });
+
+//     if (!conversationId && !targetUserId) {
+//       alert("No conversation or target user selected");
+//       return;
+//     }
+
+//     if (
+//       targetUserId &&
+//       targetUserId === currentUserId
+//     ) {
+//       alert("You cannot send a message to yourself");
+//       return;
+//     }
+
+//     try {
+//       setSendingMessage(true);
+
+//       const body = {
+//         text,
+//         msgType: "text",
+//       };
+
+//       if (conversationId) {
+//         body.conversationId = conversationId;
+//       }
+
+//       if (!conversationId && targetUserId) {
+//         body.targetUserId = targetUserId;
+//       }
+
+//       console.log("POST /api/messages BODY:", body);
+
+//       const response = await fetch("/api/messages", {
+//         method: "POST",
+//         credentials: "include",
+//         headers: {
+//           "Content-Type": "application/json",
+//         },
+//         body: JSON.stringify(body),
+//       });
+
+//       const data = await response.json();
+
+//       console.log(
+//         "POST /api/messages RESPONSE:",
+//         data
+//       );
+
+//       if (!response.ok || !data.success) {
+//         throw new Error(
+//           data.message || "Failed to send message"
+//         );
+//       }
+
+//       const realConversationId = Number(
+//         data.conversationId
+//       );
+
+//       const apiMessage = data.data;
+
+//       if (
+//         !Number.isInteger(realConversationId) ||
+//         realConversationId <= 0 ||
+//         !apiMessage
+//       ) {
+//         throw new Error(
+//           "API did not return a valid conversation/message"
+//         );
+//       }
+
+//       const newMessage = {
+//         id: Number(apiMessage.id),
+
+//         conversation_id: realConversationId,
+
+//         sender:
+//           Number(apiMessage.sender_id) === currentUserId
+//             ? "me"
+//             : "them",
+
+//         senderId: Number(apiMessage.sender_id),
+
+//         senderName:
+//           apiMessage.sender_name ||
+//           currentUser?.name ||
+//           "You",
+
+//         senderEmail:
+//           apiMessage.sender_email ||
+//           currentUser?.email ||
+//           "",
+
+//         text: apiMessage.text || text,
+
+//         time: apiMessage.created_at
+//           ? new Date(
+//               apiMessage.created_at
+//             ).toLocaleTimeString([], {
+//               hour: "2-digit",
+//               minute: "2-digit",
+//             })
+//           : getCurrentTime(),
+
+//         type: apiMessage.msg_type || "text",
+
+//         fileName: apiMessage.file_name || null,
+//         fileSize: apiMessage.file_size || null,
+//         fileUrl: apiMessage.file_url || null,
+
+//         created_at: apiMessage.created_at || null,
+//       };
+
+//       /* ==================================================
+//          UPDATE SELECTED CHAT
+//       ================================================== */
+
+//       setSelectedChat((current) => {
+//         if (!current) {
+//           return current;
+//         }
+
+//         return {
+//           ...current,
+
+//           id: realConversationId,
+//           conversationId: realConversationId,
+
+//           messages: [
+//             ...(current.messages || []),
+//             newMessage,
+//           ],
+
+//           lastMsg: text,
+//           last_msg: text,
+
+//           last_msg_time:
+//             apiMessage.created_at || null,
+
+//           time: newMessage.time,
+//         };
+//       });
+
+//       /* ==================================================
+//          UPDATE SIDEBAR
+//       ================================================== */
+
+// setConversations((prev) =>
+//   prev.map((chat) => {
+//     if (
+//       chat.id === newMessage.conversation_id &&
+//       selectedChat?.id !== newMessage.conversation_id
+//     ) {
+//       return {
+//         ...chat,
+//         unread_count: Number(chat.unread_count || 0) + 1,
+//         lastMsg: newMessage.text || "",
+//         time: new Date().toLocaleTimeString([], {
+//           hour: "2-digit",
+//           minute: "2-digit",
+//         }),
+//       };
+//     }
+
+//     return chat;
+//   })
+// );
+
+//       setInputMessage("");
+//     } catch (error) {
+//       console.error(
+//         "Send Message Error:",
+//         error
+//       );
+
+//       alert(
+//         error.message ||
+//           "Message send failed"
+//       );
+//     } finally {
+//       setSendingMessage(false);
+//     }
+//   };
+
+
+const handleSendMessage = async (e) => {
+  e?.preventDefault?.();
+
+  const text = messageText.trim();
+
+  if (!text || sendingMessage || !selectedChat) {
+    return;
+  }
+
+  const rawConversationId =
+    selectedChat?.id ??
+    selectedChat?.conversationId;
+
+  const rawTargetUserId =
+    selectedChat?.user_id ??
+    selectedChat?.userId;
+
+  let conversationId = null;
+
+  // ============================================================
+  // REAL DATABASE CONVERSATION
+  // ============================================================
+
+  if (
+    rawConversationId !== null &&
+    rawConversationId !== undefined &&
+    rawConversationId !== "" &&
+    !String(rawConversationId).startsWith("direct-")
+  ) {
+    const parsedConversationId =
+      Number(rawConversationId);
 
     if (
-      rawConversationId !== null &&
-      rawConversationId !== undefined &&
-      rawConversationId !== ""
+      Number.isFinite(parsedConversationId) &&
+      parsedConversationId > 0
     ) {
-      const numericConversationId = Number(rawConversationId);
-
-      if (
-        Number.isInteger(numericConversationId) &&
-        numericConversationId > 0
-      ) {
-        conversationId = numericConversationId;
-      }
+      conversationId =
+        parsedConversationId;
     }
+  }
 
-    if (
-      typeof rawConversationId === "string" &&
-      rawConversationId.startsWith("direct-")
-    ) {
-      conversationId = null;
-    }
+  // ============================================================
+  // TARGET USER
+  // ============================================================
 
-    if (
-      rawTargetUserId !== null &&
-      rawTargetUserId !== undefined &&
-      rawTargetUserId !== ""
-    ) {
-      const numericTargetUserId = Number(rawTargetUserId);
+  const targetUserId =
+    Number(rawTargetUserId);
 
-      if (
-        Number.isInteger(numericTargetUserId) &&
-        numericTargetUserId > 0
-      ) {
-        targetUserId = numericTargetUserId;
-      }
-    }
+  if (
+    !Number.isFinite(targetUserId) ||
+    targetUserId <= 0
+  ) {
+    alert("Please select a valid user.");
+    return;
+  }
 
-    console.log("SEND MESSAGE DEBUG:", {
-      currentUserId,
-      selectedChat,
-      conversationId,
-      targetUserId,
-    });
+  if (
+    Number(currentUser?.id) === targetUserId
+  ) {
+    alert("You cannot message yourself.");
+    return;
+  }
 
-    if (!conversationId && !targetUserId) {
-      alert("No conversation or target user selected");
-      return;
-    }
+  try {
+    setSendingMessage(true);
 
-    if (
-      targetUserId &&
-      targetUserId === currentUserId
-    ) {
-      alert("You cannot send a message to yourself");
-      return;
-    }
+    const payload = {
+      text,
+      msgType: "text",
 
-    try {
-      setSendingMessage(true);
+      // Existing real conversation
+      ...(conversationId
+        ? {
+            conversationId,
+          }
+        : {}),
 
-      const body = {
-        text,
-        msgType: "text",
-      };
+      // IMPORTANT:
+      // If this is a new/fake chat, send targetUserId.
+      ...(!conversationId
+        ? {
+            targetUserId,
+          }
+        : {}),
+    };
 
-      if (conversationId) {
-        body.conversationId = conversationId;
-      }
+    console.log(
+      "Sending private message:",
+      payload
+    );
 
-      if (!conversationId && targetUserId) {
-        body.targetUserId = targetUserId;
-      }
-
-      console.log("POST /api/messages BODY:", body);
-
-      const response = await fetch("/api/messages", {
+    const response = await fetch(
+      "/api/messages",
+      {
         method: "POST",
         credentials: "include",
         headers: {
-          "Content-Type": "application/json",
+          "Content-Type":
+            "application/json",
         },
-        body: JSON.stringify(body),
-      });
+        body: JSON.stringify(payload),
+      }
+    );
 
-      const data = await response.json();
+    const result =
+      await response.json();
 
-      console.log(
-        "POST /api/messages RESPONSE:",
-        data
+    if (!response.ok || !result?.success) {
+      throw new Error(
+        result?.error ||
+        "Failed to send message"
+      );
+    }
+
+    // ============================================================
+    // REAL CONVERSATION ID CREATED/RETURNED
+    // ============================================================
+
+    const realConversationId =
+      Number(
+        result.conversationId ??
+        result.data?.conversation_id ??
+        result.data?.conversationId
       );
 
-      if (!response.ok || !data.success) {
-        throw new Error(
-          data.message || "Failed to send message"
-        );
-      }
-
-      const realConversationId = Number(
-        data.conversationId
+    if (
+      !Number.isFinite(realConversationId) ||
+      realConversationId <= 0
+    ) {
+      throw new Error(
+        "Server did not return a valid conversation ID."
       );
+    }
 
-      const apiMessage = data.data;
+    const apiMessage =
+      result.data || {};
 
-      if (
-        !Number.isInteger(realConversationId) ||
-        realConversationId <= 0 ||
-        !apiMessage
-      ) {
-        throw new Error(
-          "API did not return a valid conversation/message"
-        );
-      }
+    const newMessage = {
+      id:
+        apiMessage.id ||
+        `local-${Date.now()}`,
 
-      const newMessage = {
-        id: Number(apiMessage.id),
+      conversation_id:
+        realConversationId,
 
-        conversation_id: realConversationId,
+      sender: "me",
 
-        sender:
-          Number(apiMessage.sender_id) === currentUserId
-            ? "me"
-            : "them",
+      senderId:
+        Number(currentUser?.id),
 
-        senderId: Number(apiMessage.sender_id),
+      sender_name:
+        currentUser?.name ||
+        "You",
 
-        senderName:
-          apiMessage.sender_name ||
-          currentUser?.name ||
-          "You",
+      sender_email:
+        currentUser?.email ||
+        "",
 
-        senderEmail:
-          apiMessage.sender_email ||
-          currentUser?.email ||
-          "",
+      text:
+        apiMessage.text ||
+        text,
 
-        text: apiMessage.text || text,
-
-        time: apiMessage.created_at
+      time:
+        apiMessage.created_at
           ? new Date(
               apiMessage.created_at
-            ).toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            })
-          : getCurrentTime(),
+            ).toLocaleTimeString(
+              [],
+              {
+                hour: "2-digit",
+                minute: "2-digit",
+              }
+            )
+          : new Date().toLocaleTimeString(
+              [],
+              {
+                hour: "2-digit",
+                minute: "2-digit",
+              }
+            ),
 
-        type: apiMessage.msg_type || "text",
+      created_at:
+        apiMessage.created_at ||
+        new Date().toISOString(),
 
-        fileName: apiMessage.file_name || null,
-        fileSize: apiMessage.file_size || null,
-        fileUrl: apiMessage.file_url || null,
+      type:
+        apiMessage.msg_type ||
+        apiMessage.type ||
+        "text",
+    };
 
-        created_at: apiMessage.created_at || null,
-      };
+    // ============================================================
+    // UPDATE SELECTED CHAT
+    // ============================================================
 
-      /* ==================================================
-         UPDATE SELECTED CHAT
-      ================================================== */
+    const updatedSelectedChat = {
+      ...selectedChat,
 
-      setSelectedChat((current) => {
-        if (!current) {
-          return current;
+      // IMPORTANT:
+      // Temporary direct-${userId} becomes REAL conversation ID
+      id: realConversationId,
+
+      conversationId:
+        realConversationId,
+
+      user_id: targetUserId,
+      userId: targetUserId,
+
+      messages: [
+        ...(Array.isArray(
+          selectedChat.messages
+        )
+          ? selectedChat.messages
+          : []),
+        newMessage,
+      ],
+
+      lastMsg: text,
+      last_msg: text,
+
+      last_msg_time:
+        newMessage.created_at,
+
+      time: newMessage.time,
+
+      isNew: false,
+
+      unread_count: 0,
+    };
+
+    setSelectedChat(
+      updatedSelectedChat
+    );
+
+    // ============================================================
+    // UPDATE SIDEBAR
+    // IMPORTANT:
+    // Match by USER ID, not only conversation ID.
+    // This replaces the fake chat with the real chat.
+    // ============================================================
+
+    setConversations((previous) => {
+      const found = previous.some(
+        (chat) =>
+          chat.type === "direct" &&
+          Number(
+            chat.user_id ??
+            chat.userId
+          ) === targetUserId
+      );
+
+      if (!found) {
+        return [
+          ...previous,
+          updatedSelectedChat,
+        ];
+      }
+
+      return previous.map((chat) => {
+        const chatUserId =
+          Number(
+            chat.user_id ??
+            chat.userId
+          );
+
+        if (
+          chat.type === "direct" &&
+          chatUserId === targetUserId
+        ) {
+          return {
+            ...chat,
+
+            id: realConversationId,
+
+            conversationId:
+              realConversationId,
+
+            user_id:
+              targetUserId,
+
+            userId:
+              targetUserId,
+
+            name:
+              selectedChat.name,
+
+            email:
+              selectedChat.email,
+
+            phone:
+              selectedChat.phone,
+
+            role:
+              selectedChat.role,
+
+            lastMsg: text,
+            last_msg: text,
+
+            last_msg_time:
+              newMessage.created_at,
+
+            time:
+              newMessage.time,
+
+            messages: [
+              ...(Array.isArray(
+                chat.messages
+              )
+                ? chat.messages
+                : []),
+              newMessage,
+            ],
+
+            // Admin is currently viewing this chat
+            unread_count: 0,
+
+            isNew: false,
+          };
         }
 
-        return {
-          ...current,
-
-          id: realConversationId,
-          conversationId: realConversationId,
-
-          messages: [
-            ...(current.messages || []),
-            newMessage,
-          ],
-
-          lastMsg: text,
-          last_msg: text,
-
-          last_msg_time:
-            apiMessage.created_at || null,
-
-          time: newMessage.time,
-        };
+        return chat;
       });
+    });
 
-      /* ==================================================
-         UPDATE SIDEBAR
-      ================================================== */
+    setMessageText("");
 
-setConversations((prev) =>
-  prev.map((chat) => {
-    if (
-      chat.id === newMessage.conversation_id &&
-      selectedChat?.id !== newMessage.conversation_id
-    ) {
-      return {
-        ...chat,
-        unread_count: Number(chat.unread_count || 0) + 1,
-        lastMsg: newMessage.text || "",
-        time: new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-      };
-    }
+  } catch (error) {
+    console.error(
+      "handleSendMessage error:",
+      error
+    );
 
-    return chat;
-  })
-);
-
-      setInputMessage("");
-    } catch (error) {
-      console.error(
-        "Send Message Error:",
-        error
-      );
-
-      alert(
-        error.message ||
-          "Message send failed"
-      );
-    } finally {
-      setSendingMessage(false);
-    }
-  };
-
+    alert(
+      error?.message ||
+      "Failed to send message."
+    );
+  } finally {
+    setSendingMessage(false);
+  }
+};
   /* ==================================================
      FILE UPLOAD
   ================================================== */
@@ -3733,29 +4381,14 @@ return (
         SIDEBAR
     ================================================== */}
 
-    <Sidebar
-      sidebarOpen={sidebarOpen}
-      setSidebarOpen={setSidebarOpen}
-      setShowLogoutModal={
-        setShowLogoutModal
-      }
-    />
+    <Sidebar/>
 
 
     {/* ==================================================
         LOGOUT MODAL
     ================================================== */}
 
-    <LogoutModal
-      show={showLogoutModal}
-      loggingOut={loggingOut}
-      onCancel={() =>
-        setShowLogoutModal(false)
-      }
-      onConfirm={
-        handleConfirmLogout
-      }
-    />
+  
 
   </div>
 );

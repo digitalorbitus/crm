@@ -9712,7 +9712,45 @@ function parseDbDateTime(value) {
    DISPLAY DATE
 ========================================================= */
 
+// function formatCaliforniaDate(value) {
+//   const p = parseDbDateTime(value);
+
+//   if (!p) return "-";
+
+//   return new Intl.DateTimeFormat("en-US", {
+//     month: "short",
+//     day: "2-digit",
+//     year: "numeric",
+//   }).format(
+//     new Date(
+//       p.year,
+//       p.month - 1,
+//       p.day
+//     )
+//   );
+// }
+
 function formatCaliforniaDate(value) {
+  if (!value) return "-";
+
+  const dateOnly = String(value)
+    .trim()
+    .match(/^(\d{4})-(\d{2})-(\d{2})$/);
+
+  if (dateOnly) {
+    return new Intl.DateTimeFormat("en-US", {
+      month: "short",
+      day: "2-digit",
+      year: "numeric",
+    }).format(
+      new Date(
+        Number(dateOnly[1]),
+        Number(dateOnly[2]) - 1,
+        Number(dateOnly[3])
+      )
+    );
+  }
+
   const p = parseDbDateTime(value);
 
   if (!p) return "-";
@@ -9730,6 +9768,49 @@ function formatCaliforniaDate(value) {
   );
 }
 
+function getAttendanceDate(row) {
+  const value =
+    row.attendance_date ||
+    row.date ||
+    row.day_date ||
+    row.work_date ||
+    row.login_date ||
+    row.login_time;
+
+  if (!value) return null;
+
+  const dateOnly = String(value)
+    .trim()
+    .match(/^(\d{4})-(\d{2})-(\d{2})$/);
+
+  if (dateOnly) {
+    return `${dateOnly[1]}-${dateOnly[2]}-${dateOnly[3]}`;
+  }
+
+  const parsed = parseDbDateTime(value);
+
+  if (!parsed) return null;
+
+  return `${parsed.year}-${String(parsed.month).padStart(2, "0")}-${String(parsed.day).padStart(2, "0")}`;
+}
+function getDateRange(startDate, endDate) {
+  const dates = [];
+
+  const current = new Date(`${startDate}T00:00:00`);
+  const end = new Date(`${endDate}T00:00:00`);
+
+  while (current <= end) {
+    const year = current.getFullYear();
+    const month = String(current.getMonth() + 1).padStart(2, "0");
+    const day = String(current.getDate()).padStart(2, "0");
+
+    dates.push(`${year}-${month}-${day}`);
+
+    current.setDate(current.getDate() + 1);
+  }
+
+  return dates;
+}
 /* =========================================================
    DISPLAY TIME
 ========================================================= */
@@ -9814,14 +9895,58 @@ function formatDuration(seconds) {
    STATUS
 ========================================================= */
 
+// function getStatus(row) {
+//   const raw = String(
+//     row.attendance_status ||
+//     row.status ||
+//     ""
+//   )
+//     .trim()
+//     .toLowerCase();
+
+//   if (
+//     raw === "late" ||
+//     raw.includes("late")
+//   ) {
+//     return "Late";
+//   }
+
+//   if (
+//     raw === "on time" ||
+//     raw === "present" ||
+//     raw === "ontime"
+//   ) {
+//     return "Present";
+//   }
+
+//   return "Present";
+// }
+
 function getStatus(row) {
   const raw = String(
     row.attendance_status ||
+    row.day_status ||
     row.status ||
     ""
   )
     .trim()
     .toLowerCase();
+
+  if (raw.includes("absent")) {
+    return "Absent";
+  }
+
+  if (raw === "off" || raw.includes("off")) {
+    return "Off";
+  }
+
+  if (raw.includes("half")) {
+    return "Half Day";
+  }
+
+  if (raw.includes("full")) {
+    return "Full Day";
+  }
 
   if (
     raw === "late" ||
@@ -9832,13 +9957,13 @@ function getStatus(row) {
 
   if (
     raw === "on time" ||
-    raw === "present" ||
-    raw === "ontime"
+    raw === "ontime" ||
+    raw === "present"
   ) {
-    return "Present";
+    return "On Time";
   }
 
-  return "Present";
+  return "Absent";
 }
 
 /* =========================================================
@@ -10439,56 +10564,100 @@ export default function AttendancePage() {
      STATS
   ======================================================= */
 
-  const stats = useMemo(() => {
-    let present = 0;
-    let late = 0;
-    let totalSeconds = 0;
+//   const stats = useMemo(() => {
+//     let present = 0;
+//     let late = 0;
+//     let totalSeconds = 0;
 
-    attendance.forEach(
-      (row) => {
-        const status =
-          getStatus(row);
+//     attendance.forEach(
+//       (row) => {
+//         const status =
+//           getStatus(row);
 
-        if (
-          status === "Late"
-        ) {
-          late++;
-        } else {
-          present++;
-        }
+//         if (
+//           status === "Late"
+//         ) {
+//           late++;
+//         } else {
+//           present++;
+//         }
 
-        if (
-          row.duration_seconds !==
-          null &&
-          row.duration_seconds !==
-          undefined
-        ) {
-          totalSeconds +=
-            Number(
-              row.duration_seconds
-            ) || 0;
-        }
-      }
-    );
+//         if (
+//           row.duration_seconds !==
+//           null &&
+//           row.duration_seconds !==
+//           undefined
+//         ) {
+//           totalSeconds +=
+//             Number(
+//               row.duration_seconds
+//             ) || 0;
+//         }
+//       }
+//     );
 
-    return {
-      total:
-        attendance.length,
+//  return {
+//   total: attendance.length,
 
-      present,
+//   present,
 
-      late,
+//   late,
 
-      absent: 0,
+//   absent: attendance.filter(
+//     (row) => getStatus(row) === "Absent"
+//   ).length,
 
-      totalHours:
-        Math.round(
-          (totalSeconds / 3600) *
-          10
-        ) / 10,
-    };
-  }, [attendance]);
+//   totalHours:
+//     Math.round(
+//       (totalSeconds / 3600) * 10
+//     ) / 10,
+// };
+//   }, [attendance]);
+/* =======================================================
+   STATS
+======================================================= */
 
+const stats = useMemo(() => {
+  let present = 0;
+  let late = 0;
+  let absent = 0;
+  let totalSeconds = 0;
+
+  attendance.forEach((row) => {
+    const status = getStatus(row);
+
+    if (status === "On Time") {
+      present++;
+    }
+
+    if (status === "Late") {
+      late++;
+    }
+
+    if (status === "Absent") {
+      absent++;
+    }
+
+    if (
+      row.duration_seconds !== null &&
+      row.duration_seconds !== undefined
+    ) {
+      totalSeconds +=
+        Number(row.duration_seconds) || 0;
+    }
+  });
+
+  return {
+    total: attendance.length,
+    present,
+    late,
+    absent,
+    totalHours:
+      Math.round(
+        (totalSeconds / 3600) * 10
+      ) / 10,
+  };
+}, [attendance]);
   /* =======================================================
      OPEN ADD
   ======================================================= */
@@ -10929,21 +11098,17 @@ async function exportPDF() {
     const rows = filteredAttendance || [];
 
     // Extract ALL unique dates dynamically
-    const uniqueDates = [
-      ...new Set(
-        rows
-          .map((row) => {
-            const parsed = parseDbDateTime(row.login_time);
-            if (!parsed) return "";
-            return `${parsed.year}-${String(parsed.month).padStart(
-              2,
-              "0"
-            )}-${String(parsed.day).padStart(2, "0")}`;
-          })
-      ),
-    ]
-      .filter(Boolean)
-      .sort();
+// const uniqueDates = [
+//   ...new Set(
+//     rows
+//       .map((row) => getAttendanceDate(row))
+//       .filter(Boolean)
+//   ),
+// ].sort();
+const uniqueDates = getDateRange(
+  fromDate,
+  toDate
+);
 
     const firstEmployee = rows[0] || {};
     const employeeId = firstEmployee.user_id || "-";
@@ -11030,22 +11195,32 @@ async function exportPDF() {
 
       const attendanceBody = statusRows.map((type) => {
         const values = chunkDates.map((date) => {
+          // const record = rows.find((row) => {
+          //   const parsed = parseDbDateTime(row.login_time);
+          //   if (!parsed) return false;
+
+          //   const rowDate = `${parsed.year}-${String(parsed.month).padStart(
+          //     2,
+          //     "0"
+          //   )}-${String(parsed.day).padStart(2, "0")}`;
+
+          //   return (
+          //     rowDate === date &&
+          //     String(row.user_id) === String(employeeId)
+          //   );
+          // });
           const record = rows.find((row) => {
-            const parsed = parseDbDateTime(row.login_time);
-            if (!parsed) return false;
+  const rowDate = getAttendanceDate(row);
 
-            const rowDate = `${parsed.year}-${String(parsed.month).padStart(
-              2,
-              "0"
-            )}-${String(parsed.day).padStart(2, "0")}`;
+  return (
+    rowDate === date &&
+    String(row.user_id) === String(employeeId)
+  );
+});
 
-            return (
-              rowDate === date &&
-              String(row.user_id) === String(employeeId)
-            );
-          });
+if (!record) return "Absent";
 
-          if (!record) return "Off";
+      
 
           if (type === "Attendance") return getStatus(record);
           if (type === "Login") return formatCaliforniaTime(record.login_time);
@@ -11465,17 +11640,13 @@ async function exportPDF() {
                 className="appearance-none w-full h-11 rounded-xl border border-slate-200 bg-slate-50 px-4 pr-10 text-sm text-slate-700 outline-none focus:bg-white focus:border-[#741C29] focus:ring-4 focus:ring-[#741C29]/10"
               >
 
-                <option value="All">
-                  All Status
-                </option>
-
-                <option value="Present">
-                  Present
-                </option>
-
-                <option value="Late">
-                  Late
-                </option>
+          <option value="All">All Status</option>
+<option value="On Time">On Time</option>
+<option value="Late">Late</option>
+<option value="Full Day">Full Day</option>
+<option value="Half Day">Half Day</option>
+<option value="Absent">Absent</option>
+<option value="Off">Off</option>
 
               </select>
 
@@ -11633,10 +11804,8 @@ async function exportPDF() {
                                 </p>
 
                                 <p className="text-xs text-slate-400 truncate">
-                                  {formatCaliforniaDate(
-                                    row.login_time
-                                  )}{" "}
-                                  •{" "}
+                                  {formatCaliforniaDate(getAttendanceDate(row))}{" "}
+                                  
                                   {formatCaliforniaTime(
                                     row.login_time
                                   )}
@@ -11869,9 +12038,9 @@ async function exportPDF() {
                           {/* DATE */}
 
                           <td className="px-5 py-4 text-sm text-slate-700 whitespace-nowrap">
-                            {formatCaliforniaDate(
-                              row.login_time
-                            )}
+                          {formatCaliforniaDate(
+  getAttendanceDate(row)
+)}
                           </td>
 
                           {/* LOGIN */}
@@ -11902,17 +12071,38 @@ async function exportPDF() {
 
                           <td className="px-5 py-4">
 
-                            {status ===
-                              "Late" ? (
-                              <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-100">
-                                Late
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100">
-                                Present
-                              </span>
-                            )}
+                         {(() => {
+  const statusStyles = {
+    "On Time":
+      "bg-green-100 text-green-700 border-green-200",
 
+    "Late":
+      "bg-amber-100 text-amber-700 border-amber-200",
+
+    "Full Day":
+      "bg-emerald-100 text-emerald-700 border-emerald-200",
+
+    "Half Day":
+      "bg-orange-100 text-orange-700 border-orange-200",
+
+    "Absent":
+      "bg-red-100 text-red-700 border-red-200",
+
+    "Off":
+      "bg-gray-100 text-gray-600 border-gray-200",
+  };
+
+  return (
+    <span
+      className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${
+        statusStyles[status] ||
+        "bg-gray-100 text-gray-600 border-gray-200"
+      }`}
+    >
+      {status}
+    </span>
+  );
+})()}
                           </td>
 
                           {/* ADMIN ACTION */}
@@ -11924,35 +12114,39 @@ async function exportPDF() {
 
                                 {/* EDIT */}
 
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    openEditModal(
-                                      row
-                                    )
-                                  }
-                                  className="inline-flex items-center justify-center gap-2 h-9 px-3 rounded-lg border border-slate-200 bg-white text-slate-700 text-xs font-semibold hover:border-[#741C29] hover:text-[#741C29] transition"
-                                >
-                                  <Pencil className="w-3.5 h-3.5" />
+                  {!row.is_virtual && !row.is_generated && (
+  <>
+    {/* EDIT */}
+    <button
+      type="button"
+      onClick={() =>
+        openEditModal(
+          row
+        )
+      }
+      className="inline-flex items-center justify-center gap-2 h-9 px-3 rounded-lg border border-slate-200 bg-white text-slate-700 text-xs font-semibold hover:border-[#741C29] hover:text-[#741C29] transition"
+    >
+      <Pencil className="w-3.5 h-3.5" />
 
-                                  Edit
-                                </button>
+      Edit
+    </button>
 
-                                {/* DELETE */}
+    {/* DELETE */}
+    <button
+      type="button"
+      onClick={() =>
+        openDeleteConfirm(
+          row
+        )
+      }
+      className="inline-flex items-center justify-center gap-2 h-9 px-3 rounded-lg border border-red-200 bg-red-50 text-red-600 text-xs font-semibold hover:bg-red-100 hover:border-red-300 transition"
+    >
+      <Trash2 className="w-3.5 h-3.5" />
 
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    openDeleteConfirm(
-                                      row
-                                    )
-                                  }
-                                  className="inline-flex items-center justify-center gap-2 h-9 px-3 rounded-lg border border-red-200 bg-red-50 text-red-600 text-xs font-semibold hover:bg-red-100 hover:border-red-300 transition"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-
-                                  Delete
-                                </button>
+      Delete
+    </button>
+  </>
+)}
 
                                 {/* HIDE */}
 
