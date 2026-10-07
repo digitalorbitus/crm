@@ -1,43 +1,120 @@
-
-
 import { NextResponse } from "next/server";
 import pool from "../../../../lib/db";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 // =====================================================
-// CALIFORNIA DATE HELPER
+// CONFIG
 // =====================================================
 
-function getCaliforniaDate() {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Los_Angeles",
+const CALIFORNIA_TIMEZONE = "America/Los_Angeles";
+
+const MAX_NEW_TASKS_PER_OPERATIONAL_DAY = 500;
+
+// =====================================================
+// CALIFORNIA PARTS
+// =====================================================
+
+function getCaliforniaParts(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: CALIFORNIA_TIMEZONE,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-  }).format(new Date());
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
+
+  const result = {};
+
+  for (const part of parts) {
+    if (part.type !== "literal") {
+      result[part.type] = part.value;
+    }
+  }
+
+  return {
+    year: Number(result.year),
+    month: Number(result.month),
+    day: Number(result.day),
+    hour: Number(result.hour),
+    minute: Number(result.minute),
+    second: Number(result.second),
+  };
+}
+
+// =====================================================
+// CALIFORNIA CALENDAR DATE
+// =====================================================
+
+function getCaliforniaDate(date = new Date()) {
+  const parts = getCaliforniaParts(date);
+
+  return [
+    String(parts.year).padStart(4, "0"),
+    String(parts.month).padStart(2, "0"),
+    String(parts.day).padStart(2, "0"),
+  ].join("-");
+}
+
+// =====================================================
+// OPERATIONAL DATE
+//
+// 08:00 AM California -> next day 08:00 AM
+//
+// 00:00 - 07:59 California
+// belongs to PREVIOUS operational day.
+// =====================================================
+
+function getCaliforniaOperationalDate(date = new Date()) {
+  const parts = getCaliforniaParts(date);
+
+  let {
+    year,
+    month,
+    day,
+    hour,
+  } = parts;
+
+  if (hour < 8) {
+    const previousDay = new Date(
+      Date.UTC(year, month - 1, day - 1)
+    );
+
+    year = previousDay.getUTCFullYear();
+    month = previousDay.getUTCMonth() + 1;
+    day = previousDay.getUTCDate();
+  }
+
+  return [
+    String(year).padStart(4, "0"),
+    String(month).padStart(2, "0"),
+    String(day).padStart(2, "0"),
+  ].join("-");
 }
 
 // =====================================================
 // PHONE NORMALIZER
-//
-// Examples:
-//
-// 15551234567  -> 5551234567
-// 5551234567   -> 5551234567
-// (555) 123-4567 -> 5551234567
-//
-// Is se different formatting wale same numbers
-// duplicate count nahi honge.
 // =====================================================
 
 function normalizePhone(phone) {
-  if (phone === null || phone === undefined) {
+  if (
+    phone === null ||
+    phone === undefined
+  ) {
     return "";
   }
 
   let digits = String(phone).replace(/\D/g, "");
 
-  // US country code remove
-  if (digits.length === 11 && digits.startsWith("1")) {
+  // Remove US country code
+  if (
+    digits.length === 11 &&
+    digits.startsWith("1")
+  ) {
     digits = digits.substring(1);
   }
 
@@ -45,25 +122,50 @@ function normalizePhone(phone) {
 }
 
 // =====================================================
-// 1. GET API
-// Date Wise Daily Desk History
+// VALID PHONE
+// =====================================================
+
+function isValidPhone(phone) {
+  const normalized = normalizePhone(phone);
+
+  return (
+    normalized.length >= 10 &&
+    normalized.length <= 15
+  );
+}
+
+// =====================================================
+// GET
+//
+// Date-wise Daily Desk history
 // =====================================================
 
 export async function GET(request) {
   try {
-    const { searchParams } = new URL(request.url);
+    const { searchParams } =
+      new URL(request.url);
 
-    const dateParam = searchParams.get("date");
+    const dateParam =
+      searchParams.get("date");
 
-    const californiaDate = getCaliforniaDate();
+    const californiaDate =
+      getCaliforniaDate();
 
-    const targetDate = dateParam || californiaDate;
+    const operationalDate =
+      getCaliforniaOperationalDate();
+
+    const targetDate =
+      dateParam || operationalDate;
 
     // =================================================
     // DATE VALIDATION
     // =================================================
 
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(targetDate)) {
+    if (
+      !/^\d{4}-\d{2}-\d{2}$/.test(
+        targetDate
+      )
+    ) {
       return NextResponse.json(
         {
           success: false,
@@ -75,57 +177,54 @@ export async function GET(request) {
     }
 
     // =================================================
-    // FETCH DAILY DESK HISTORY
+    // HISTORY
     // =================================================
 
-    const [rows] = await pool.execute(
-      `
-      SELECT
-        dda.id AS assignment_id,
+    const [rows] =
+      await pool.execute(
+        `
+        SELECT
+          dda.id AS assignment_id,
 
-        ddt.task_id AS taskId,
-        ddt.phone,
-        ddt.source_file AS sourceFile,
+          ddt.task_id AS taskId,
+          ddt.phone,
+          ddt.source_file AS sourceFile,
 
-        u.id AS staffId,
-        u.name AS staffName,
-        u.email AS staffEmail,
+          u.id AS staffId,
+          u.name AS staffName,
+          u.email AS staffEmail,
 
-        dda.assigned_date AS assignedDate,
-        dda.assigned_at AS assignedAt,
-        dda.completed_at AS completedAt,
-        dda.status
+          dda.assigned_date AS assignedDate,
+          dda.assigned_at AS assignedAt,
+          dda.completed_at AS completedAt,
+          dda.status
 
-      FROM daily_desk_assignments dda
+        FROM daily_desk_assignments dda
 
-      INNER JOIN daily_desk_tasks ddt
-        ON dda.task_id = ddt.id
+        INNER JOIN daily_desk_tasks ddt
+          ON dda.task_id = ddt.id
 
-      INNER JOIN users u
-        ON dda.staff_id = u.id
+        INNER JOIN users u
+          ON dda.staff_id = u.id
 
-      WHERE DATE(dda.assigned_date) = ?
+        WHERE DATE(dda.assigned_date) = ?
 
-      ORDER BY dda.assigned_at DESC
-      `,
-      [targetDate]
-    );
+        ORDER BY dda.assigned_at DESC
+        `,
+        [targetDate]
+      );
 
     // =================================================
-    // REMOVE DUPLICATES FROM HISTORY RESPONSE
-    //
-    // Same phone same date = only one UI record.
-    //
-    // Ye existing old duplicate records ko database se
-    // delete nahi karta. Sirf GET response mein duplicate
-    // hide karta hai.
+    // REMOVE DUPLICATE PHONES FROM RESPONSE
     // =================================================
 
     const uniqueRows = [];
+
     const seenPhones = new Set();
 
     for (const row of rows) {
-      const phoneKey = normalizePhone(row.phone);
+      const phoneKey =
+        normalizePhone(row.phone);
 
       if (!phoneKey) {
         uniqueRows.push(row);
@@ -137,44 +236,49 @@ export async function GET(request) {
       }
 
       seenPhones.add(phoneKey);
+
       uniqueRows.push(row);
     }
-
-    // =================================================
-    // RESPONSE
-    // =================================================
 
     return NextResponse.json({
       success: true,
 
-      timezone: "America/Los_Angeles",
+      timezone:
+        CALIFORNIA_TIMEZONE,
 
       californiaDate,
 
+      operationalDate,
+
+      operationalDay:
+        "08:00 AM California -> next day 08:00 AM California",
+
       date: targetDate,
 
-      count: uniqueRows.length,
+      count:
+        uniqueRows.length,
 
-      totalDatabaseRows: rows.length,
+      totalDatabaseRows:
+        rows.length,
 
       duplicatesRemoved:
-        rows.length - uniqueRows.length,
+        rows.length -
+        uniqueRows.length,
 
       data: uniqueRows,
     });
   } catch (error) {
     console.error(
-      "DAILY DESK HISTORY FETCH ERROR:",
+      "DAILY DESK HISTORY GET ERROR:",
       error
     );
 
     return NextResponse.json(
       {
         success: false,
-
         message:
           error.message ||
-          "Database se data fetch nahi ho saka.",
+          "Daily Desk history fetch nahi ho saki.",
       },
       { status: 500 }
     );
@@ -182,26 +286,18 @@ export async function GET(request) {
 }
 
 // =====================================================
-// 2. POST API
-// Assign / Save Daily Desk Tasks
+// POST
 //
-// DUPLICATE PROTECTION:
-//
-// Same phone:
-// - same date
-// - same staff
-//
-// => dobara assignment create nahi hogi.
-//
-// Also input ke andar duplicate phone numbers remove
-// honge before inserting.
+// CREATE DAILY DESK ASSIGNMENTS
 // =====================================================
 
 export async function POST(request) {
-  const connection = await pool.getConnection();
+  const connection =
+    await pool.getConnection();
 
   try {
-    const body = await request.json();
+    const body =
+      await request.json();
 
     const {
       numbers = [],
@@ -211,48 +307,97 @@ export async function POST(request) {
     } = body;
 
     // =================================================
-    // CALIFORNIA BUSINESS DATE
+    // CURRENT OPERATIONAL DATE
     // =================================================
 
-    const californiaDate = getCaliforniaDate();
+    const californiaCalendarDate =
+      getCaliforniaDate();
+
+    const operationalDate =
+      getCaliforniaOperationalDate();
 
     console.log(
-      "DAILY DESK CALIFORNIA DATE:",
-      californiaDate
+      "CALIFORNIA CALENDAR DATE:",
+      californiaCalendarDate
+    );
+
+    console.log(
+      "DAILY DESK OPERATIONAL DATE:",
+      operationalDate
     );
 
     // =================================================
-    // VALIDATION
+    // VALIDATE NUMBERS
     // =================================================
 
-    if (!Array.isArray(numbers) || !numbers.length) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Numbers nahi mile.",
-        },
-        { status: 400 }
-      );
-    }
-
     if (
-      !Array.isArray(selectedStaff) ||
-      !selectedStaff.length
+      !Array.isArray(numbers) ||
+      numbers.length === 0
     ) {
       return NextResponse.json(
         {
           success: false,
-          message: "Staff select nahi kiya gaya.",
+          message:
+            "Numbers nahi mile.",
         },
         { status: 400 }
       );
     }
 
     // =================================================
-    // START TRANSACTION
+    // VALIDATE STAFF
+    // =================================================
+
+    if (
+      !Array.isArray(selectedStaff) ||
+      selectedStaff.length === 0
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "Staff select nahi kiya gaya.",
+        },
+        { status: 400 }
+      );
+    }
+
+    // =================================================
+    // CLEAN STAFF IDS
+    // =================================================
+
+    const cleanStaff = [
+      ...new Set(
+        selectedStaff
+          .map((id) => Number(id))
+          .filter(
+            (id) =>
+              Number.isInteger(id) &&
+              id > 0
+          )
+      ),
+    ];
+
+    if (!cleanStaff.length) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "Valid staff IDs nahi mile.",
+        },
+        { status: 400 }
+      );
+    }
+
+    // =================================================
+    // TRANSACTION
     // =================================================
 
     await connection.beginTransaction();
+
+    // =================================================
+    // COUNTERS
+    // =================================================
 
     let tasksSaved = 0;
     let assignmentsSaved = 0;
@@ -261,51 +406,65 @@ export async function POST(request) {
     let duplicateDatabaseSkipped = 0;
     let invalidSkipped = 0;
 
+    let completedAlreadySkipped = 0;
+    let pendingAlreadySkipped = 0;
+    let followUpSkipped = 0;
+    let callbackSkipped = 0;
+    let dncSkipped = 0;
+
     // =================================================
-    // MAX UNIQUE DAILY NUMBERS
+    // STAFF COUNTS
+    // =================================================
+
+    const assignedTaskCounts = {};
+
+    for (const staffId of cleanStaff) {
+      assignedTaskCounts[staffId] = 0;
+    }
+
+    // =================================================
+    // INPUT PHONE DEDUPLICATION
     //
-    // Daily Desk mein maximum 500 UNIQUE numbers.
-    // =================================================
-
-    const MAX_DAILY_TASKS = 500;
-
-    // =================================================
-    // STEP 1:
-    // CLEAN + DEDUPLICATE INPUT NUMBERS
+    // ONE PHONE = ONE ASSIGNMENT
     // =================================================
 
     const uniqueNumbers = [];
-    const inputPhoneKeys = new Set();
+
+    const inputPhoneKeys =
+      new Set();
 
     for (const item of numbers) {
-      if (!item?.phone) {
+      if (!item) {
         invalidSkipped++;
         continue;
       }
 
-      if (!item?.taskId) {
+      if (!item.phone) {
         invalidSkipped++;
         continue;
       }
 
-      const phoneKey = normalizePhone(item.phone);
+      if (!item.taskId) {
+        invalidSkipped++;
+        continue;
+      }
 
-      if (!phoneKey) {
+      const phoneKey =
+        normalizePhone(item.phone);
+
+      if (!isValidPhone(phoneKey)) {
         invalidSkipped++;
         continue;
       }
 
       // -----------------------------------------------
-      // INPUT DUPLICATE CHECK
+      // INPUT DUPLICATE
       // -----------------------------------------------
 
-      if (inputPhoneKeys.has(phoneKey)) {
+      if (
+        inputPhoneKeys.has(phoneKey)
+      ) {
         duplicateInputSkipped++;
-
-        console.log(
-          `DUPLICATE INPUT SKIPPED: ${phoneKey}`
-        );
-
         continue;
       }
 
@@ -315,18 +474,10 @@ export async function POST(request) {
         ...item,
         phoneKey,
       });
-
-      // -----------------------------------------------
-      // Only first 500 unique numbers
-      // -----------------------------------------------
-
-      if (uniqueNumbers.length >= MAX_DAILY_TASKS) {
-        break;
-      }
     }
 
     // =================================================
-    // NO UNIQUE NUMBERS
+    // NO VALID INPUT
     // =================================================
 
     if (!uniqueNumbers.length) {
@@ -342,172 +493,373 @@ export async function POST(request) {
       );
     }
 
-    console.log(
-      "UNIQUE INPUT NUMBERS:",
-      uniqueNumbers.length
-    );
-
-    console.log(
-      "DUPLICATE INPUT SKIPPED:",
-      duplicateInputSkipped
-    );
-
     // =================================================
-    // TRACK TASK COUNT PER STAFF
+    // IMPORTANT:
     //
-    // Example:
+    // We do NOT simply take first 500 here.
     //
-    // {
-    //   1: 167,
-    //   2: 167,
-    //   3: 166
-    // }
+    // We first check DB uniqueness.
+    // Then only actual NEW numbers count toward 500.
     // =================================================
 
-    const assignedTaskCounts = {};
-
     // =================================================
-    // TRACK STAFF PHONE ASSIGNMENTS
+    // GET STAFF'S NEW ASSIGNMENT COUNTS
     //
-    // Important:
+    // Current operational day only.
     //
-    // Same phone + same staff + same date
-    // should never be inserted again.
+    // Pending old tasks are NOT treated as new tasks.
     // =================================================
 
-    const staffPhoneKeys = new Set();
+    const staffDailyCounts = {};
+
+    for (const staffId of cleanStaff) {
+      const [
+        countRows,
+      ] = await connection.execute(
+        `
+        SELECT COUNT(*) AS total
+        FROM daily_desk_assignments
+        WHERE staff_id = ?
+          AND DATE(assigned_date) = ?
+        `,
+        [
+          staffId,
+          operationalDate,
+        ]
+      );
+
+      staffDailyCounts[staffId] =
+        Number(
+          countRows?.[0]?.total || 0
+        );
+    }
 
     // =================================================
-    // STEP 2:
-    // PROCESS UNIQUE NUMBERS
+    // TOTAL NEW ASSIGNMENTS TODAY
+    //
+    // We use total assigned for operational date
+    // across selected staff.
+    // =================================================
+
+    let totalAssignedToday = 0;
+
+    for (const staffId of cleanStaff) {
+      totalAssignedToday +=
+        staffDailyCounts[staffId] || 0;
+    }
+
+    // =================================================
+    // MAX 500 NEW NUMBERS
+    // =================================================
+
+    let remainingDailyCapacity =
+      Math.max(
+        0,
+        MAX_NEW_TASKS_PER_OPERATIONAL_DAY -
+          totalAssignedToday
+      );
+
+    // =================================================
+    // If today's capacity is already full
+    // =================================================
+
+    if (remainingDailyCapacity <= 0) {
+      await connection.rollback();
+
+      return NextResponse.json(
+        {
+          success: false,
+
+          message:
+            "Is operational day ke 500 new Daily Desk tasks already assigned ho chuke hain.",
+
+          timezone:
+            CALIFORNIA_TIMEZONE,
+
+          operationalDate,
+
+          maxDailyNewTasks:
+            MAX_NEW_TASKS_PER_OPERATIONAL_DAY,
+
+          assignedToday:
+            totalAssignedToday,
+
+          remaining:
+            0,
+        },
+        { status: 400 }
+      );
+    }
+
+    // =================================================
+    // TRACK ASSIGNED PHONES IN THIS REQUEST
+    //
+    // GLOBAL:
+    // same phone cannot go to another staff.
+    // =================================================
+
+    const assignedPhonesThisRequest =
+      new Set();
+
+    // =================================================
+    // STAFF ROTATION INDEX
+    // =================================================
+
+    let staffRotationIndex = 0;
+
+    // =================================================
+    // PROCESS NUMBERS
     // =================================================
 
     for (
-      let index = 0;
-      index < uniqueNumbers.length;
-      index++
+      const item of uniqueNumbers
     ) {
-      const item = uniqueNumbers[index];
+      // -----------------------------------------------
+      // DAILY CAPACITY
+      // -----------------------------------------------
+
+      if (
+        remainingDailyCapacity <= 0
+      ) {
+        break;
+      }
+
+      const phoneKey =
+        item.phoneKey;
+
+      // -----------------------------------------------
+      // SAFETY CHECK
+      // -----------------------------------------------
+
+      if (
+        assignedPhonesThisRequest.has(
+          phoneKey
+        )
+      ) {
+        duplicateInputSkipped++;
+        continue;
+      }
 
       // =================================================
-      // STAFF DISTRIBUTION
+      // GLOBAL DATABASE PHONE CHECK
+      //
+      // IMPORTANT:
+      //
+      // Same phone kisi bhi staff ko pehle assign hua
+      // ho to new assignment nahi banegi.
+      //
+      // This prevents:
+      //
+      // Staff A -> 5551234567
+      // Staff B -> 5551234567
+      //
       // =================================================
 
-      const staffId =
-        selectedStaff[
-          index % selectedStaff.length
-        ];
+      const [
+        existingPhoneRows,
+      ] = await connection.execute(
+        `
+        SELECT
+          dda.id,
+          dda.staff_id,
+          dda.status,
+          dda.assigned_date,
+          ddt.phone
 
-      if (!staffId) {
+        FROM daily_desk_assignments dda
+
+        INNER JOIN daily_desk_tasks ddt
+          ON dda.task_id = ddt.id
+
+        WHERE
+          REPLACE(
+            REPLACE(
+              REPLACE(
+                REPLACE(
+                  REPLACE(
+                    REPLACE(
+                      ddt.phone,
+                      ' ',
+                      ''
+                    ),
+                    '-',
+                    ''
+                  ),
+                  '(',
+                  ''
+                ),
+                ')',
+                ''
+              ),
+              '+',
+              ''
+            ),
+            '.',
+            ''
+          ) LIKE ?
+
+        LIMIT 1
+        `,
+        [`%${phoneKey}`]
+      );
+
+      // =================================================
+      // EXISTING PHONE FOUND
+      // =================================================
+
+      if (
+        existingPhoneRows.length > 0
+      ) {
+        const existing =
+          existingPhoneRows[0];
+
+        const status =
+          String(
+            existing.status || ""
+          )
+            .trim()
+            .toLowerCase();
+
+        duplicateDatabaseSkipped++;
+
+        // -----------------------------------------------
+        // STATUS COUNTERS
+        // -----------------------------------------------
+
+        if (
+          status === "completed"
+        ) {
+          completedAlreadySkipped++;
+        }
+
+        if (
+          status === "pending" ||
+          status === "in progress"
+        ) {
+          pendingAlreadySkipped++;
+        }
+
+        if (
+          status.includes(
+            "follow"
+          )
+        ) {
+          followUpSkipped++;
+        }
+
+        if (
+          status.includes(
+            "callback"
+          )
+        ) {
+          callbackSkipped++;
+        }
+
+        if (
+          status === "dnc" ||
+          status.includes("do not call")
+        ) {
+          dncSkipped++;
+        }
+
+        continue;
+      }
+
+      // =================================================
+      // SELECT STAFF
+      //
+      // Equal / Round Robin
+      //
+      // We choose staff with lowest current count.
+      // This keeps distribution balanced.
+      // =================================================
+
+      let selectedStaffId =
+        null;
+
+      if (
+        distribution === "round_robin"
+      ) {
+        selectedStaffId =
+          cleanStaff[
+            staffRotationIndex %
+              cleanStaff.length
+          ];
+
+        staffRotationIndex++;
+      } else {
+        // ---------------------------------------------
+        // EQUAL DISTRIBUTION
+        //
+        // Select staff having lowest count.
+        // ---------------------------------------------
+
+        let lowestCount =
+          Infinity;
+
+        for (const staffId of cleanStaff) {
+          const currentCount =
+            staffDailyCounts[
+              staffId
+            ] || 0;
+
+          if (
+            currentCount <
+            lowestCount
+          ) {
+            lowestCount =
+              currentCount;
+
+            selectedStaffId =
+              staffId;
+          }
+        }
+      }
+
+      if (!selectedStaffId) {
         invalidSkipped++;
         continue;
       }
 
-      const phoneKey = item.phoneKey;
-
       // =================================================
-      // SAME STAFF + SAME PHONE
-      // =================================================
-
-      const staffPhoneKey =
-        `${Number(staffId)}:${phoneKey}`;
-
-      if (staffPhoneKeys.has(staffPhoneKey)) {
-        duplicateInputSkipped++;
-
-        console.log(
-          `DUPLICATE STAFF PHONE SKIPPED: staff=${staffId}, phone=${phoneKey}`
-        );
-
-        continue;
-      }
-
-      // =================================================
-      // CHECK DATABASE
+      // FINAL SAFETY CHECK
       //
-      // Kya ye phone already isi staff ko isi date par
-      // assigned hai?
+      // Check again for same phone in this transaction.
       // =================================================
 
-      const [existingAssignments] =
-        await connection.execute(
-          `
-          SELECT
-            dda.id,
-            dda.task_id,
-            ddt.phone
-          FROM daily_desk_assignments dda
-
-          INNER JOIN daily_desk_tasks ddt
-            ON dda.task_id = ddt.id
-
-          WHERE dda.staff_id = ?
-            AND DATE(dda.assigned_date) = ?
-            AND REPLACE(
-                  REPLACE(
-                    REPLACE(
-                      REPLACE(
-                        REPLACE(ddt.phone, ' ', ''),
-                        '-',
-                        ''
-                      ),
-                      '(',
-                      ''
-                    ),
-                    ')',
-                    ''
-                  ),
-                  '+',
-                  ''
-                ) LIKE ?
-          LIMIT 1
-          `,
-          [
-            staffId,
-            californiaDate,
-            `%${phoneKey}`,
-          ]
-        );
-
-      // =================================================
-      // DATABASE DUPLICATE FOUND
-      // =================================================
-
-      if (existingAssignments.length > 0) {
-        duplicateDatabaseSkipped++;
-
-        console.log(
-          `DATABASE DUPLICATE SKIPPED: staff=${staffId}, phone=${phoneKey}`
-        );
-
-        staffPhoneKeys.add(staffPhoneKey);
-
+      if (
+        assignedPhonesThisRequest.has(
+          phoneKey
+        )
+      ) {
+        duplicateInputSkipped++;
         continue;
       }
 
       // =================================================
-      // 1. SAVE TASK
+      // INSERT TASK
       // =================================================
 
-      const [taskResult] =
-        await connection.execute(
-          `
-          INSERT INTO daily_desk_tasks
-          (
-            task_id,
-            phone,
-            source_file,
-            task_date
-          )
-          VALUES (?, ?, ?, ?)
-          `,
-          [
-            item.taskId,
-            item.phone,
-            sourceFile,
-            californiaDate,
-          ]
-        );
+      const [
+        taskResult,
+      ] = await connection.execute(
+        `
+        INSERT INTO daily_desk_tasks
+        (
+          task_id,
+          phone,
+          source_file,
+          task_date
+        )
+        VALUES (?, ?, ?, ?)
+        `,
+        [
+          item.taskId,
+          item.phone,
+          sourceFile,
+          operationalDate,
+        ]
+      );
 
       const taskDatabaseId =
         taskResult.insertId;
@@ -515,7 +867,7 @@ export async function POST(request) {
       tasksSaved++;
 
       // =================================================
-      // 2. SAVE ASSIGNMENT
+      // INSERT ASSIGNMENT
       // =================================================
 
       await connection.execute(
@@ -531,32 +883,53 @@ export async function POST(request) {
         `,
         [
           taskDatabaseId,
-          staffId,
-          californiaDate,
+          selectedStaffId,
+          operationalDate,
         ]
       );
 
       assignmentsSaved++;
 
       // =================================================
-      // MARK PHONE AS ASSIGNED
+      // MARK PHONE ASSIGNED
       // =================================================
 
-      staffPhoneKeys.add(staffPhoneKey);
+      assignedPhonesThisRequest.add(
+        phoneKey
+      );
 
       // =================================================
-      // COUNT TASKS FOR STAFF
+      // UPDATE STAFF COUNT
       // =================================================
 
-      assignedTaskCounts[staffId] =
-        (assignedTaskCounts[staffId] || 0) + 1;
+      staffDailyCounts[
+        selectedStaffId
+      ] =
+        (staffDailyCounts[
+          selectedStaffId
+        ] || 0) + 1;
+
+      assignedTaskCounts[
+        selectedStaffId
+      ] =
+        (assignedTaskCounts[
+          selectedStaffId
+        ] || 0) + 1;
+
+      // =================================================
+      // REDUCE DAILY CAPACITY
+      // =================================================
+
+      remainingDailyCapacity--;
     }
 
     // =================================================
-    // CHECK IF ANY TASK WAS ACTUALLY SAVED
+    // NOTHING SAVED
     // =================================================
 
-    if (assignmentsSaved === 0) {
+    if (
+      assignmentsSaved === 0
+    ) {
       await connection.rollback();
 
       return NextResponse.json(
@@ -564,12 +937,30 @@ export async function POST(request) {
           success: false,
 
           message:
-            "Koi new unique task assignment save nahi hui.",
+            "Koi new unique Daily Desk task assign nahi hui.",
+
+          timezone:
+            CALIFORNIA_TIMEZONE,
+
+          operationalDate,
 
           data: {
             duplicateInputSkipped,
             duplicateDatabaseSkipped,
             invalidSkipped,
+            completedAlreadySkipped,
+            pendingAlreadySkipped,
+            followUpSkipped,
+            callbackSkipped,
+            dncSkipped,
+
+            maxDailyNewTasks:
+              MAX_NEW_TASKS_PER_OPERATIONAL_DAY,
+
+            alreadyAssignedToday:
+              totalAssignedToday,
+
+            remainingDailyCapacity,
           },
         },
         { status: 400 }
@@ -577,18 +968,35 @@ export async function POST(request) {
     }
 
     // =================================================
-    // CREATE ONE NOTIFICATION PER STAFF
+    // NOTIFICATIONS
     //
-    // 500 tasks = 1 notification
+    // ONE NOTIFICATION PER STAFF
     //
-    // NOT 500 notifications.
+    // Example:
+    //
+    // Staff A = 167
+    // Staff B = 167
+    // Staff C = 166
+    //
+    // Total notifications = 3
+    //
+    // NOT 500.
     // =================================================
 
-    for (const [staffId, taskCount] of Object.entries(
-      assignedTaskCounts
-    )) {
-      const numericStaffId = Number(staffId);
-      const numericTaskCount = Number(taskCount);
+    let notificationsCreated = 0;
+
+    for (
+      const [
+        staffId,
+        taskCount,
+      ] of Object.entries(
+        assignedTaskCounts
+      )) {
+      const numericStaffId =
+        Number(staffId);
+
+      const numericTaskCount =
+        Number(taskCount);
 
       if (
         !numericStaffId ||
@@ -596,6 +1004,10 @@ export async function POST(request) {
       ) {
         continue;
       }
+
+      // =================================================
+      // CREATE ONE NOTIFICATION
+      // =================================================
 
       await connection.execute(
         `
@@ -612,14 +1024,19 @@ export async function POST(request) {
         `,
         [
           numericStaffId,
+
           "New Daily Tasks Assigned",
-          `You have been assigned ${numericTaskCount} new daily tasks for today.`,
+
+          `You have been assigned ${numericTaskCount} new Daily Desk task${numericTaskCount === 1 ? "" : "s"}.`,
+
           "task",
         ]
       );
 
+      notificationsCreated++;
+
       console.log(
-        `TASK NOTIFICATION CREATED: staff=${numericStaffId}, tasks=${numericTaskCount}`
+        `DAILY DESK NOTIFICATION CREATED: staff=${numericStaffId}, tasks=${numericTaskCount}`
       );
     }
 
@@ -637,12 +1054,18 @@ export async function POST(request) {
       success: true,
 
       message:
-        "Daily Desk tasks successfully saved. Duplicate numbers were skipped.",
+        "Daily Desk tasks successfully assigned.",
 
       timezone:
-        "America/Los_Angeles",
+        CALIFORNIA_TIMEZONE,
 
-      californiaDate,
+      californiaDate:
+        californiaCalendarDate,
+
+      operationalDate,
+
+      operationalDay:
+        "08:00 AM California -> next day 08:00 AM California",
 
       data: {
         tasksSaved,
@@ -650,15 +1073,26 @@ export async function POST(request) {
         assignmentsSaved,
 
         staffCount:
-          selectedStaff.length,
+          cleanStaff.length,
 
         distribution,
 
-        maxDailyUniqueTasks:
-          MAX_DAILY_TASKS,
+        maxDailyNewTasks:
+          MAX_NEW_TASKS_PER_OPERATIONAL_DAY,
+
+        assignedBeforeThisRequest:
+          totalAssignedToday,
+
+        assignedInThisRequest:
+          assignmentsSaved,
+
+        remainingDailyCapacity,
 
         uniqueInputNumbers:
           uniqueNumbers.length,
+
+        uniqueAssignedNumbers:
+          assignedPhonesThisRequest.size,
 
         duplicateInputSkipped,
 
@@ -666,12 +1100,17 @@ export async function POST(request) {
 
         invalidSkipped,
 
-        notificationsCreated:
-          Object.values(
-            assignedTaskCounts
-          ).filter(
-            (count) => Number(count) > 0
-          ).length,
+        completedAlreadySkipped,
+
+        pendingAlreadySkipped,
+
+        followUpSkipped,
+
+        callbackSkipped,
+
+        dncSkipped,
+
+        notificationsCreated,
 
         assignedTaskCounts,
       },
@@ -686,7 +1125,7 @@ export async function POST(request) {
     } catch {}
 
     console.error(
-      "DAILY DESK DATABASE ERROR:",
+      "DAILY DESK ASSIGN ERROR:",
       error
     );
 
@@ -696,15 +1135,11 @@ export async function POST(request) {
 
         message:
           error.message ||
-          "Database mein data save nahi ho saka.",
+          "Daily Desk tasks save nahi ho sake.",
       },
       { status: 500 }
     );
   } finally {
-    // =================================================
-    // RELEASE CONNECTION
-    // =================================================
-
     connection.release();
   }
 }

@@ -1,697 +1,23 @@
-// import { NextResponse } from "next/server";
-// import jwt from "jsonwebtoken";
-// import pool from "../../../lib/db";
-
-// export async function GET(request) {
-//   try {
-//     // Login user token
-//     const token = request.cookies.get("token")?.value;
-
-//     if (!token) {
-//       return NextResponse.json(
-//         {
-//           success: false,
-//           message: "Login token nahi mila",
-//         },
-//         { status: 401 }
-//       );
-//     }
-
-//     // Token verify
-//     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-//     const staffId =
-//       decoded.id ||
-//       decoded._id ||
-//       decoded.userId;
-
-//     if (!staffId) {
-//       return NextResponse.json(
-//         {
-//           success: false,
-//           message: "Staff ID token mein nahi mili",
-//         },
-//         { status: 401 }
-//       );
-//     }
-
-//     // Today's assignments
-//     const [rows] = await pool.query(
-//       `
-//       SELECT
-//         dda.id AS assignment_id,
-//         ddt.task_id,
-//         ddt.phone,
-//         ddt.source_file,
-//         dda.staff_id,
-//         dda.assigned_date,
-//         dda.assigned_at,
-//         dda.completed_at,
-//         dda.status
-//       FROM daily_desk_assignments dda
-//       INNER JOIN daily_desk_tasks ddt
-//         ON dda.task_id = ddt.id
-//       WHERE dda.staff_id = ?
-//         AND dda.assigned_date = CURDATE()
-//       ORDER BY dda.id ASC
-//       `,
-//       [staffId]
-//     );
-
-//     return NextResponse.json({
-//       success: true,
-//       data: rows,
-//     });
-//   } catch (error) {
-//     console.error("STAFF DAILY DESK API ERROR:", error);
-
-//     return NextResponse.json(
-//       {
-//         success: false,
-//         message: "Daily Desk data fetch nahi hua",
-//         error: error.message,
-//       },
-//       { status: 500 }
-//     );
-//   }
-// }
-
-
-
-
-// import { NextResponse } from "next/server";
-// import jwt from "jsonwebtoken";
-// import pool from "../../../lib/db";
-
-// export async function GET(request) {
-//   try {
-//     // =====================================================
-//     // GET LOGIN TOKEN
-//     // =====================================================
-
-//     const token = request.cookies.get("token")?.value;
-
-//     if (!token) {
-//       return NextResponse.json(
-//         {
-//           success: false,
-//           message: "Login token nahi mila",
-//         },
-//         { status: 401 }
-//       );
-//     }
-
-//     // =====================================================
-//     // VERIFY TOKEN
-//     // =====================================================
-
-//     const decoded = jwt.verify(
-//       token,
-//       process.env.JWT_SECRET
-//     );
-
-//     const staffId =
-//       decoded.id ||
-//       decoded._id ||
-//       decoded.userId;
-
-//     if (!staffId) {
-//       return NextResponse.json(
-//         {
-//           success: false,
-//           message: "Staff ID token mein nahi mili",
-//         },
-//         { status: 401 }
-//       );
-//     }
-
-//     // =====================================================
-//     // GET TODAY'S ASSIGNMENTS
-//     // =====================================================
-
-//     const [rows] = await pool.query(
-//       `
-//       SELECT 
-//         dda.id AS assignment_id,
-//         ddt.task_id,
-//         ddt.phone,
-//         ddt.source_file,
-
-//         dda.staff_id,
-//         dda.assigned_date,
-//         dda.assigned_at,
-//         dda.completed_at,
-//         dda.status
-
-//       FROM daily_desk_assignments dda
-
-//       INNER JOIN daily_desk_tasks ddt
-//         ON dda.task_id = ddt.id
-
-//       WHERE dda.staff_id = ?
-//         AND dda.assigned_date = CURDATE()
-
-//       ORDER BY dda.id ASC
-//       `,
-//       [staffId]
-//     );
-
-//     // =====================================================
-//     // CHECK ZOOM CALL HISTORY
-//     // =====================================================
-
-//     for (const assignment of rows) {
-
-//       // Already completed hai to dobara check ki zaroorat nahi
-//       if (assignment.status === "completed") {
-//         continue;
-//       }
-
-//       if (!assignment.phone) {
-//         continue;
-//       }
-
-//       // ---------------------------------------------------
-//       // Normalize phone number
-//       // ---------------------------------------------------
-
-//       const cleanPhone = String(assignment.phone)
-//         .replace(/\D/g, "");
-
-//       if (!cleanPhone) {
-//         continue;
-//       }
-
-//       // ===================================================
-//       // FIND COMPLETED ZOOM CALL
-//       // ===================================================
-
-//       const [calls] = await pool.query(
-//         `
-//         SELECT
-//           id,
-//           call_id,
-//           call_history_uuid,
-//           direction,
-//           call_type,
-//           status,
-//           caller_number,
-//           callee_number,
-//           start_time,
-//           end_time,
-//           duration
-//         FROM zoom_call_logs
-
-//         WHERE user_id = ?
-
-//           AND (
-//             REPLACE(REPLACE(REPLACE(REPLACE(caller_number, '+', ''), '-', ''), ' ', ''), '(', '') LIKE ?
-//             OR
-//             REPLACE(REPLACE(REPLACE(REPLACE(callee_number, '+', ''), '-', ''), ' ', ''), '(', '') LIKE ?
-//           )
-
-//           AND (
-//             status IN (
-//               'completed',
-//               'answered',
-//               'connected'
-//             )
-//             OR duration > 0
-//           )
-
-//           AND DATE(start_time) = CURDATE()
-
-//         ORDER BY start_time DESC
-
-//         LIMIT 1
-//         `,
-//         [
-//           staffId,
-//           `%${cleanPhone}%`,
-//           `%${cleanPhone}%`,
-//         ]
-//       );
-
-//       // ===================================================
-//       // CALL MIL GAYI
-//       // ===================================================
-
-//       if (calls.length > 0) {
-
-//         const call = calls[0];
-
-//         // -------------------------------------------------
-//         // Mark assignment completed
-//         // -------------------------------------------------
-
-//         await pool.query(
-//           `
-//           UPDATE daily_desk_assignments
-
-//           SET
-//             status = 'completed',
-//             completed_at = COALESCE(?, NOW())
-
-//           WHERE id = ?
-//             AND staff_id = ?
-//             AND status <> 'completed'
-//           `,
-//           [
-//             call.end_time || call.start_time || null,
-//             assignment.assignment_id,
-//             staffId,
-//           ]
-//         );
-
-//         // -------------------------------------------------
-//         // Update response object immediately
-//         // -------------------------------------------------
-
-//         assignment.status = "completed";
-
-//         assignment.completed_at =
-//           call.end_time ||
-//           call.start_time ||
-//           new Date();
-
-//         // Optional Zoom information
-//         assignment.zoom_call = {
-//           call_id: call.call_id,
-//           direction: call.direction,
-//           call_type: call.call_type,
-//           status: call.status,
-//           start_time: call.start_time,
-//           end_time: call.end_time,
-//           duration: call.duration,
-//         };
-//       }
-//     }
-
-//     // =====================================================
-//     // RESPONSE
-//     // =====================================================
-
-//     return NextResponse.json({
-//       success: true,
-//       data: rows,
-//     });
-
-//   } catch (error) {
-
-//     console.error(
-//       "STAFF DAILY DESK API ERROR:",
-//       error
-//     );
-
-//     return NextResponse.json(
-//       {
-//         success: false,
-//         message: "Daily Desk data fetch nahi hua",
-//         error: error.message,
-//       },
-//       { status: 500 }
-//     );
-//   }
-// }
-
-
-// import { NextResponse } from "next/server";
-// import jwt from "jsonwebtoken";
-// import pool from "../../../lib/db";
-
-// export async function GET(request) {
-//   try {
-//     // =====================================================
-//     // GET LOGIN TOKEN
-//     // =====================================================
-
-//     const token = request.cookies.get("token")?.value;
-
-//     if (!token) {
-//       return NextResponse.json(
-//         {
-//           success: false,
-//           message: "Login token nahi mila",
-//         },
-//         { status: 401 }
-//       );
-//     }
-
-//     // =====================================================
-//     // VERIFY TOKEN
-//     // =====================================================
-
-//     const decoded = jwt.verify(
-//       token,
-//       process.env.JWT_SECRET
-//     );
-
-//     const staffId =
-//       decoded.id ||
-//       decoded._id ||
-//       decoded.userId;
-
-//     if (!staffId) {
-//       return NextResponse.json(
-//         {
-//           success: false,
-//           message: "Staff ID token mein nahi mili",
-//         },
-//         { status: 401 }
-//       );
-//     }
-
-//     // =====================================================
-//     // GET DATE FROM URL
-//     // Example:
-//     // /api/staff/daily-desk?date=2026-09-18
-//     // =====================================================
-
-//     const { searchParams } = new URL(request.url);
-
-//     const requestedDate =
-//       searchParams.get("date") ||
-//       new Date().toISOString().slice(0, 10);
-
-//     // Basic date validation
-//     if (!/^\d{4}-\d{2}-\d{2}$/.test(requestedDate)) {
-//       return NextResponse.json(
-//         {
-//           success: false,
-//           message: "Invalid date format. Use YYYY-MM-DD",
-//         },
-//         { status: 400 }
-//       );
-//     }
-
-//     // =====================================================
-//     // GET DAILY DESK ASSIGNMENTS
-//     // =====================================================
-
-//     const [rows] = await pool.query(
-//       `
-//       SELECT
-//         dda.id AS assignment_id,
-//         ddt.task_id,
-//         ddt.phone,
-//         ddt.source_file,
-
-//         dda.staff_id,
-//         dda.assigned_date,
-//         dda.assigned_at,
-//         dda.completed_at,
-//         dda.status
-
-//       FROM daily_desk_assignments dda
-
-//       INNER JOIN daily_desk_tasks ddt
-//         ON dda.task_id = ddt.id
-
-//       WHERE dda.staff_id = ?
-//         AND DATE(dda.assigned_date) = ?
-
-//       ORDER BY dda.id ASC
-//       `,
-//       [staffId, requestedDate]
-//     );
-
-//     // =====================================================
-//     // CHECK ZOOM CALL HISTORY
-//     // =====================================================
-
-//     for (const assignment of rows) {
-//       try {
-//         // ---------------------------------------------------
-//         // Already completed
-//         // ---------------------------------------------------
-
-//         if (assignment.status === "completed") {
-//           continue;
-//         }
-
-//         // ---------------------------------------------------
-//         // No phone
-//         // ---------------------------------------------------
-
-//         if (!assignment.phone) {
-//           continue;
-//         }
-
-//         // ---------------------------------------------------
-//         // Normalize phone number
-//         // ---------------------------------------------------
-
-//         const cleanPhone = String(assignment.phone)
-//           .replace(/\D/g, "");
-
-//         if (!cleanPhone) {
-//           continue;
-//         }
-
-//         // ===================================================
-//         // FIND COMPLETED ZOOM CALL
-//         //
-//         // IMPORTANT:
-//         // `call_id` removed because it does not exist
-//         // in zoom_call_logs.
-//         // ===================================================
-
-//         const [calls] = await pool.query(
-//           `
-//           SELECT
-//             id,
-//             call_history_uuid,
-//             direction,
-//             call_type,
-//             status,
-//             caller_number,
-//             callee_number,
-//             start_time,
-//             end_time,
-//             duration
-
-//           FROM zoom_call_logs
-
-//           WHERE user_id = ?
-
-//             AND (
-//               REPLACE(
-//                 REPLACE(
-//                   REPLACE(
-//                     REPLACE(caller_number, '+', ''),
-//                   '-', ''),
-//                 ' ', ''),
-//               '(', '') LIKE ?
-
-//               OR
-
-//               REPLACE(
-//                 REPLACE(
-//                   REPLACE(
-//                     REPLACE(callee_number, '+', ''),
-//                   '-', ''),
-//                 ' ', ''),
-//               '(', '') LIKE ?
-//             )
-
-//             AND (
-//               status IN (
-//                 'completed',
-//                 'answered',
-//                 'connected'
-//               )
-
-//               OR duration > 0
-//             )
-
-//             AND DATE(start_time) = ?
-
-//           ORDER BY start_time DESC
-
-//           LIMIT 1
-//           `,
-//           [
-//             staffId,
-//             `%${cleanPhone}%`,
-//             `%${cleanPhone}%`,
-//             requestedDate,
-//           ]
-//         );
-
-//         // ===================================================
-//         // CALL FOUND
-//         // ===================================================
-
-//         if (calls.length > 0) {
-//           const call = calls[0];
-
-//           // -------------------------------------------------
-//           // MARK ASSIGNMENT COMPLETED
-//           // -------------------------------------------------
-
-//           await pool.query(
-//             `
-//             UPDATE daily_desk_assignments
-
-//             SET
-//               status = 'completed',
-//               completed_at = COALESCE(?, NOW())
-
-//             WHERE id = ?
-//               AND staff_id = ?
-//               AND status <> 'completed'
-//             `,
-//             [
-//               call.end_time ||
-//                 call.start_time ||
-//                 null,
-
-//               assignment.assignment_id,
-//               staffId,
-//             ]
-//           );
-
-//           // -------------------------------------------------
-//           // UPDATE RESPONSE OBJECT
-//           // -------------------------------------------------
-
-//           assignment.status = "completed";
-
-//           assignment.completed_at =
-//             call.end_time ||
-//             call.start_time ||
-//             new Date();
-
-//           // -------------------------------------------------
-//           // ZOOM INFORMATION
-//           // -------------------------------------------------
-
-//           assignment.zoom_call = {
-//             // Actual DB ID
-//             call_id: call.id,
-
-//             // Keep UUID separately if available
-//             call_history_uuid:
-//               call.call_history_uuid || null,
-
-//             direction: call.direction,
-//             call_type: call.call_type,
-//             status: call.status,
-
-//             caller_number:
-//               call.caller_number,
-
-//             callee_number:
-//               call.callee_number,
-
-//             start_time:
-//               call.start_time,
-
-//             end_time:
-//               call.end_time,
-
-//             duration:
-//               call.duration,
-//           };
-//         }
-//       } catch (callError) {
-//         // One call lookup fail hone se poori Daily Desk API
-//         // fail nahi hogi.
-
-//         console.error(
-//           "DAILY DESK CALL CHECK ERROR:",
-//           callError
-//         );
-//       }
-//     }
-
-//     // =====================================================
-//     // RESPONSE
-//     // =====================================================
-
-//     return NextResponse.json({
-//       success: true,
-
-//       date: requestedDate,
-
-//       staff_id: staffId,
-
-//       total: rows.length,
-
-//       completed: rows.filter(
-//         (item) =>
-//           item.status === "completed"
-//       ).length,
-
-//       pending: rows.filter(
-//         (item) =>
-//           item.status !== "completed"
-//       ).length,
-
-//       data: rows,
-//     });
-//   } catch (error) {
-//     console.error(
-//       "STAFF DAILY DESK API ERROR:",
-//       error
-//     );
-
-//     return NextResponse.json(
-//       {
-//         success: false,
-//         message:
-//           "Daily Desk data fetch nahi hua",
-//         error: error.message,
-//       },
-//       { status: 500 }
-//     );
-//   }
-// }
-
-
-
-
-
-
-
-
-
-
-
 import { NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 import pool from "../../../lib/db";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 // =====================================================
-// CALIFORNIA TIMEZONE
+// CONFIG
 // =====================================================
 
 const CALIFORNIA_TIMEZONE = "America/Los_Angeles";
-
-// Maximum Daily Desk tasks per staff per day
 const DAILY_TASK_LIMIT = 500;
 
 // =====================================================
-// GET CALIFORNIA DATE
-// Returns YYYY-MM-DD
+// GET CALIFORNIA DATE/TIME PARTS
 // =====================================================
 
-function getCaliforniaDate() {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: CALIFORNIA_TIMEZONE,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
-}
-
-// =====================================================
-// GET CALIFORNIA DATE + TIME
-// 24-HOUR FORMAT
-// =====================================================
-
-function getCaliforniaDateTime() {
-  const parts = new Intl.DateTimeFormat("en-CA", {
+function getCaliforniaParts() {
+  const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: CALIFORNIA_TIMEZONE,
     year: "numeric",
     month: "2-digit",
@@ -710,7 +36,79 @@ function getCaliforniaDateTime() {
     }
   }
 
+  return values;
+}
+
+// =====================================================
+// OPERATIONAL DATE
+//
+// California:
+// 08:00 AM -> new operational day
+// Before 08:00 AM -> previous operational day
+//
+// Example:
+//
+// Oct 8 07:59 AM -> Oct 7
+// Oct 8 08:00 AM -> Oct 8
+// Oct 9 07:59 AM -> Oct 8
+// Oct 9 08:00 AM -> Oct 9
+// =====================================================
+
+function getOperationalDate() {
+  const values = getCaliforniaParts();
+
+  let year = Number(values.year);
+  let month = Number(values.month);
+  let day = Number(values.day);
+
+  const hour = Number(values.hour);
+
+  if (hour < 8) {
+    const previousDay = new Date(
+      Date.UTC(year, month - 1, day)
+    );
+
+    previousDay.setUTCDate(
+      previousDay.getUTCDate() - 1
+    );
+
+    year = previousDay.getUTCFullYear();
+    month = previousDay.getUTCMonth() + 1;
+    day = previousDay.getUTCDate();
+  }
+
+  return `${year}-${String(month).padStart(
+    2,
+    "0"
+  )}-${String(day).padStart(2, "0")}`;
+}
+
+// =====================================================
+// CALIFORNIA CURRENT DATE
+// =====================================================
+
+function getCaliforniaDate() {
+  const values = getCaliforniaParts();
+
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
+// =====================================================
+// CALIFORNIA CURRENT DATE/TIME
+// =====================================================
+
+function getCaliforniaDateTime() {
+  const values = getCaliforniaParts();
+
   return `${values.year}-${values.month}-${values.day} ${values.hour}:${values.minute}:${values.second}`;
+}
+
+// =====================================================
+// DATE VALIDATION
+// =====================================================
+
+function isValidDate(value) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
 
 // =====================================================
@@ -720,10 +118,11 @@ function getCaliforniaDateTime() {
 export async function GET(request) {
   try {
     // ===================================================
-    // GET LOGIN TOKEN
+    // LOGIN TOKEN
     // ===================================================
 
-    const token = request.cookies.get("token")?.value;
+    const token =
+      request.cookies.get("token")?.value;
 
     if (!token) {
       return NextResponse.json(
@@ -755,14 +154,15 @@ export async function GET(request) {
       return NextResponse.json(
         {
           success: false,
-          message: "Invalid ya expired login token",
+          message:
+            "Invalid ya expired login token",
         },
         { status: 401 }
       );
     }
 
     // ===================================================
-    // GET STAFF ID
+    // STAFF ID
     // ===================================================
 
     const staffId =
@@ -782,22 +182,17 @@ export async function GET(request) {
     }
 
     // ===================================================
-    // URL SEARCH PARAMS
-    //
-    // Example:
-    //
-    // /api/staff/daily-desk
-    //
-    // or
-    //
-    // /api/staff/daily-desk?date=2026-09-18
+    // URL
     // ===================================================
 
     const { searchParams } =
       new URL(request.url);
 
+    const requestedDate =
+      searchParams.get("date");
+
     // ===================================================
-    // CALIFORNIA TODAY
+    // CURRENT CALIFORNIA DATA
     // ===================================================
 
     const californiaDate =
@@ -806,104 +201,169 @@ export async function GET(request) {
     const californiaDateTime =
       getCaliforniaDateTime();
 
+    const operationalDate =
+      getOperationalDate();
+
     // ===================================================
-    // REQUESTED DATE
+    // DATE MODE
     //
-    // Agar URL mein date nahi hai to
-    // California ki current date use hogi.
+    // NO DATE:
+    // Active Daily Desk
+    //
+    // WITH DATE:
+    // Historical date
     // ===================================================
 
-    const requestedDate =
-      searchParams.get("date") ||
-      californiaDate;
+    let rows;
 
     // ===================================================
-    // DATE VALIDATION
+    // ACTIVE DAILY DESK
+    //
+    // IMPORTANT:
+    //
+    // Pending / In Progress:
+    // Keep showing even after 8 AM next day.
+    //
+    // Completed:
+    // Do NOT show in active Daily Desk.
     // ===================================================
 
-    if (
-      !/^\d{4}-\d{2}-\d{2}$/.test(
-        requestedDate
-      )
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Invalid date format. Use YYYY-MM-DD",
-        },
-        { status: 400 }
-      );
+    if (!requestedDate) {
+      const [activeRows] =
+        await pool.query(
+          `
+          SELECT
+            dda.id AS assignment_id,
+
+            ddt.task_id,
+            ddt.phone,
+            ddt.source_file,
+
+            dda.staff_id,
+            dda.assigned_date,
+            dda.assigned_at,
+            dda.completed_at,
+            dda.status
+
+          FROM daily_desk_assignments dda
+
+          INNER JOIN daily_desk_tasks ddt
+            ON dda.task_id = ddt.id
+
+          WHERE dda.staff_id = ?
+
+            AND LOWER(
+              TRIM(
+                COALESCE(
+                  dda.status,
+                  'pending'
+                )
+              )
+            ) <> 'completed'
+
+          ORDER BY
+            dda.id ASC
+
+          LIMIT ${DAILY_TASK_LIMIT}
+          `,
+          [staffId]
+        );
+
+      rows = activeRows;
     }
 
     // ===================================================
-    // DAILY DESK ASSIGNMENTS
+    // HISTORICAL DATE
     //
-    // IMPORTANT:
-    // Maximum 500 tasks per staff per day.
+    // /api/staff/daily-desk?date=2026-10-07
+    //
+    // This returns all assignments from that date.
     // ===================================================
 
-    const [rows] = await pool.query(
-      `
-      SELECT
-        dda.id AS assignment_id,
+    else {
+      if (!isValidDate(requestedDate)) {
+        return NextResponse.json(
+          {
+            success: false,
+            message:
+              "Invalid date format. Use YYYY-MM-DD",
+          },
+          { status: 400 }
+        );
+      }
 
-        ddt.task_id,
-        ddt.phone,
-        ddt.source_file,
+      const [historyRows] =
+        await pool.query(
+          `
+          SELECT
+            dda.id AS assignment_id,
 
-        dda.staff_id,
-        dda.assigned_date,
-        dda.assigned_at,
-        dda.completed_at,
-        dda.status
+            ddt.task_id,
+            ddt.phone,
+            ddt.source_file,
 
-      FROM daily_desk_assignments dda
+            dda.staff_id,
+            dda.assigned_date,
+            dda.assigned_at,
+            dda.completed_at,
+            dda.status
 
-      INNER JOIN daily_desk_tasks ddt
-        ON dda.task_id = ddt.id
+          FROM daily_desk_assignments dda
 
-      WHERE dda.staff_id = ?
-        AND DATE(dda.assigned_date) = ?
+          INNER JOIN daily_desk_tasks ddt
+            ON dda.task_id = ddt.id
 
-      ORDER BY dda.id ASC
+          WHERE dda.staff_id = ?
 
-      LIMIT ${DAILY_TASK_LIMIT}
-      `,
-      [
-        staffId,
-        requestedDate,
-      ]
-    );
+            AND DATE(
+              dda.assigned_date
+            ) = ?
+
+          ORDER BY
+            dda.id ASC
+
+          LIMIT ${DAILY_TASK_LIMIT}
+          `,
+          [
+            staffId,
+            requestedDate,
+          ]
+        );
+
+      rows = historyRows;
+    }
 
     // ===================================================
     // CHECK ZOOM CALL HISTORY
+    //
+    // Only pending/in-progress assignments
     // ===================================================
 
     for (const assignment of rows) {
       try {
-        // =================================================
+        // ===============================================
         // ALREADY COMPLETED
-        // =================================================
+        // ===============================================
 
         if (
-          assignment.status ===
-          "completed"
+          String(assignment.status)
+            .toLowerCase()
+            .trim() === "completed"
         ) {
           continue;
         }
 
-        // =================================================
+        // ===============================================
         // NO PHONE
-        // =================================================
+        // ===============================================
 
         if (!assignment.phone) {
           continue;
         }
 
-        // =================================================
+        // ===============================================
         // NORMALIZE PHONE
-        // =================================================
+        // ===============================================
 
         const cleanPhone = String(
           assignment.phone
@@ -913,9 +373,23 @@ export async function GET(request) {
           continue;
         }
 
-        // =================================================
+        // ===============================================
+        // WHICH DATE TO CHECK?
+        //
+        // ACTIVE:
+        // current operational date
+        //
+        // HISTORY:
+        // requested date
+        // ===============================================
+
+        const callDate =
+          requestedDate ||
+          operationalDate;
+
+        // ===============================================
         // FIND ZOOM CALL
-        // =================================================
+        // ===============================================
 
         const [calls] =
           await pool.query(
@@ -941,17 +415,21 @@ export async function GET(request) {
                   REPLACE(
                     REPLACE(
                       REPLACE(
-                        caller_number,
-                        '+',
+                        REPLACE(
+                          caller_number,
+                          '+',
+                          ''
+                        ),
+                        '-',
                         ''
                       ),
-                      '-',
+                      ' ',
                       ''
                     ),
-                    ' ',
+                    '(',
                     ''
                   ),
-                  '(',
+                  ')',
                   ''
                 ) LIKE ?
 
@@ -961,34 +439,49 @@ export async function GET(request) {
                   REPLACE(
                     REPLACE(
                       REPLACE(
-                        callee_number,
-                        '+',
+                        REPLACE(
+                          callee_number,
+                          '+',
+                          ''
+                        ),
+                        '-',
                         ''
                       ),
-                      '-',
-                      ''
+                      ' ',
+                        ''
                     ),
-                    ' ',
+                    '(',
                     ''
                   ),
-                  '(',
+                  ')',
                   ''
                 ) LIKE ?
               )
 
               AND (
-                status IN (
+                LOWER(
+                  TRIM(
+                    COALESCE(
+                      status,
+                      ''
+                    )
+                  )
+                ) IN (
                   'completed',
                   'answered',
                   'connected'
                 )
 
-                OR duration > 0
+                OR COALESCE(
+                  duration,
+                  0
+                ) > 0
               )
 
               AND DATE(start_time) = ?
 
-            ORDER BY start_time DESC
+            ORDER BY
+              start_time DESC
 
             LIMIT 1
             `,
@@ -996,20 +489,20 @@ export async function GET(request) {
               staffId,
               `%${cleanPhone}%`,
               `%${cleanPhone}%`,
-              requestedDate,
+              callDate,
             ]
           );
 
-        // =================================================
+        // ===============================================
         // CALL FOUND
-        // =================================================
+        // ===============================================
 
         if (calls.length > 0) {
           const call = calls[0];
 
-          // ===============================================
+          // =============================================
           // MARK ASSIGNMENT COMPLETED
-          // ===============================================
+          // =============================================
 
           await pool.query(
             `
@@ -1017,14 +510,25 @@ export async function GET(request) {
 
             SET
               status = 'completed',
-              completed_at = COALESCE(
-                ?,
-                NOW()
-              )
+
+              completed_at =
+                COALESCE(
+                  ?,
+                  NOW()
+                )
 
             WHERE id = ?
+
               AND staff_id = ?
-              AND status <> 'completed'
+
+              AND LOWER(
+                TRIM(
+                  COALESCE(
+                    status,
+                    ''
+                  )
+                )
+              ) <> 'completed'
             `,
             [
               call.end_time ||
@@ -1037,9 +541,9 @@ export async function GET(request) {
             ]
           );
 
-          // ===============================================
+          // =============================================
           // UPDATE RESPONSE
-          // ===============================================
+          // =============================================
 
           assignment.status =
             "completed";
@@ -1049,9 +553,9 @@ export async function GET(request) {
             call.start_time ||
             new Date();
 
-          // ===============================================
-          // ZOOM INFORMATION
-          // ===============================================
+          // =============================================
+          // ZOOM INFO
+          // =============================================
 
           assignment.zoom_call = {
             call_id: call.id,
@@ -1093,15 +597,33 @@ export async function GET(request) {
           };
         }
       } catch (callError) {
-        // ===============================================
-        // ONE CALL ERROR SHOULD NOT BREAK API
-        // ===============================================
+        // =============================================
+        // ONE CALL ERROR MUST NOT BREAK API
+        // =============================================
 
         console.error(
           "DAILY DESK CALL CHECK ERROR:",
           callError
         );
       }
+    }
+
+    // ===================================================
+    // ACTIVE MODE:
+    // Remove assignments that just became completed
+    // during Zoom check.
+    //
+    // This means completed task immediately disappears
+    // from active Daily Desk.
+    // ===================================================
+
+    if (!requestedDate) {
+      rows = rows.filter(
+        (item) =>
+          String(item.status)
+            .toLowerCase()
+            .trim() !== "completed"
+      );
     }
 
     // ===================================================
@@ -1114,21 +636,23 @@ export async function GET(request) {
     const completed =
       rows.filter(
         (item) =>
-          item.status ===
-          "completed"
+          String(item.status)
+            .toLowerCase()
+            .trim() === "completed"
       ).length;
 
     const pending =
       rows.filter(
         (item) =>
-          item.status !==
-          "completed"
+          String(item.status)
+            .toLowerCase()
+            .trim() !== "completed"
       ).length;
 
     const remaining =
       Math.max(
         0,
-        DAILY_TASK_LIMIT - total
+        DAILY_TASK_LIMIT - pending
       );
 
     // ===================================================
@@ -1138,40 +662,40 @@ export async function GET(request) {
     return NextResponse.json({
       success: true,
 
-      // ================================================
-      // DATE
-      // ================================================
-
-      date: requestedDate,
+      // Requested/history date
+      date:
+        requestedDate ||
+        null,
 
       // Current California date
       california_date:
         californiaDate,
 
-      // Current California date/time
+      // Current California time
       california_datetime:
         californiaDateTime,
 
+      // 8 AM operational date
+      operational_date:
+        operationalDate,
+
+      // Timezone
       timezone:
         CALIFORNIA_TIMEZONE,
 
-      // ================================================
-      // STAFF
-      // ================================================
+      // Operational day rule
+      operational_day_start:
+        "08:00 America/Los_Angeles",
 
-      staff_id: staffId,
+      // Staff
+      staff_id:
+        staffId,
 
-      // ================================================
-      // DAILY LIMIT
-      // ================================================
-
+      // Daily limit
       limit:
         DAILY_TASK_LIMIT,
 
-      // ================================================
-      // COUNTS
-      // ================================================
-
+      // Counts
       total,
 
       completed,
@@ -1180,17 +704,10 @@ export async function GET(request) {
 
       remaining,
 
-      // ================================================
-      // DATA
-      // ================================================
-
+      // Data
       data: rows,
     });
   } catch (error) {
-    // ===================================================
-    // MAIN API ERROR
-    // ===================================================
-
     console.error(
       "STAFF DAILY DESK API ERROR:",
       error
