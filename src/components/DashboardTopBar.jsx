@@ -20,7 +20,13 @@ import {
   Coffee,
 } from "lucide-react";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
 
 // ============================================================
@@ -123,6 +129,79 @@ export default function DashboardTopBar({
     useState(false);
 
   const notificationRef = useRef(null);
+  const previousUnreadCountRef = useRef(null);
+  const notificationSoundRef = useRef(null);
+
+  const playNotificationSound = useCallback(() => {
+    try {
+      const AudioCtor =
+        window.AudioContext ||
+        window.webkitAudioContext;
+
+      if (!AudioCtor) {
+        return;
+      }
+
+      if (!notificationSoundRef.current) {
+        notificationSoundRef.current =
+          new AudioCtor();
+      }
+
+      const audioContext =
+        notificationSoundRef.current;
+
+      if (audioContext.state === "suspended") {
+        audioContext.resume();
+      }
+
+      const startTime =
+        audioContext.currentTime + 0.02;
+      const tones = [640, 860, 1180];
+
+      tones.forEach((frequency, index) => {
+        const oscillator =
+          audioContext.createOscillator();
+        const gainNode =
+          audioContext.createGain();
+
+        oscillator.type = "sine";
+        oscillator.frequency.setValueAtTime(
+          frequency,
+          startTime + index * 0.12
+        );
+
+        gainNode.gain.setValueAtTime(
+          0.0001,
+          startTime + index * 0.12
+        );
+        gainNode.gain.exponentialRampToValueAtTime(
+          0.12,
+          startTime + index * 0.12 + 0.03
+        );
+        gainNode.gain.exponentialRampToValueAtTime(
+          0.0001,
+          startTime + index * 0.12 + 0.22
+        );
+
+        oscillator.connect(gainNode);
+        gainNode.connect(
+          audioContext.destination
+        );
+
+        oscillator.start(
+          startTime + index * 0.12
+        );
+        oscillator.stop(
+          startTime + index * 0.12 + 0.24
+        );
+      });
+    } catch (error) {
+      console.error(
+        "Notification sound error:",
+        error
+      );
+    }
+  }, []);
 
   // ============================================================
   // OFFICE CLOSING
@@ -2129,6 +2208,25 @@ export default function DashboardTopBar({
       );
   }, []);
 
+  useEffect(() => {
+    const unreadCountNow =
+      notifications.filter(
+        (item) =>
+          Number(item?.is_read || 0) === 0
+      ).length;
+
+    if (
+      previousUnreadCountRef.current !== null &&
+      unreadCountNow >
+        previousUnreadCountRef.current
+    ) {
+      playNotificationSound();
+    }
+
+    previousUnreadCountRef.current =
+      unreadCountNow;
+  }, [notifications, playNotificationSound]);
+
   // ============================================================
   // CLICK OUTSIDE NOTIFICATION
   // ============================================================
@@ -3042,40 +3140,7 @@ export default function DashboardTopBar({
                     </div>
                   )}
 
-                  {onLogout && (
-                    <div className="border-t border-gray-100 p-2">
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setStatusDropdownOpen(
-                            false
-                          );
-
-                          onLogout();
-                        }}
-                        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-red-600 transition hover:bg-red-50"
-                      >
-
-                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50">
-
-                          <LogOut
-                            size={
-                              16
-                            }
-                          />
-
-                        </div>
-
-                        <span className="text-sm font-semibold">
-                          Logout
-                        </span>
-
-                      </button>
-
-                    </div>
-                  )}
-
+         
                 </div>
               )}
 
