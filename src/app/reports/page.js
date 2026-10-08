@@ -2472,7 +2472,7 @@ export default function AdminHistoryPage() {
 
           {/* TABLE */}
 
-          <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+      <section className="h-[600px] overflow-y-auto overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm">
             <div className="flex flex-col gap-3 border-b border-gray-100 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
               <div>
                 <div className="flex items-center gap-2">

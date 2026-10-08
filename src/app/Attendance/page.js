@@ -2216,691 +2216,1035 @@ export default function AttendancePage() {
      PDF EXPORT
   ======================================================= */
 
-  async function exportPDF() {
-    try {
-      setError("");
+ async function exportPDF() {
+  try {
+    setError("");
 
-      const jsPDFModule =
-        await import(
-          "jspdf"
-        );
+    const jsPDFModule = await import("jspdf");
+    const autoTableModule = await import("jspdf-autotable");
 
-      const autoTableModule =
-        await import(
-          "jspdf-autotable"
-        );
+    const jsPDF =
+      jsPDFModule.default ||
+      jsPDFModule.jsPDF;
 
-      const jsPDF =
-        jsPDFModule.default ||
-        jsPDFModule.jsPDF;
+    const autoTable =
+      autoTableModule.default ||
+      autoTableModule.autoTable;
 
-      const autoTable =
-        autoTableModule.default ||
-        autoTableModule.autoTable;
+    if (
+      typeof jsPDF !== "function" ||
+      typeof autoTable !== "function"
+    ) {
+      throw new Error("PDF libraries are not available.");
+    }
 
+    const doc = new jsPDF({
+      orientation: "landscape",
+      unit: "mm",
+      format: "a4",
+    });
+
+    // ============================================================
+    // COLORS
+    // ============================================================
+
+    const RED = [204, 0, 0];
+    const WHITE = [255, 255, 255];
+    const BLACK = [0, 0, 0];
+    const GREEN = [0, 128, 0];
+    const BORDER = [190, 190, 190];
+    const LIGHT_GRAY = [245, 245, 245];
+
+    const rows = visibleAttendance || [];
+
+    if (rows.length === 0) {
+      setError(
+        "There are no attendance records to export."
+      );
+      return;
+    }
+
+    // ============================================================
+    // EMPLOYEE
+    // ============================================================
+
+    const firstEmployee =
+      rows.find(
+        (row) =>
+          row.row_type !== "weekend_off"
+      ) ||
+      rows[0] ||
+      {};
+
+    const employeeId =
+      firstEmployee.user_id ||
+      firstEmployee.employee_id ||
+      firstEmployee.emp_id ||
+      "-";
+
+    const employeeName =
+      firstEmployee.name ||
+      "-";
+
+    const payroll =
+      firstEmployee.payroll ||
+      `${fromDate} to ${toDate}`;
+
+    const campaign =
+      firstEmployee.campaign ||
+      firstEmployee.team ||
+      "DO";
+
+    const basicSalary =
+      firstEmployee.basic_salary ??
+      firstEmployee.basicSalary ??
+      firstEmployee.salary ??
+      "-";
+
+    const agentWD =
+      firstEmployee.agent_wd ||
+      firstEmployee.agentWD ||
+      "M WD";
+
+    const payPerDay =
+      firstEmployee.pay_per_day ??
+      firstEmployee.payPerDay ??
+      "-";
+
+    // ============================================================
+    // HELPERS
+    // ============================================================
+
+    const money = (value) => {
       if (
-        typeof jsPDF !==
-          "function" ||
-        typeof autoTable !==
-          "function"
+        value === null ||
+        value === undefined ||
+        value === ""
       ) {
-        throw new Error(
-          "PDF libraries are not available."
-        );
+        return "-";
       }
 
-      const doc =
-        new jsPDF({
-          orientation:
-            "landscape",
+      const number = Number(
+        String(value).replace(/,/g, "")
+      );
 
-          unit: "mm",
-
-          format: "a4",
-        });
-
-      const primaryRed = [
-        204,
-        0,
-        0,
-      ];
-
-      const rows =
-        visibleAttendance || [];
-
-      if (
-        rows.length ===
-        0
-      ) {
-        setError(
-          "There are no attendance records to export."
-        );
-
-        return;
+      if (!Number.isNaN(number)) {
+        return number.toLocaleString("en-US");
       }
 
-      /* =====================================================
-         EMPLOYEE INFO
-      ===================================================== */
+      return String(value);
+    };
 
-      const firstEmployee =
-        rows.find(
-          (row) =>
-            row.row_type !==
-            "weekend_off"
-        ) ||
-        rows[0] ||
-        {};
-
-      const employeeId =
-        firstEmployee.user_id ||
-        "-";
-
-      const employeeName =
-        firstEmployee.name ||
-        "-";
-
-      const payroll =
-        firstEmployee.payroll ||
-        "-";
-
-      const campaign =
-        firstEmployee.campaign ||
-        "-";
-
-      const agentWD =
-        firstEmployee.agent_wd ||
-        "-";
-
-      /* =====================================================
-         TOP HEADER
-      ===================================================== */
-
-      doc.setFont(
-        "helvetica",
-        "bold"
-      );
-
-      doc.setFontSize(10);
-
-      doc.setTextColor(
-        0,
-        0,
-        0
-      );
-
-      doc.text(
-        "Dear",
-        8,
-        12
-      );
-
-      doc.setDrawColor(
-        0,
-        128,
-        0
-      );
-
-      doc.rect(
-        20,
-        8,
-        55,
-        6
-      );
-
-      doc.text(
-        String(
-          employeeName
-        ),
-        22,
-        12
-      );
-
-      doc.text(
-        `Total Hours: ${
-          stats?.totalHours ??
-          0
-        }`,
-        85,
-        12
-      );
-
-      doc.text(
-        `Period: ${fromDate} to ${toDate}`,
-        150,
-        12
-      );
-
-      /* =====================================================
-         EMPLOYEE SUMMARY
-      ===================================================== */
-
-      autoTable(doc, {
-        startY: 16,
-
-        margin: {
-          left: 8,
-          right: 8,
-        },
-
-        head: [[
-          "EMP ID",
-          "Employee Name",
-          "Payroll",
-          "Campaign",
-          "Agent WD",
-        ]],
-
-        body: [[
-          employeeId,
-          employeeName,
-          payroll,
-          campaign,
-          agentWD,
-        ]],
-
-        theme:
-          "grid",
-
-        styles: {
-          fontSize: 7,
-
-          cellPadding: 2,
-
-          halign:
-            "center",
-
-          valign:
-            "middle",
-
-          lineColor: [
-            200,
-            200,
-            200,
-          ],
-
-          lineWidth:
-            0.2,
-        },
-
-        headStyles: {
-          fillColor:
-            primaryRed,
-
-          textColor: [
-            255,
-            255,
-            255,
-          ],
-
-          fontStyle:
-            "bold",
-
-          fontSize:
-            7.5,
-
-          lineColor: [
-            255,
-            255,
-            255,
-          ],
-
-          lineWidth:
-            0.2,
-        },
-      });
-
-      let currentY =
-        doc.lastAutoTable
-          .finalY + 5;
-
-      /* =====================================================
-         ATTENDANCE TABLE
-      ===================================================== */
-
-      const pdfBody =
-        rows.map(
-          (row) => {
-            const status =
-              getStatus(
-                row
-              );
-
-            /*
-             * IMPORTANT:
-             *
-             * Absent:
-             * attendance_date exists
-             * login_time is null
-             *
-             * Weekend:
-             * attendance_date exists
-             *
-             * Present/Late:
-             * attendance_date or login_time
-             */
-            const date =
-              formatCaliforniaDate(
-                row.attendance_date ||
-                  row.login_time
-              );
-
-            const day =
-              row.day_name ||
-              getDayName(
-                row.attendance_date ||
-                  row.login_time
-              );
-
-            if (
-              row.row_type ===
-              "weekend_off"
-            ) {
-              return [
-                row.user_id ||
-                  "-",
-
-                row.name ||
-                  "-",
-
-                row.team ||
-                  "-",
-
-                date,
-
-                day,
-
-                "-",
-
-                "-",
-
-                "-",
-
-                "Weekend Off",
-              ];
-            }
-
-            return [
-              row.user_id ||
-                "-",
-
-              row.name ||
-                "-",
-
-              row.team ||
-                "-",
-
-              date,
-
-              day,
-
-              formatCaliforniaTime(
-                row.login_time
-              ),
-
-              formatCaliforniaTime(
-                row.logout_time
-              ),
-
-              formatDuration(
-                row.duration_seconds
-              ),
-
-              status,
-            ];
-          }
-        );
-
-      autoTable(doc, {
-        startY:
-          currentY,
-
-        margin: {
-          left: 8,
-          right: 8,
-        },
-
-        head: [[
-          "EMP ID",
-          "Employee",
-          "Team",
-          "Date",
-          "Day",
-          "Login",
-          "Logout",
-          "Duration",
-          "Status",
-        ]],
-
-        body: pdfBody,
-
-        theme:
-          "grid",
-
-        styles: {
-          fontSize:
-            6.5,
-
-          cellPadding:
-            1.8,
-
-          halign:
-            "center",
-
-          valign:
-            "middle",
-
-          lineColor: [
-            200,
-            200,
-            200,
-          ],
-
-          lineWidth:
-            0.2,
-        },
-
-        headStyles: {
-          fillColor:
-            primaryRed,
-
-          textColor: [
-            255,
-            255,
-            255,
-          ],
-
-          fontStyle:
-            "bold",
-
-          fontSize:
-            7,
-
-          lineColor: [
-            255,
-            255,
-            255,
-          ],
-
-          lineWidth:
-            0.2,
-        },
-
-        columnStyles: {
-          0: {
-            cellWidth:
-              18,
-          },
-
-          1: {
-            cellWidth:
-              35,
-
-            halign:
-              "left",
-          },
-
-          2: {
-            cellWidth:
-              25,
-          },
-
-          3: {
-            cellWidth:
-              27,
-          },
-
-          4: {
-            cellWidth:
-              20,
-          },
-
-          5: {
-            cellWidth:
-              30,
-          },
-
-          6: {
-            cellWidth:
-              30,
-          },
-
-          7: {
-            cellWidth:
-              25,
-          },
-
-          8: {
-            cellWidth:
-              28,
-          },
-        },
-
-        didParseCell:
-          (hookData) => {
-            if (
-              hookData.section ===
-              "body"
-            ) {
-              const rowData =
-                hookData.row
-                  .raw;
-
-              if (
-                rowData?.[8] ===
-                "Weekend Off"
-              ) {
-                hookData.cell.styles.fillColor =
-                  [
-                    245,
-                    245,
-                    245,
-                  ];
-
-                hookData.cell.styles.textColor =
-                  [
-                    100,
-                    100,
-                    100,
-                  ];
-
-                hookData.cell.styles.fontStyle =
-                  "bold";
-              }
-
-              /*
-               * Highlight Absent
-               */
-              if (
-                rowData?.[8] ===
-                "Absent"
-              ) {
-                hookData.cell.styles.textColor =
-                  [
-                    180,
-                    0,
-                    0,
-                  ];
-
-                hookData.cell.styles.fontStyle =
-                  "bold";
-              }
-            }
-          },
-      });
-
-      currentY =
-        doc.lastAutoTable
-          .finalY + 5;
-
-      /* =====================================================
-         SUMMARY
-      ===================================================== */
-
+    const getRowStatus = (row) => {
       if (
-        currentY >
-        175
+        row.row_type === "weekend_off"
+      ) {
+        return "OFF";
+      }
+
+      return getStatus(row);
+    };
+
+    // ============================================================
+    // STATS
+    // ============================================================
+
+    const presentCount =
+      Number(stats?.present ?? 0);
+
+    const lateCount =
+      Number(stats?.late ?? 0);
+
+    const absentCount =
+      Number(stats?.absent ?? 0);
+
+    const weekendCount =
+      Number(stats?.off ?? 0);
+
+    const totalHours =
+      stats?.totalHours ?? 0;
+
+    const workingDays =
+      presentCount +
+      lateCount +
+      absentCount;
+
+    const unpaidDays =
+      absentCount;
+
+    const paidDays =
+      Math.max(
+        0,
+        workingDays - unpaidDays
+      );
+
+    // ============================================================
+    // SALARY VALUES
+    //
+    // Existing attendance API may not contain all salary fields.
+    // Therefore these safely use available fields and "-" otherwise.
+    // ============================================================
+
+    const salaryValue =
+      firstEmployee.salary ??
+      firstEmployee.basic_salary ??
+      firstEmployee.basicSalary ??
+      "-";
+
+    const netSalary =
+      firstEmployee.net_salary ??
+      firstEmployee.netSalary ??
+      salaryValue;
+
+    const grossSalary =
+      firstEmployee.gross_salary ??
+      firstEmployee.grossSalary ??
+      salaryValue;
+
+    const incomeTax =
+      firstEmployee.income_tax ??
+      firstEmployee.incomeTax ??
+      0;
+
+    const eobi =
+      firstEmployee.eobi ??
+      0;
+
+    const advanceSalary =
+      firstEmployee.advance_salary ??
+      firstEmployee.advanceSalary ??
+      0;
+
+    // ============================================================
+    // PAGE HEADER
+    // ============================================================
+
+    doc.setFont(
+      "helvetica",
+      "bold"
+    );
+
+    doc.setFontSize(10);
+
+    doc.setTextColor(
+      ...BLACK
+    );
+
+    doc.text(
+      "Dear",
+      8,
+      10
+    );
+
+    // Green employee name box
+    doc.setDrawColor(
+      ...GREEN
+    );
+
+    doc.setLineWidth(0.4);
+
+    doc.rect(
+      20,
+      6,
+      55,
+      6
+    );
+
+    doc.setTextColor(
+      ...BLACK
+    );
+
+    doc.text(
+      String(employeeName),
+      22,
+      10
+    );
+
+    // Net salary top
+    doc.text(
+      "Net Salary PKR",
+      82,
+      10
+    );
+
+    doc.text(
+      money(netSalary),
+      115,
+      10
+    );
+
+    // Period
+    doc.text(
+      `Payroll: ${fromDate} to ${toDate}`,
+      160,
+      10
+    );
+
+    // ============================================================
+    // MAIN EMPLOYEE INFO TABLE
+    // ============================================================
+
+    autoTable(doc, {
+      startY: 15,
+
+      margin: {
+        left: 8,
+        right: 8,
+      },
+
+      theme: "grid",
+
+      head: [[
+        "EMP ID",
+        "Employee Name",
+        "Payroll",
+        "Campaign",
+        "Basic",
+        "Agent WD",
+        "Pay Per Day",
+      ]],
+
+      body: [[
+        employeeId,
+        employeeName,
+        payroll,
+        campaign,
+        money(basicSalary),
+        agentWD,
+        money(payPerDay),
+      ]],
+
+      styles: {
+        font: "helvetica",
+        fontSize: 7,
+        cellPadding: 2,
+        halign: "center",
+        valign: "middle",
+        textColor: BLACK,
+        lineColor: BORDER,
+        lineWidth: 0.2,
+      },
+
+      headStyles: {
+        fillColor: RED,
+        textColor: WHITE,
+        fontStyle: "bold",
+        fontSize: 7,
+        halign: "center",
+        lineColor: WHITE,
+        lineWidth: 0.2,
+      },
+
+      bodyStyles: {
+        fontStyle: "bold",
+        fillColor: WHITE,
+      },
+    });
+
+    let currentY =
+      doc.lastAutoTable.finalY + 4;
+
+    // ============================================================
+    // ATTENDANCE CALENDAR
+    //
+    // 7 columns exactly like your new UI
+    // ============================================================
+
+    const calendarRows = [...rows];
+
+    // Convert each attendance record
+    // into date/status object
+    const calendarData =
+      calendarRows.map((row) => {
+        const status =
+          getRowStatus(row);
+
+        const rawDate =
+          row.attendance_date ||
+          row.login_time;
+
+        const date =
+          rawDate
+            ? formatCaliforniaDate(rawDate)
+            : "-";
+
+        return {
+          date,
+          status,
+          row,
+        };
+      });
+
+    // Split into groups of 7
+    const weeks = [];
+
+    for (
+      let i = 0;
+      i < calendarData.length;
+      i += 7
+    ) {
+      weeks.push(
+        calendarData.slice(
+          i,
+          i + 7
+        )
+      );
+    }
+
+    // ============================================================
+    // DRAW CALENDAR
+    // ============================================================
+
+    for (
+      let weekIndex = 0;
+      weekIndex < weeks.length;
+      weekIndex++
+    ) {
+      const week =
+        weeks[weekIndex];
+
+      // Add page if necessary
+      if (
+        currentY > 185
       ) {
         doc.addPage();
-
         currentY = 12;
       }
 
+      const dateHeaders =
+        week.map(
+          (item) =>
+            item.date
+        );
+
+      const statusValues =
+        week.map(
+          (item) =>
+            item.status
+        );
+
+      // Fill remaining cells
+      while (
+        dateHeaders.length < 7
+      ) {
+        dateHeaders.push("");
+        statusValues.push("");
+      }
+
+      // Date header row
       autoTable(doc, {
-        startY:
-          currentY,
+        startY: currentY,
 
         margin: {
           left: 8,
           right: 8,
         },
 
-        head: [[
-          "Present",
-          "Late",
-          "Absent",
-          "Weekend Off",
-          "Total Hours",
-        ]],
+        theme: "grid",
 
-        body: [[
-          stats?.present ??
-            0,
+        head: [
+          dateHeaders,
+        ],
 
-          stats?.late ??
-            0,
-
-          stats?.absent ??
-            0,
-
-          stats?.off ??
-            0,
-
-          stats?.totalHours ??
-            0,
-        ]],
-
-        theme:
-          "grid",
+        body: [
+          statusValues,
+        ],
 
         styles: {
-          fontSize:
-            7,
-
-          cellPadding:
-            2,
-
-          halign:
-            "center",
-
-          valign:
-            "middle",
-
-          lineColor: [
-            200,
-            200,
-            200,
-          ],
-
-          lineWidth:
-            0.2,
+          font: "helvetica",
+          fontSize: 6.5,
+          cellPadding: 2,
+          halign: "center",
+          valign: "middle",
+          lineColor: BORDER,
+          lineWidth: 0.2,
+          textColor: BLACK,
         },
 
         headStyles: {
-          fillColor:
-            primaryRed,
+          fillColor: RED,
+          textColor: WHITE,
+          fontStyle: "normal",
+          fontSize: 6,
+          halign: "center",
+          valign: "middle",
+          lineColor: WHITE,
+          lineWidth: 0.2,
+        },
 
-          textColor: [
-            255,
-            255,
-            255,
-          ],
+        bodyStyles: {
+          fillColor: WHITE,
+          fontStyle: "bold",
+        },
 
-          fontStyle:
-            "bold",
+        didParseCell: (
+          hookData
+        ) => {
+          if (
+            hookData.section !==
+            "body"
+          ) {
+            return;
+          }
 
-          fontSize:
-            7,
+          const value =
+            String(
+              hookData.cell.raw ||
+              ""
+            ).toLowerCase();
 
-          lineColor: [
-            255,
-            255,
-            255,
-          ],
+          // USL / NCNS / UCL
+          if (
+            value === "usl" ||
+            value === "ncns" ||
+            value === "ucl"
+          ) {
+            hookData.cell.styles.fillColor =
+              RED;
 
-          lineWidth:
-            0.2,
+            hookData.cell.styles.textColor =
+              WHITE;
+
+            hookData.cell.styles.fontStyle =
+              "bold";
+          }
+
+          // Absent
+          if (
+            value === "absent"
+          ) {
+            hookData.cell.styles.textColor =
+              RED;
+
+            hookData.cell.styles.fontStyle =
+              "bold";
+          }
+
+          // OFF
+          if (
+            value === "off" ||
+            value === "weekend off"
+          ) {
+            hookData.cell.styles.fillColor =
+              LIGHT_GRAY;
+
+            hookData.cell.styles.textColor =
+              [90, 90, 90];
+
+            hookData.cell.styles.fontStyle =
+              "bold";
+          }
+
+          // Present
+          if (
+            value === "present"
+          ) {
+            hookData.cell.styles.textColor =
+              BLACK;
+          }
         },
       });
 
-      /* =====================================================
-         FOOTER
-      ===================================================== */
+      currentY =
+        doc.lastAutoTable.finalY + 2;
+    }
 
-      const pageCount =
-        doc.internal
-          .getNumberOfPages();
+    // ============================================================
+    // SUMMARY
+    // ============================================================
 
-      for (
-        let page = 1;
-        page <= pageCount;
-        page++
-      ) {
-        doc.setPage(page);
+    if (
+      currentY > 175
+    ) {
+      doc.addPage();
+      currentY = 12;
+    }
 
-        const pageHeight =
-          doc.internal
-            .pageSize.height;
+    autoTable(doc, {
+      startY: currentY,
 
-        doc.setFontSize(
-          6.5
-        );
+      margin: {
+        left: 8,
+        right: 8,
+      },
 
-        doc.setTextColor(
-          120,
-          120,
-          120
-        );
+      theme: "grid",
 
-        doc.text(
-          `Digital Orbits CRM • Attendance Report • ${CALIFORNIA_TIMEZONE}`,
-          8,
-          pageHeight - 6
-        );
+      head: [[
+        "Working Days",
+        "Late",
+        "Unpaid",
+        "Paid Days",
+        "Total Hours",
+        "Weekend Off",
+        "Absent",
+      ]],
 
-        doc.text(
-          `Page ${page} of ${pageCount}`,
-          289,
-          pageHeight - 6,
-          {
-            align:
-              "right",
-          }
-        );
-      }
+      body: [[
+        workingDays,
+        lateCount,
+        unpaidDays,
+        paidDays,
+        totalHours,
+        weekendCount,
+        absentCount,
+      ]],
 
-      /* =====================================================
-         DOWNLOAD
-      ===================================================== */
+      styles: {
+        font: "helvetica",
+        fontSize: 7,
+        cellPadding: 2,
+        halign: "center",
+        valign: "middle",
+        lineColor: BORDER,
+        lineWidth: 0.2,
+      },
 
-      const selectedEmployee =
-        userFilter !==
-        "All Users"
-          ? userOptions.find(
-              (user) =>
-                String(
-                  user.id
-                ) ===
-                String(
-                  userFilter
-                )
+      headStyles: {
+        fillColor: RED,
+        textColor: WHITE,
+        fontStyle: "normal",
+        fontSize: 6.5,
+        lineColor: WHITE,
+        lineWidth: 0.2,
+      },
+
+      bodyStyles: {
+        fontStyle: "bold",
+        textColor: BLACK,
+      },
+    });
+
+    currentY =
+      doc.lastAutoTable.finalY + 3;
+
+    // ============================================================
+    // LEAVES / SALARY
+    // ============================================================
+
+    autoTable(doc, {
+      startY: currentY,
+
+      margin: {
+        left: 8,
+        right: 8,
+      },
+
+      theme: "grid",
+
+      head: [[
+        "Half Day",
+        "Casual Leave",
+        "Sick Leave",
+        "NCNS/UCL/USL",
+        "Salary",
+        "Arrears (-ve)",
+        "Arrears (+ve)",
+      ]],
+
+      body: [[
+        firstEmployee.half_day ??
+          firstEmployee.halfDay ??
+          0,
+
+        firstEmployee.casual_leave ??
+          firstEmployee.casualLeave ??
+          0,
+
+        firstEmployee.sick_leave ??
+          firstEmployee.sickLeave ??
+          0,
+
+        firstEmployee.usl ??
+          firstEmployee.ncns ??
+          firstEmployee.ucl ??
+          0,
+
+        money(salaryValue),
+
+        money(
+          firstEmployee.arrears_negative ??
+          firstEmployee.arrearsNegative ??
+          0
+        ),
+
+        money(
+          firstEmployee.arrears_positive ??
+          firstEmployee.arrearsPositive ??
+          0
+        ),
+      ]],
+
+      styles: {
+        font: "helvetica",
+        fontSize: 7,
+        cellPadding: 2,
+        halign: "center",
+        valign: "middle",
+        lineColor: BORDER,
+        lineWidth: 0.2,
+      },
+
+      headStyles: {
+        fillColor: RED,
+        textColor: WHITE,
+        fontStyle: "normal",
+        fontSize: 6.5,
+        lineColor: WHITE,
+        lineWidth: 0.2,
+      },
+
+      bodyStyles: {
+        fontStyle: "bold",
+      },
+    });
+
+    currentY =
+      doc.lastAutoTable.finalY + 3;
+
+    // ============================================================
+    // ALLOWANCE / BONUS
+    // ============================================================
+
+    autoTable(doc, {
+      startY: currentY,
+
+      margin: {
+        left: 8,
+        right: 8,
+      },
+
+      theme: "grid",
+
+      head: [[
+        "Fatal Count",
+        "Attendance Allowance",
+        "Fatal Other Category",
+        "Dependability Bonus",
+        "Sales Incentive",
+        "Fuel Allowance",
+        "Additional Incentive",
+      ]],
+
+      body: [[
+        firstEmployee.fatal_count ??
+          firstEmployee.fatalCount ??
+          0,
+
+        money(
+          firstEmployee.attendance_allowance ??
+          firstEmployee.attendanceAllowance ??
+          0
+        ),
+
+        firstEmployee.fatal_other_category ??
+          firstEmployee.fatalOtherCategory ??
+          0,
+
+        money(
+          firstEmployee.dependability_bonus ??
+          firstEmployee.dependabilityBonus ??
+          0
+        ),
+
+        money(
+          firstEmployee.sales_incentive ??
+          firstEmployee.salesIncentive ??
+          0
+        ),
+
+        money(
+          firstEmployee.fuel_allowance ??
+          firstEmployee.fuelAllowance ??
+          0
+        ),
+
+        money(
+          firstEmployee.additional_incentive ??
+          firstEmployee.additionalIncentive ??
+          0
+        ),
+      ]],
+
+      styles: {
+        font: "helvetica",
+        fontSize: 7,
+        cellPadding: 2,
+        halign: "center",
+        valign: "middle",
+        lineColor: BORDER,
+        lineWidth: 0.2,
+      },
+
+      headStyles: {
+        fillColor: RED,
+        textColor: WHITE,
+        fontStyle: "normal",
+        fontSize: 6.2,
+        lineColor: WHITE,
+        lineWidth: 0.2,
+      },
+
+      bodyStyles: {
+        fontStyle: "bold",
+      },
+    });
+
+    currentY =
+      doc.lastAutoTable.finalY + 3;
+
+    // ============================================================
+    // DEDUCTIONS / NET SALARY
+    // ============================================================
+
+    autoTable(doc, {
+      startY: currentY,
+
+      margin: {
+        left: 8,
+        right: 8,
+      },
+
+      theme: "grid",
+
+      head: [[
+        "Gross Salary",
+        "Income Tax",
+        "EOBI",
+        "Van Charges",
+        "Parking Charges",
+        "Advance Salary",
+        "Net Salary",
+      ]],
+
+      body: [[
+        `PKR ${money(grossSalary)}`,
+
+        `PKR ${money(incomeTax)}`,
+
+        `PKR ${money(eobi)}`,
+
+        firstEmployee.van_charges ??
+          firstEmployee.vanCharges ??
+          "-",
+
+        firstEmployee.parking_charges ??
+          firstEmployee.parkingCharges ??
+          "-",
+
+        `PKR ${money(advanceSalary)}`,
+
+        `PKR ${money(netSalary)}`,
+      ]],
+
+      styles: {
+        font: "helvetica",
+        fontSize: 7,
+        cellPadding: 2,
+        halign: "center",
+        valign: "middle",
+        lineColor: BORDER,
+        lineWidth: 0.2,
+      },
+
+      headStyles: {
+        fillColor: RED,
+        textColor: WHITE,
+        fontStyle: "normal",
+        fontSize: 6.5,
+        lineColor: WHITE,
+        lineWidth: 0.2,
+      },
+
+      bodyStyles: {
+        fontStyle: "bold",
+      },
+
+      didParseCell: (
+        hookData
+      ) => {
+        if (
+          hookData.section ===
+            "body" &&
+          hookData.column.index === 6
+        ) {
+          hookData.cell.styles.fontStyle =
+            "bold";
+
+          hookData.cell.styles.fontSize =
+            8;
+        }
+      },
+    });
+
+    currentY =
+      doc.lastAutoTable.finalY + 3;
+
+    // ============================================================
+    // FINAL FOOTER INFORMATION
+    // ============================================================
+
+    if (
+      currentY > 190
+    ) {
+      doc.addPage();
+      currentY = 12;
+    }
+
+    autoTable(doc, {
+      startY: currentY,
+
+      margin: {
+        left: 8,
+        right: 8,
+      },
+
+      theme: "grid",
+
+      head: [[
+        "Referral Bonus",
+        "Anniversary",
+        "Birthday",
+        "Salary Processed",
+        "Pending",
+        "Advance Due",
+        "Account No",
+      ]],
+
+      body: [[
+        money(
+          firstEmployee.referral_bonus ??
+          firstEmployee.referralBonus ??
+          0
+        ),
+
+        firstEmployee.anniversary ??
+          "-",
+
+        firstEmployee.birthday ??
+          "-",
+
+        firstEmployee.salary_processed ??
+          firstEmployee.salaryProcessed ??
+          "-",
+
+        money(
+          firstEmployee.pending_salary ??
+          firstEmployee.pendingSalary ??
+          0
+        ),
+
+        money(
+          firstEmployee.advance_due ??
+          firstEmployee.advanceDue ??
+          0
+        ),
+
+        firstEmployee.account_no ??
+          firstEmployee.accountNo ??
+          "-",
+      ]],
+
+      styles: {
+        font: "helvetica",
+        fontSize: 6.5,
+        cellPadding: 2,
+        halign: "center",
+        valign: "middle",
+        lineColor: BORDER,
+        lineWidth: 0.2,
+      },
+
+      headStyles: {
+        fillColor: RED,
+        textColor: WHITE,
+        fontStyle: "normal",
+        fontSize: 6,
+        lineColor: WHITE,
+        lineWidth: 0.2,
+      },
+
+      bodyStyles: {
+        fontStyle: "bold",
+      },
+    });
+
+    // ============================================================
+    // FOOTER ON EVERY PAGE
+    // ============================================================
+
+    const pageCount =
+      doc.internal.getNumberOfPages();
+
+    for (
+      let page = 1;
+      page <= pageCount;
+      page++
+    ) {
+      doc.setPage(page);
+
+      const pageHeight =
+        doc.internal.pageSize.height;
+
+      doc.setFont(
+        "helvetica",
+        "normal"
+      );
+
+      doc.setFontSize(6.5);
+
+      doc.setTextColor(
+        120,
+        120,
+        120
+      );
+
+      doc.text(
+        `Digital Orbits CRM • Salary / Attendance Report • ${CALIFORNIA_TIMEZONE}`,
+        8,
+        pageHeight - 6
+      );
+
+      doc.text(
+        `Page ${page} of ${pageCount}`,
+        289,
+        pageHeight - 6,
+        {
+          align: "right",
+        }
+      );
+    }
+
+    // ============================================================
+    // FILE NAME
+    // ============================================================
+
+    const selectedEmployee =
+      userFilter !== "All Users"
+        ? userOptions.find(
+            (user) =>
+              String(user.id) ===
+              String(userFilter)
+          )
+        : null;
+
+    const employeeSlug =
+      selectedEmployee?.name
+        ? `-${String(
+            selectedEmployee.name
+          )
+            .trim()
+            .replace(
+              /\s+/g,
+              "-"
             )
-          : null;
-
-      const employeeSlug =
-        selectedEmployee?.name
+            .replace(
+              /[^a-zA-Z0-9-_]/g,
+              ""
+            )}`
+        : employeeName
           ? `-${String(
-              selectedEmployee.name
+              employeeName
             )
               .trim()
               .replace(
@@ -2913,24 +3257,28 @@ export default function AttendancePage() {
               )}`
           : "";
 
-      doc.save(
-        `attendance${employeeSlug}-${fromDate}-${toDate}.pdf`
-      );
+    // ============================================================
+    // DOWNLOAD
+    // ============================================================
 
-      setSuccess(
-        "Attendance PDF downloaded successfully."
-      );
-    } catch (error) {
-      console.error(
-        "PDF ERROR:",
-        error
-      );
+    doc.save(
+      `attendance-salary-slip${employeeSlug}-${fromDate}-${toDate}.pdf`
+    );
 
-      setError(
-        "Unable to generate PDF. Please make sure jspdf and jspdf-autotable are installed."
-      );
-    }
+    setSuccess(
+      "Attendance Salary Slip PDF downloaded successfully."
+    );
+  } catch (error) {
+    console.error(
+      "PDF ERROR:",
+      error
+    );
+
+    setError(
+      "Unable to generate PDF. Please make sure jspdf and jspdf-autotable are installed."
+    );
   }
+}
 
   /* =======================================================
      LOADING
@@ -2955,6 +3303,10 @@ export default function AttendancePage() {
   /* =======================================================
      UI
   ======================================================= */
+
+
+
+  
 
   return (
     <div className="min-h-screen lg:pl-[270px]">

@@ -3140,40 +3140,7 @@ export default function DashboardTopBar({
                     </div>
                   )}
 
-                  {onLogout && (
-                    <div className="border-t border-gray-100 p-2">
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setStatusDropdownOpen(
-                            false
-                          );
-
-                          onLogout();
-                        }}
-                        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-red-600 transition hover:bg-red-50"
-                      >
-
-                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50">
-
-                          <LogOut
-                            size={
-                              16
-                            }
-                          />
-
-                        </div>
-
-                        <span className="text-sm font-semibold">
-                          Logout
-                        </span>
-
-                      </button>
-
-                    </div>
-                  )}
-
+         
                 </div>
               )}
 
