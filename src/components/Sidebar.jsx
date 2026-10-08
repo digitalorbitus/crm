@@ -90,114 +90,156 @@ export default function Sidebar({
     }
   };
 
-  const menuItems = [
-    {
-      name: "Dashboard",
-      icon: LayoutDashboard,
-      href: "/dashboard",
-      roles: ["admin", "user","staff", "agent"],
-    },
-    {
-      name: "Users",
-      icon: UserCheck,
-      href: "/users",
-      hasDropdown: true,
-      roles: ["admin"],
-      subItems: [
-        { name: "All Users", href: "/users" },
-        { name: "Add New User", href: "/add-new-users" },
-      ],
-    },
+const menuItems = [
+  {
+    name: "Dashboard",
+    icon: LayoutDashboard,
+    href: "/dashboard",
+    roles: [
+      "admin",
+      "user",
+      "staff",
+      "agent",
+      "designer",
+      "smm",
+      "developer",
+    ],
+  },
 
-    {
-      name: "Calls",
-      icon: Phone,
-      href: "/calls",
-      // hasDropdown: true,
-      roles: ["admin", "user", "agent","staff"],
-      // subItems: [
-      //   { name: "Call ", href: "/calls" },
-      //   { name: "Recordings", href: "/calls/recordings" },
-      // ],
-    },
-        {
-      name: "Daily task",
-      icon: Users,
-      href: "/staff/task",
-      roles: [ "staff",  "agent"],
-    },
-       {
-      name: " daily leads",
-      icon: Users,
-      href: "/staff/task",
-      roles: [ "staff", "agent"],
-    },
-    {
-      name: "Attendance",
-      icon: UserPlus,
-      href: "/Attendance",
-      hasDropdown: false,
-      roles: ["admin","staff",  "agent"],
-    
-    },
-    {
-      name: "Daily Tasks assign",
-      icon: Link2,
-      href: "/daily-tasks",
-      roles: ["admin", ],
-    },
-    {
-      name: "Break",
-      icon: Users,
-      href: "/Break",
-      roles: ["admin", "user","staff",  "agent"],
-    },
-    {
-      name: "Messages",
-      icon: MessageSquare,
-      href: "/messages",
-      roles: ["admin", "user","staff", "agent"],
-    },
-    //   {
-    //   name: "Admin Edit",
-    //   icon: MessageSquare,
-    //   href: "/admin-edits",
-    //   roles: ["admin"],
-    // },
-       {
-      name: "Domain Email",
-      icon: MessageSquare,
-      href: "/messages",
-      roles: ["admin", "user","staff", "agent"],
-    },
-           {
-      name: "QA",
-      icon: MessageSquare,
-      href: "/messages",
-      roles: ["admin", "user","staff", "agent"],
-    },
+  {
+    name: "Users",
+    icon: UserCheck,
+    href: "/users",
+    hasDropdown: true,
+    roles: ["admin"],
+    subItems: [
+      { name: "All Users", href: "/users" },
+      { name: "Add New User", href: "/add-new-users" },
+    ],
+  },
 
-    {
-      name: "Reports",
-      icon: BarChart3,
-      href: "/reports",
-      roles: ["admin", "user","staff", "agent"],
-    },
-    // {
-    //   name: "Settings",
-    //   icon: Settings,
-    //   href: "/settings",
-    //   roles: ["admin", ],
-    // },
+  {
+    name: "Calls",
+    icon: Phone,
+    href: "/calls",
+    roles: [
+      "admin",
+      "user",
+      "agent",
+      "staff",
+      "developer",
+    ],
+  },
 
-    // {
-    //   name: "Agents",
-    //   icon: Link2,
-    //   href: "/agents",
-    //   roles: ["admin", "user", "staff", "agent"],
-    // },
+  {
+    name: "Daily task",
+    icon: Users,
+    href: "/daily-task",
+    roles: ["designer","smm","developer",],
+  },
 
-  ];
+  {
+    name: "Daily leads",
+    icon: Users,
+    href: "/staff/task",
+    roles: ["staff", "agent"],
+  },
+
+  {
+    name: "Attendance",
+    icon: UserPlus,
+    href: "/Attendance",
+    hasDropdown: false,
+    roles: [
+      "admin",
+      "staff",
+      "agent",
+      "designer",
+      "smm",
+      "developer",
+    ],
+  },
+
+  {
+    name: "Daily Tasks assign",
+    icon: Link2,
+    href: "/daily-tasks",
+    roles: ["admin"],
+  },
+
+  {
+    name: "Break",
+    icon: Users,
+    href: "/Break",
+    roles: [
+      "admin",
+      "user",
+      "staff",
+      "agent",
+      "designer",
+      "smm",
+      "developer",
+    ],
+  },
+
+  {
+    name: "Messages",
+    icon: MessageSquare,
+    href: "/messages",
+    roles: [
+      "admin",
+      "user",
+      "staff",
+      "agent",
+      "designer",
+      "smm",
+      "developer",
+    ],
+  },
+
+  {
+    name: "Domain Email",
+    icon: MessageSquare,
+    href: "/email",
+    roles: [
+      "admin",
+      "user",
+      "staff",
+      "agent",
+      "designer",
+      "smm",
+      "developer",
+    ],
+  },
+
+  {
+    name: "QA",
+    icon: MessageSquare,
+    href: "/messages",
+    roles: [
+      "admin",
+      "user",
+      "staff",
+      "agent",
+      "designer",
+      "smm",
+      "developer",
+    ],
+  },
+
+  {
+    name: "Reports",
+    icon: BarChart3,
+    href: "/reports",
+    roles: [
+      "admin",
+      "user",
+      "staff",
+      "agent",
+      "developer",
+    ],
+  },
+];
 
   // Role match check using array includes
   const filteredMenuItems = menuItems.filter((item) =>
