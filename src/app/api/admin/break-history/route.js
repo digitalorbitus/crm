@@ -24,6 +24,9 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+// Sirf inhi breaks ka timer modal user ke top bar mein chalta hai
+const LIVE_TIMER_STATUSES = ["Namaz Break", "Lunch Break", "Short Break"];
+
 // ======================================================
 // DISPLAY HELPERS
 // ======================================================
@@ -131,10 +134,10 @@ export async function GET(request) {
 
     // ==================================================
     // USAGE PER USER (current window + admin resets)
-    // Same rule as /api/users/status
     // ==================================================
 
     const now = new Date();
+    const nowMs = now.getTime();
     const window = getBreakWindowInfo(now);
     const resets = await getWindowResets(pool, window);
 
@@ -145,7 +148,6 @@ export async function GET(request) {
 
       if (!key) continue;
 
-      // counted with started_at (California), exactly like the status API
       const startedCa = californiaDBToDate(row.started_at_raw);
 
       if (!startedCa) continue;
@@ -186,7 +188,12 @@ export async function GET(request) {
 
       const createdDate = mysqlUtcToDate(row.created_at_raw);
 
-      const isActive = !row.ended_at_raw && !!startedDate;
+      // Active = end time nahi hai, YA admin ka set kiya end time abhi future mein hai
+      const endsInFuture = Boolean(
+        row.ended_at_raw && endedDate && endedDate.getTime() > nowMs
+      );
+
+      const isActive = !!startedDate && (!row.ended_at_raw || endsInFuture);
 
       return {
         id: row.id,
@@ -202,10 +209,11 @@ export async function GET(request) {
         ended_at: endedDate ? endedDate.toISOString() : null,
         created_at: createdDate ? createdDate.toISOString() : null,
 
-        // California wall-clock text for the Edit modal
-        // (YYYY-MM-DD HH:mm:ss)
+        // California wall-clock text for the Edit modal (YYYY-MM-DD HH:mm:ss)
         started_at_ca: dateToCaliforniaDB(startedDate),
-        ended_at_ca: isActive ? null : dateToCaliforniaDB(endedDate),
+
+        // end time hamesha bheja jata hai (sirf bina end wale break mein null)
+        ended_at_ca: row.ended_at_raw ? dateToCaliforniaDB(endedDate) : null,
 
         started_at_california: longDateTime(startedDate),
         ended_at_california: longDateTime(endedDate),
@@ -256,7 +264,6 @@ export async function GET(request) {
         breaks,
         stats,
 
-        // used by the Reset Limit modal
         usage_by_user: usageByUser,
         break_window: {
           start: window.startDB,
@@ -293,12 +300,15 @@ export async function GET(request) {
 // ======================================================
 // POST  (admin adds a break)
 //
-// started_at / ended_at are saved as CALIFORNIA time, the same way
-// /api/users/status saves them, so limits and resets work correctly.
-// created_at keeps the UTC start time for the GET display.
+// started_at / ended_at California time mein save hote hain.
+// Agar break abhi chal raha hai (start <= now < end), to user ka
+// live status bhi set hota hai -> user ke top bar mein timer modal
+// khulta hai, admin ke set kiye hue end time tak.
 // ======================================================
 
 export async function POST(request) {
+  let connection = null;
+
   try {
     const auth = await getAuthenticatedUser(request);
 
@@ -379,8 +389,26 @@ export async function POST(request) {
 
     const { startedDate, endedDate, durationSeconds } = times;
 
-    // INSERT
-    const [result] = await pool.query(
+    const startedCaDB = dateToCaliforniaDB(startedDate);
+    const endedCaDB = endedDate ? dateToCaliforniaDB(endedDate) : null;
+
+    const nowMs = Date.now();
+
+    // Kya ye break abhi chal raha hai?
+    const isLiveNow =
+      LIVE_TIMER_STATUSES.includes(status) &&
+      startedDate.getTime() <= nowMs &&
+      (!endedDate || endedDate.getTime() > nowMs);
+
+    let liveStatusApplied = false;
+    let liveStatusSkippedReason = null;
+    let insertId = null;
+
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+
+    // INSERT HISTORY
+    const [result] = await connection.query(
       `
         INSERT INTO user_status_history
         (
@@ -396,12 +424,50 @@ export async function POST(request) {
       [
         targetUserId,
         status,
-        dateToCaliforniaDB(startedDate), // California
-        endedDate ? dateToCaliforniaDB(endedDate) : null, // California
+        startedCaDB, // California
+        endedCaDB, // California (future ho sakta hai)
         durationSeconds,
         dateToMySQLUtc(startedDate), // UTC
       ]
     );
+
+    insertId = result.insertId;
+
+    // USER KA LIVE STATUS (timer modal ke liye)
+    if (isLiveNow) {
+      const [userRows] = await connection.query(
+        `
+          SELECT availability_status
+          FROM users
+          WHERE id = ?
+          FOR UPDATE
+        `,
+        [targetUserId]
+      );
+
+      const currentStatus = userRows?.[0]?.availability_status || "Active";
+
+      if (currentStatus === "Active") {
+        await connection.query(
+          `
+            UPDATE users
+            SET
+              availability_status = ?,
+              status_started_at = ?
+            WHERE id = ?
+            LIMIT 1
+          `,
+          [status, startedCaDB, targetUserId]
+        );
+
+        liveStatusApplied = true;
+      } else {
+        // user pehle se kisi aur status / break mein hai, usay disturb nahi karte
+        liveStatusSkippedReason = `User is currently "${currentStatus}".`;
+      }
+    }
+
+    await connection.commit();
 
     let usage = null;
 
@@ -415,9 +481,18 @@ export async function POST(request) {
       {
         success: true,
         message: "Break added successfully.",
-        id: result.insertId,
+        id: insertId,
+        live_status_applied: liveStatusApplied,
+        live_status_skipped_reason: liveStatusSkippedReason,
+        timer_limit_seconds:
+          liveStatusApplied && endedDate
+            ? Math.max(
+                0,
+                Math.floor((endedDate.getTime() - startedDate.getTime()) / 1000)
+              )
+            : null,
         break: {
-          id: result.insertId,
+          id: insertId,
           user_id: targetUserId,
           name: targetUser.name,
           email: targetUser.email,
@@ -428,7 +503,7 @@ export async function POST(request) {
           started_at: startedDate.toISOString(),
           ended_at: endedDate ? endedDate.toISOString() : null,
           duration_seconds: durationSeconds,
-          is_active: !endedDate,
+          is_active: !endedDate || endedDate.getTime() > nowMs,
         },
         break_usage: usage?.usage || null,
         usage,
@@ -436,6 +511,12 @@ export async function POST(request) {
       { status: 201, headers: NO_CACHE }
     );
   } catch (error) {
+    if (connection) {
+      try {
+        await connection.rollback();
+      } catch {}
+    }
+
     console.error("BREAK HISTORY POST ERROR:", error);
 
     return NextResponse.json(
@@ -446,5 +527,7 @@ export async function POST(request) {
       },
       { status: 500 }
     );
+  } finally {
+    if (connection) connection.release();
   }
 }

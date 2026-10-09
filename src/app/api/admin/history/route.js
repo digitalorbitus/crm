@@ -2316,3 +2316,138 @@ export async function PUT(
     );
   }
 }
+
+
+
+
+/* =========================================================
+   DELETE
+   ADMIN = CAN DELETE ANY HISTORY RECORD
+   USER  = CAN DELETE ONLY OWN HISTORY RECORD
+========================================================= */
+
+export async function DELETE(request) {
+  try {
+    // 1. Authenticate user
+    const auth = await authenticate(request);
+
+    if (!auth.ok) {
+      return auth.response;
+    }
+
+    const { user } = auth;
+
+    // 2. Get assignment ID from URL or request body
+    const { searchParams } = new URL(request.url);
+
+    let assignmentIdRaw =
+      searchParams.get("assignment_id") ||
+      searchParams.get("assignmentId") ||
+      searchParams.get("id");
+
+    if (!assignmentIdRaw) {
+      try {
+        const body = await request.json();
+
+        assignmentIdRaw =
+          body?.assignment_id ??
+          body?.assignmentId ??
+          body?.id;
+      } catch {
+        // Body is optional when ID is provided in URL
+      }
+    }
+
+    const assignmentId = Number(assignmentIdRaw);
+
+    if (
+      !Number.isInteger(assignmentId) ||
+      assignmentId <= 0
+    ) {
+      return jsonResponse(
+        {
+          success: false,
+          message: "Valid assignment_id is required.",
+        },
+        { status: 400 }
+      );
+    }
+
+    // 3. Find history record
+    const rows = await dbQuery(
+      `
+      SELECT
+        id,
+        task_id,
+        employee_id
+      FROM daily_assignments
+      WHERE id = ?
+      LIMIT 1
+      `,
+      [assignmentId]
+    );
+
+    if (!rows.length) {
+      return jsonResponse(
+        {
+          success: false,
+          message: "History record not found.",
+        },
+        { status: 404 }
+      );
+    }
+
+    const record = rows[0];
+
+    // 4. Check permissions
+    // Admin can delete any record.
+    // Employee can delete only their own record.
+    if (
+      !user.isAdmin &&
+      Number(record.employee_id) !== Number(user.id)
+    ) {
+      return jsonResponse(
+        {
+          success: false,
+          message:
+            "You can only delete your own history records.",
+        },
+        { status: 403 }
+      );
+    }
+
+    // 5. Delete history assignment
+    await dbQuery(
+      `
+      DELETE FROM daily_assignments
+      WHERE id = ?
+      LIMIT 1
+      `,
+      [assignmentId]
+    );
+
+    // 6. Return success
+    return jsonResponse({
+      success: true,
+      message: "History record deleted successfully.",
+      deleted: {
+        assignment_id: assignmentId,
+        employee_id: Number(record.employee_id),
+      },
+    });
+  } catch (error) {
+    console.error("[History API] DELETE ERROR:", error);
+
+    return jsonResponse(
+      {
+        success: false,
+        message: "Failed to delete history record.",
+        error:
+          process.env.NODE_ENV === "development"
+            ? error?.message
+            : undefined,
+      },
+      { status: 500 }
+    );
+  }
+}

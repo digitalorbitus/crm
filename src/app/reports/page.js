@@ -24,6 +24,8 @@ import {
   Filter,
   RotateCcw,
   ShieldCheck,
+  Trash2,
+  Eye,
 } from "lucide-react";
 
 import {
@@ -419,6 +421,11 @@ export default function AdminHistoryPage() {
 
   const [editingId, setEditingId] =
     useState(null);
+
+  const [detailRow, setDetailRow] = useState(null);
+  const [deleteRow, setDeleteRow] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const [editForm, setEditForm] =
     useState({});
@@ -1388,6 +1395,7 @@ export default function AdminHistoryPage() {
        * to the logged-in user.
        */
       setEditingId(id);
+      setDetailRow(null);
 
       setEditForm({
         assignment_date:
@@ -1452,6 +1460,7 @@ export default function AdminHistoryPage() {
 
       try {
         setError("");
+        setSavingEdit(true);
 
         const response =
           await fetch(
@@ -1533,12 +1542,46 @@ export default function AdminHistoryPage() {
           err?.message ||
             "Unable to update row."
         );
+      } finally {
+        setSavingEdit(false);
       }
     };
 
+
+  // DELETE HISTORY RECORD
+  // The API must implement DELETE and enforce admin/record ownership.
+  const handleDeleteRow = async () => {
+    const id = getAssignmentId(deleteRow);
+    if (!id) return;
+
+    try {
+      setDeleting(true);
+      setError("");
+
+      const response = await fetch("/api/admin/history", {
+        method: "DELETE",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data?.error || data?.message || "Unable to delete record.");
+      }
+
+      setDeleteRow(null);
+      await fetchReport(false, {}, page);
+    } catch (err) {
+      setError(err?.message || "Unable to delete record.");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   // =========================================================
   // RESET
-  // =========================================================
+  // =================================================
 
   const resetFilters =
     () => {
@@ -1837,8 +1880,9 @@ export default function AdminHistoryPage() {
               ref={
                 addFormRef
               }
-              className="mb-6 overflow-hidden rounded-2xl border border-red-100 bg-white shadow-sm"
+              className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-gray-950/60 p-3 backdrop-blur-sm sm:p-6"
             >
+              <div className="max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-2xl border border-red-100 bg-white shadow-2xl">
               <div className="flex items-center justify-between border-b border-red-100 bg-[#fff5f5] px-4 py-4 sm:px-5">
                 <div className="flex items-center gap-3">
                   <div
@@ -2177,6 +2221,7 @@ export default function AdminHistoryPage() {
                   </button>
                 </div>
               </form>
+              </div>
             </section>
           )}
 
@@ -2574,7 +2619,7 @@ export default function AdminHistoryPage() {
                           "Comments",
                           "Sheet",
                           "Task ID",
-                          "Action",
+                          "Actions",
                         ].map(
                           (
                             heading
@@ -2605,13 +2650,7 @@ export default function AdminHistoryPage() {
                               row
                             );
 
-                          const isEditing =
-                            String(
-                              editingId
-                            ) ===
-                            String(
-                              assignmentId
-                            );
+                          const isEditing = false; // Edit is handled in the modal.
 
                           return (
                             <tr
@@ -2910,15 +2949,16 @@ export default function AdminHistoryPage() {
                               </td>
 
                               <td className="px-3 py-3 align-top">
-                                <span className="inline-flex items-center gap-1 text-xs font-semibold text-gray-500">
-                                  <FileSpreadsheet
-                                    size={14}
-                                  />
-                                  {getSheet(
-                                    row
-                                  ) ||
-                                    "—"}
-                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => setDetailRow(row)}
+                                  title="Click to view complete record"
+                                  className="inline-flex max-w-[180px] items-center gap-1.5 rounded-lg px-2 py-1 text-left text-xs font-semibold text-blue-700 transition hover:bg-blue-50 hover:text-blue-900"
+                                >
+                                  <FileSpreadsheet size={14} className="shrink-0" />
+                                  <span className="truncate">{getSheet(row) || "View details"}</span>
+                                  <Eye size={13} className="shrink-0" />
+                                </button>
                               </td>
 
                               <td className="px-3 py-3 align-top">
@@ -2982,22 +3022,25 @@ export default function AdminHistoryPage() {
                                    *
                                    * API enforces ownership.
                                    */
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      startEdit(
-                                        row
-                                      )
-                                    }
-                                    className="mx-auto inline-flex h-8 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 text-xs font-bold text-gray-700 shadow-sm hover:bg-gray-50"
-                                  >
-                                    <Pencil
-                                      size={
-                                        13
-                                      }
-                                    />
-                                    Edit
-                                  </button>
+                                  <div className="flex items-center justify-center gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => startEdit(row)}
+                                      className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 text-xs font-bold text-gray-700 shadow-sm hover:bg-gray-50"
+                                    >
+                                      <Pencil size={13} /> Edit
+                                    </button>
+                                    {isAdmin && (
+                                      <button
+                                        type="button"
+                                        onClick={() => setDeleteRow(row)}
+                                        title="Delete record"
+                                        className="inline-flex h-8 items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2 text-xs font-bold text-red-700 hover:bg-red-100"
+                                      >
+                                        <Trash2 size={13} />
+                                      </button>
+                                    )}
+                                  </div>
                                 )}
                               </td>
                             </tr>
@@ -3021,13 +3064,7 @@ export default function AdminHistoryPage() {
                           row
                         );
 
-                      const isEditing =
-                        String(
-                          editingId
-                        ) ===
-                        String(
-                          assignmentId
-                        );
+                      const isEditing = false; // Edit is handled in the modal.
 
                       return (
                         <div
@@ -3393,22 +3430,24 @@ export default function AdminHistoryPage() {
                                */
                               }
 
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  startEdit(
-                                    row
-                                  )
-                                }
-                                className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white text-sm font-bold text-gray-700 shadow-sm"
-                              >
-                                <Pencil
-                                  size={
-                                    16
-                                  }
-                                />
-                                Edit Row
-                              </button>
+                              <div className="mt-3 flex gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => startEdit(row)}
+                                  className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white text-sm font-bold text-gray-700 shadow-sm"
+                                >
+                                  <Pencil size={16} /> Edit Row
+                                </button>
+                                {isAdmin && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setDeleteRow(row)}
+                                    className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 text-sm font-bold text-red-700"
+                                  >
+                                    <Trash2 size={16} /> Delete
+                                  </button>
+                                )}
+                              </div>
                             </>
                           )}
                         </div>
@@ -3484,6 +3523,119 @@ export default function AdminHistoryPage() {
           </section>
         </main>
       </div>
+
+
+      {/* EDIT RECORD MODAL */}
+      {editingId !== null && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center overflow-y-auto bg-gray-950/60 p-3 backdrop-blur-sm sm:p-6">
+          <div className="my-auto max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-100 bg-white px-5 py-4">
+              <div>
+                <h2 className="text-lg font-extrabold text-gray-900">Edit History Record</h2>
+                <p className="mt-1 text-xs text-gray-500">Update record details and save your changes.</p>
+              </div>
+              <button type="button" onClick={cancelEdit} className="rounded-xl border border-gray-200 p-2 text-gray-500 hover:bg-gray-50" aria-label="Close edit modal">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="grid grid-cols-1 gap-4 p-5 sm:grid-cols-2">
+              {isAdmin && (
+                <FormField label="Employee">
+                  <select className="input" value={editForm.employee_id || ""} onChange={(e) => handleEditChange("employee_id", e.target.value)}>
+                    <option value="">Select employee</option>
+                    {staff.map((person) => {
+                      const id = person.id ?? person.user_id;
+                      return <option key={String(id)} value={String(id)}>{person.name ?? person.full_name ?? person.email ?? `Employee ${id}`}</option>;
+                    })}
+                  </select>
+                </FormField>
+              )}
+              <FormField label="Date">
+                <input type="date" className="input" value={editForm.assignment_date || ""} onChange={(e) => handleEditChange("assignment_date", e.target.value)} />
+              </FormField>
+              <FormField label="Business">
+                <input className="input" value={editForm.business_name || ""} onChange={(e) => handleEditChange("business_name", e.target.value)} placeholder="Business name" />
+              </FormField>
+              <FormField label="Contact">
+                <input className="input" value={editForm.name || ""} onChange={(e) => handleEditChange("name", e.target.value)} placeholder="Contact name" />
+              </FormField>
+              <FormField label="Phone">
+                <input className="input" value={editForm.phone_number || ""} onChange={(e) => handleEditChange("phone_number", e.target.value)} placeholder="Phone number" />
+              </FormField>
+              <FormField label="Status">
+                <select className="input" value={editForm.status || DEFAULT_STATUS} onChange={(e) => handleEditChange("status", e.target.value)}>
+                  {STATUS_OPTIONS.map((status) => <option key={status} value={status}>{status}</option>)}
+                </select>
+              </FormField>
+              <div className="sm:col-span-2">
+                <FormField label="Comments">
+                  <textarea rows={4} className="w-full rounded-xl border border-gray-200 px-3 py-3 text-sm outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100" value={editForm.comment || ""} onChange={(e) => handleEditChange("comment", e.target.value)} placeholder="Comments..." />
+                </FormField>
+              </div>
+            </div>
+            <div className="flex flex-col-reverse gap-2 border-t border-gray-100 bg-gray-50 px-5 py-4 sm:flex-row sm:justify-end">
+              <button type="button" onClick={cancelEdit} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-5 text-sm font-bold text-gray-700">Cancel</button>
+              <button type="button" disabled={savingEdit} onClick={() => saveEdit(records.find((row) => String(getAssignmentId(row)) === String(editingId)))} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl px-5 text-sm font-extrabold text-white disabled:opacity-60" style={{ backgroundColor: ACCENT }}>
+                {savingEdit ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                {savingEdit ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* RECORD DETAILS MODAL */}
+      {detailRow && (
+        <div className="fixed inset-0 z-[105] flex items-center justify-center overflow-y-auto bg-gray-950/60 p-3 backdrop-blur-sm sm:p-6" onMouseDown={(e) => { if (e.target === e.currentTarget) setDetailRow(null); }}>
+          <div className="my-auto max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl text-white" style={{ backgroundColor: ACCENT }}><FileSpreadsheet size={19} /></div>
+                <div><h2 className="font-extrabold text-gray-900">History Record Details</h2><p className="text-xs text-gray-500">Complete record information</p></div>
+              </div>
+              <button type="button" onClick={() => setDetailRow(null)} className="rounded-xl border border-gray-200 p-2 text-gray-500 hover:bg-gray-50" aria-label="Close details"><X size={18} /></button>
+            </div>
+            <div className="grid grid-cols-1 gap-3 p-5 sm:grid-cols-2">
+              <InfoBox label="Date" value={formatDate(getDate(detailRow))} />
+              <InfoBox label="Employee" value={getUserName(detailRow)} />
+              <InfoBox label="Business" value={getBusiness(detailRow) || "—"} />
+              <InfoBox label="Contact" value={getName(detailRow) || "—"} />
+              <InfoBox label="Phone" value={formatPhone(getPhone(detailRow))} />
+              <InfoBox label="Status" value={getStatus(detailRow)} />
+              <InfoBox label="Sheet" value={getSheet(detailRow) || "—"} />
+              <InfoBox label="Task ID" value={getTaskId(detailRow) || "—"} />
+              <InfoBox label="Assignment ID" value={getAssignmentId(detailRow) || "—"} />
+              <div className="rounded-xl bg-gray-50 p-3 sm:col-span-2">
+                <div className="text-[10px] font-extrabold uppercase tracking-wide text-gray-400">Comments</div>
+                <p className="mt-1 whitespace-pre-wrap break-words text-sm text-gray-700">{getComment(detailRow) || "—"}</p>
+              </div>
+            </div>
+            <div className="flex flex-wrap justify-end gap-2 border-t border-gray-100 bg-gray-50 px-5 py-4">
+              <button type="button" onClick={() => { const row = detailRow; setDetailRow(null); startEdit(row); }} className="inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-bold text-white" style={{ backgroundColor: ACCENT }}><Pencil size={15} /> Edit Record</button>
+              <button type="button" onClick={() => setDetailRow(null)} className="inline-flex h-10 items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 text-sm font-bold text-gray-700">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DELETE CONFIRMATION MODAL */}
+      {deleteRow && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-gray-950/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-red-50 text-red-600"><Trash2 size={25} /></div>
+            <h2 className="mt-4 text-center text-lg font-extrabold text-gray-900">Delete this record?</h2>
+            <p className="mt-2 text-center text-sm leading-6 text-gray-500">This will delete the history record for <span className="font-bold text-gray-800">{getBusiness(deleteRow) || getName(deleteRow) || `ID ${getAssignmentId(deleteRow)}`}</span>. This action cannot be undone.</p>
+            {error && <p className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+            <div className="mt-6 flex gap-3">
+              <button type="button" disabled={deleting} onClick={() => setDeleteRow(null)} className="h-11 flex-1 rounded-xl border border-gray-200 bg-white text-sm font-bold text-gray-700">Cancel</button>
+              <button type="button" disabled={deleting} onClick={handleDeleteRow} className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-red-600 text-sm font-extrabold text-white disabled:opacity-60">
+                {deleting ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+                {deleting ? "Deleting..." : "Delete Record"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showLogoutModal && (
         <LogoutModal

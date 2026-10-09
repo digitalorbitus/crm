@@ -7,11 +7,9 @@ export const runtime = "nodejs";
 const CALIFORNIA_TIMEZONE = "America/Los_Angeles";
 const ATTENDANCE_CUTOFF = "08:15:00";
 
-/*
-=========================================================
-AUTH
-=========================================================
-*/
+/* =========================================================
+   AUTH
+========================================================= */
 
 async function getCurrentUser() {
   try {
@@ -19,35 +17,16 @@ async function getCurrentUser() {
     const cookieStore = await cookies();
 
     const token = cookieStore.get("token")?.value;
+    if (!token) return null;
 
-    if (!token) {
-      return null;
-    }
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET
-    );
-
-    const userId =
-      decoded?.id ??
-      decoded?._id ??
-      decoded?.userId;
-
-    if (!userId) {
-      return null;
-    }
+    const userId = decoded?.id ?? decoded?._id ?? decoded?.userId;
+    if (!userId) return null;
 
     const [rows] = await db.query(
       `
-      SELECT
-        id,
-        name,
-        email,
-        phone,
-        role,
-        team,
-        status
+      SELECT id, name, email, phone, role, team, status
       FROM users
       WHERE id = ?
       LIMIT 1
@@ -55,9 +34,7 @@ async function getCurrentUser() {
       [userId]
     );
 
-    if (!rows || !rows.length) {
-      return null;
-    }
+    if (!rows || !rows.length) return null;
 
     return rows[0];
   } catch (error) {
@@ -66,39 +43,21 @@ async function getCurrentUser() {
   }
 }
 
-/*
-=========================================================
-ADMIN CHECK
-=========================================================
-*/
-
 function isAdmin(user) {
-  return (
-    String(user?.role || "")
-      .trim()
-      .toLowerCase() === "admin"
-  );
+  return String(user?.role || "").trim().toLowerCase() === "admin";
 }
 
-/*
-=========================================================
-VALID DATE
-=========================================================
-*/
+/* =========================================================
+   DATE HELPERS
+========================================================= */
 
 function isValidDate(value) {
   const input = String(value || "").trim();
 
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(input)) {
-    return false;
-  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input)) return false;
 
-  const [year, month, day] =
-    input.split("-").map(Number);
-
-  const date = new Date(
-    Date.UTC(year, month - 1, day)
-  );
+  const [year, month, day] = input.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
 
   return (
     date.getUTCFullYear() === year &&
@@ -107,89 +66,40 @@ function isValidDate(value) {
   );
 }
 
-/*
-=========================================================
-CALIFORNIA TODAY
-=========================================================
-*/
-
 function getCaliforniaToday() {
-  const now = new Date();
-
-  const parts = new Intl.DateTimeFormat(
-    "en-US",
-    {
-      timeZone: CALIFORNIA_TIMEZONE,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }
-  ).formatToParts(now);
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: CALIFORNIA_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
 
   const values = {};
 
   for (const part of parts) {
-    if (part.type !== "literal") {
-      values[part.type] = part.value;
-    }
+    if (part.type !== "literal") values[part.type] = part.value;
   }
 
   return `${values.year}-${values.month}-${values.day}`;
 }
 
-/*
-=========================================================
-NEXT DATE
-=========================================================
-*/
+function shiftDate(dateString, days) {
+  const date = new Date(`${dateString}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
 
 function getNextDate(dateString) {
-  const date = new Date(
-    `${dateString}T00:00:00Z`
-  );
-
-  date.setUTCDate(
-    date.getUTCDate() + 1
-  );
-
-  return date
-    .toISOString()
-    .slice(0, 10);
+  return shiftDate(dateString, 1);
 }
-
-/*
-=========================================================
-PREVIOUS DATE
-=========================================================
-*/
 
 function getPreviousDate(dateString) {
-  const date = new Date(
-    `${dateString}T00:00:00Z`
-  );
-
-  date.setUTCDate(
-    date.getUTCDate() - 1
-  );
-
-  return date
-    .toISOString()
-    .slice(0, 10);
+  return shiftDate(dateString, -1);
 }
 
-/*
-=========================================================
-DAY INFO
-=========================================================
-*/
-
 function getDayInfo(dateString) {
-  const date = new Date(
-    `${dateString}T00:00:00Z`
-  );
-
-  const dayNumber =
-    date.getUTCDay();
+  const date = new Date(`${dateString}T00:00:00Z`);
+  const dayNumber = date.getUTCDay();
 
   const names = [
     "Sunday",
@@ -204,175 +114,74 @@ function getDayInfo(dateString) {
   return {
     dayNumber,
     dayName: names[dayNumber],
-    isWeekend:
-      dayNumber === 0 ||
-      dayNumber === 6,
+    isWeekend: dayNumber === 0 || dayNumber === 6,
   };
 }
 
-/*
-=========================================================
-NORMALIZE MYSQL DATETIME
-=========================================================
-*/
+/* =========================================================
+   DATETIME HELPERS
+========================================================= */
 
 function normalizeLocalDateTime(value) {
-  if (!value) {
-    return null;
-  }
+  if (!value) return null;
 
-  const input = String(value)
-    .trim()
-    .replace("T", " ");
+  const input = String(value).trim().replace("T", " ");
 
   const match = input.match(
     /^(\d{4})-(\d{2})-(\d{2})[ ](\d{2}):(\d{2})(?::(\d{2}))?$/
   );
 
-  if (!match) {
-    return null;
-  }
+  if (!match) return null;
 
-  const [
-    ,
-    year,
-    month,
-    day,
-    hour,
-    minute,
-    second = "00",
-  ] = match;
+  const [, year, month, day, hour, minute, second = "00"] = match;
 
   return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
 }
 
-/*
-=========================================================
-DATETIME VALIDATION
-=========================================================
-*/
-
 function isValidDateTime(value) {
-  return /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(
-    String(value || "")
-  );
+  return /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(String(value || ""));
 }
 
-/*
-=========================================================
-TIME TO SECONDS
-=========================================================
-*/
-
 function timeToSeconds(time) {
-  const match = String(time || "").match(
-    /^(\d{2}):(\d{2}):(\d{2})$/
-  );
-
-  if (!match) {
-    return null;
-  }
+  const match = String(time || "").match(/^(\d{2}):(\d{2}):(\d{2})$/);
+  if (!match) return null;
 
   const hour = Number(match[1]);
   const minute = Number(match[2]);
   const second = Number(match[3]);
 
-  if (
-    hour > 23 ||
-    minute > 59 ||
-    second > 59
-  ) {
-    return null;
-  }
+  if (hour > 23 || minute > 59 || second > 59) return null;
 
-  return (
-    hour * 3600 +
-    minute * 60 +
-    second
-  );
+  return hour * 3600 + minute * 60 + second;
 }
-
-/*
-=========================================================
-ATTENDANCE STATUS
-=========================================================
-*/
 
 function getAttendanceStatus(loginTime) {
-  if (!loginTime) {
-    return "Absent";
-  }
+  if (!loginTime) return "Absent";
 
-  const normalized =
-    normalizeLocalDateTime(loginTime);
+  const normalized = normalizeLocalDateTime(loginTime);
+  if (!normalized) return "Absent";
 
-  if (!normalized) {
-    return "Absent";
-  }
+  const loginSeconds = timeToSeconds(normalized.slice(11, 19));
+  const cutoffSeconds = timeToSeconds(ATTENDANCE_CUTOFF);
 
-  const loginSeconds =
-    timeToSeconds(
-      normalized.slice(11, 19)
-    );
+  if (loginSeconds === null || cutoffSeconds === null) return "Absent";
 
-  const cutoffSeconds =
-    timeToSeconds(
-      ATTENDANCE_CUTOFF
-    );
-
-  if (
-    loginSeconds === null ||
-    cutoffSeconds === null
-  ) {
-    return "Absent";
-  }
-
-  return loginSeconds <= cutoffSeconds
-    ? "On Time"
-    : "Late";
+  return loginSeconds <= cutoffSeconds ? "On Time" : "Late";
 }
 
-/*
-=========================================================
-DURATION
-=========================================================
-*/
+function getDurationSeconds(loginTime, logoutTime) {
+  if (!loginTime || !logoutTime) return null;
 
-function getDurationSeconds(
-  loginTime,
-  logoutTime
-) {
-  if (!loginTime || !logoutTime) {
-    return null;
-  }
+  const login = normalizeLocalDateTime(loginTime);
+  const logout = normalizeLocalDateTime(logoutTime);
 
-  const login =
-    normalizeLocalDateTime(loginTime);
+  if (!login || !logout) return null;
 
-  const logout =
-    normalizeLocalDateTime(logoutTime);
+  const startDay = new Date(`${login.slice(0, 10)}T00:00:00Z`);
+  const endDay = new Date(`${logout.slice(0, 10)}T00:00:00Z`);
 
-  if (!login || !logout) {
-    return null;
-  }
-
-  const startDay = new Date(
-    `${login.slice(0, 10)}T00:00:00Z`
-  );
-
-  const endDay = new Date(
-    `${logout.slice(0, 10)}T00:00:00Z`
-  );
-
-  const startTime =
-    timeToSeconds(
-      login.slice(11, 19)
-    );
-
-  const endTime =
-    timeToSeconds(
-      logout.slice(11, 19)
-    );
+  const startTime = timeToSeconds(login.slice(11, 19));
+  const endTime = timeToSeconds(logout.slice(11, 19));
 
   if (
     Number.isNaN(startDay.getTime()) ||
@@ -383,113 +192,60 @@ function getDurationSeconds(
     return null;
   }
 
-  const startSeconds =
-    Math.floor(
-      startDay.getTime() / 1000
-    ) + startTime;
+  const startSeconds = Math.floor(startDay.getTime() / 1000) + startTime;
+  const endSeconds = Math.floor(endDay.getTime() / 1000) + endTime;
 
-  const endSeconds =
-    Math.floor(
-      endDay.getTime() / 1000
-    ) + endTime;
-
-  return Math.max(
-    0,
-    endSeconds - startSeconds
-  );
+  return Math.max(0, endSeconds - startSeconds);
 }
 
-/*
-=========================================================
-GET - ATTENDANCE
-=========================================================
+/* =========================================================
+   GET - ATTENDANCE
 
-ADMIN:
-- All users
-- Specific user
-- Specific team
-- User + team
-- Absent users included
+   ADMIN:   all users / specific user / team / absent included
+   NORMAL:  own user only
+   WEEKEND: OFF, never Absent
 
-NORMAL:
-- Own user only
-
-WEEKENDS:
-- OFF
-- Never Absent
-=========================================================
-*/
+   Every employee row also carries:
+   - basic_salary
+   - attendance_allowance
+========================================================= */
 
 export async function GET(request) {
   try {
-    const user =
-      await getCurrentUser();
+    const user = await getCurrentUser();
 
     if (!user) {
       return NextResponse.json(
-        {
-          success: false,
-          message: "Unauthorized",
-        },
+        { success: false, message: "Unauthorized" },
         { status: 401 }
       );
     }
 
-    const admin =
-      isAdmin(user);
+    const admin = isAdmin(user);
 
-    const { searchParams } =
-      new URL(request.url);
+    const { searchParams } = new URL(request.url);
 
-    let from =
-      searchParams.get("from");
+    let from = searchParams.get("from");
+    let to = searchParams.get("to");
 
-    let to =
-      searchParams.get("to");
+    const requestedUserId = searchParams.get("user_id");
+    const requestedTeam = searchParams.get("team");
 
-    const requestedUserId =
-      searchParams.get("user_id");
-
-    const requestedTeam =
-      searchParams.get("team");
-
-    /*
-    =======================================================
-    DEFAULT DATE
-    =======================================================
-    */
+    /* ---------- default date ---------- */
 
     if (!from && !to) {
-      from =
-        getCaliforniaToday();
-
+      from = getCaliforniaToday();
       to = from;
     }
 
-    if (!from) {
-      from = to;
-    }
+    if (!from) from = to;
+    if (!to) to = from;
 
-    if (!to) {
-      to = from;
-    }
+    /* ---------- date validation ---------- */
 
-    /*
-    =======================================================
-    DATE VALIDATION
-    =======================================================
-    */
-
-    if (
-      !isValidDate(from) ||
-      !isValidDate(to)
-    ) {
+    if (!isValidDate(from) || !isValidDate(to)) {
       return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Invalid date. Use YYYY-MM-DD.",
-        },
+        { success: false, message: "Invalid date. Use YYYY-MM-DD." },
         { status: 400 }
       );
     }
@@ -498,18 +254,13 @@ export async function GET(request) {
       return NextResponse.json(
         {
           success: false,
-          message:
-            "From date cannot be greater than to date.",
+          message: "From date cannot be greater than to date.",
         },
         { status: 400 }
       );
     }
 
-    /*
-    =======================================================
-    USER FILTER
-    =======================================================
-    */
+    /* ---------- user filter ---------- */
 
     let selectedUserId = null;
 
@@ -519,68 +270,38 @@ export async function GET(request) {
         requestedUserId !== "all" &&
         requestedUserId !== "All Users"
       ) {
-        const parsed =
-          Number(requestedUserId);
+        const parsed = Number(requestedUserId);
 
-        if (
-          !Number.isInteger(parsed) ||
-          parsed <= 0
-        ) {
+        if (!Number.isInteger(parsed) || parsed <= 0) {
           return NextResponse.json(
-            {
-              success: false,
-              message:
-                "Invalid user_id.",
-            },
+            { success: false, message: "Invalid user_id." },
             { status: 400 }
           );
         }
 
-        selectedUserId =
-          parsed;
+        selectedUserId = parsed;
       }
     } else {
-      selectedUserId =
-        Number(user.id);
+      selectedUserId = Number(user.id);
     }
 
-    /*
-    =======================================================
-    TEAM FILTER
-    =======================================================
-    */
+    /* ---------- team filter ---------- */
 
     let selectedTeam = null;
 
     if (admin) {
-      const teamValue =
-        String(
-          requestedTeam || ""
-        ).trim();
+      const teamValue = String(requestedTeam || "").trim();
 
       if (
         teamValue &&
-        teamValue.toLowerCase() !==
-          "all" &&
-        teamValue.toLowerCase() !==
-          "all teams"
+        teamValue.toLowerCase() !== "all" &&
+        teamValue.toLowerCase() !== "all teams"
       ) {
-        selectedTeam =
-          teamValue;
+        selectedTeam = teamValue;
       }
     }
 
-    /*
-    =======================================================
-    GET ALL EMPLOYEES
-
-    IMPORTANT:
-    IDs 11,12,13,14,15 etc.
-    All non-deleted users are returned.
-
-    User with no login = Absent.
-    =======================================================
-    */
+    /* ---------- employees (with salary) ---------- */
 
     let employeeSql = `
       SELECT
@@ -590,62 +311,37 @@ export async function GET(request) {
         phone,
         role,
         team,
-        status
+        status,
+        basic_salary,
+        attendance_allowance
       FROM users
-      WHERE
-        (
-          status IS NULL
-          OR LOWER(TRIM(status)) <> 'deleted'
-        )
+      WHERE (
+        status IS NULL
+        OR LOWER(TRIM(status)) <> 'deleted'
+      )
     `;
 
     const employeeParams = [];
 
     if (selectedUserId) {
-      employeeSql += `
-        AND id = ?
-      `;
-
-      employeeParams.push(
-        selectedUserId
-      );
+      employeeSql += ` AND id = ? `;
+      employeeParams.push(selectedUserId);
     }
 
     if (selectedTeam) {
       employeeSql += `
-        AND LOWER(TRIM(COALESCE(team, ''))) =
-            LOWER(TRIM(?))
+        AND LOWER(TRIM(COALESCE(team, ''))) = LOWER(TRIM(?))
       `;
-
-      employeeParams.push(
-        selectedTeam
-      );
+      employeeParams.push(selectedTeam);
     }
 
-    /*
-    IMPORTANT:
-    ID ascending so 11,12,13,14,15...
-    */
+    employeeSql += ` ORDER BY id ASC `;
 
-    employeeSql += `
-      ORDER BY
-        id ASC
-    `;
+    const [employeesRows] = await db.query(employeeSql, employeeParams);
 
-    const [employeesRows] =
-      await db.query(
-        employeeSql,
-        employeeParams
-      );
+    const employees = employeesRows || [];
 
-    const employees =
-      employeesRows || [];
-
-    if (
-      admin &&
-      selectedUserId &&
-      !employees.length
-    ) {
+    if (admin && selectedUserId && !employees.length) {
       return NextResponse.json(
         {
           success: false,
@@ -656,21 +352,15 @@ export async function GET(request) {
       );
     }
 
-    /*
-    =======================================================
-    NO EMPLOYEES
-    =======================================================
-    */
+    /* ---------- no employees ---------- */
 
     if (!employees.length) {
       return NextResponse.json({
         success: true,
         from,
         to,
-        timezone:
-          CALIFORNIA_TIMEZONE,
-        cutoff:
-          ATTENDANCE_CUTOFF,
+        timezone: CALIFORNIA_TIMEZONE,
+        cutoff: ATTENDANCE_CUTOFF,
 
         current_user: {
           id: Number(user.id),
@@ -679,11 +369,8 @@ export async function GET(request) {
         },
 
         admin_view: admin,
-        selected_user_id:
-          selectedUserId,
-        selected_team:
-          selectedTeam,
-
+        selected_user_id: selectedUserId,
+        selected_team: selectedTeam,
         selected_user: null,
 
         attendance_users: [],
@@ -705,690 +392,291 @@ export async function GET(request) {
       });
     }
 
-    /*
-    =======================================================
-    SELECTED USER
-    =======================================================
-    */
+    const selectedEmployee = selectedUserId
+      ? employees.find((e) => Number(e.id) === Number(selectedUserId))
+      : null;
 
-    const selectedEmployee =
-      selectedUserId
-        ? employees.find(
-            (employee) =>
-              Number(employee.id) ===
-              Number(selectedUserId)
-          )
-        : null;
+    const employeeIds = employees
+      .map((e) => Number(e.id))
+      .filter((id) => Number.isInteger(id) && id > 0);
 
-    /*
-    =======================================================
-    EMPLOYEE IDS
-    =======================================================
-    */
+    const placeholders = employeeIds.map(() => "?").join(",");
 
-    const employeeIds =
-      employees
-        .map((employee) =>
-          Number(employee.id)
-        )
-        .filter(
-          (id) =>
-            Number.isInteger(id) &&
-            id > 0
-        );
+    /* ---------- query range (1 day before / after) ---------- */
 
-    const placeholders =
-      employeeIds
-        .map(() => "?")
-        .join(",");
+    const queryFrom = getPreviousDate(from);
+    const queryTo = getNextDate(to);
 
-    /*
-    =======================================================
-    QUERY RANGE
+    /* ---------- login history ---------- */
 
-    One day before / after handles datetime safely.
-    =======================================================
-    */
+    const [loginRows] = await db.query(
+      `
+      SELECT
+        lh.id,
+        lh.user_id,
 
-    const queryFrom =
-      getPreviousDate(from);
+        DATE_FORMAT(lh.login_time, '%Y-%m-%d %H:%i:%s') AS login_time,
 
-    const queryTo =
-      getNextDate(to);
+        CASE
+          WHEN lh.logout_time IS NULL THEN NULL
+          ELSE DATE_FORMAT(lh.logout_time, '%Y-%m-%d %H:%i:%s')
+        END AS logout_time,
 
-    /*
-    =======================================================
-    LOGIN HISTORY
-    =======================================================
-    */
+        lh.ip_address,
+        lh.user_agent
 
-    const [loginRows] =
-      await db.query(
-        `
-        SELECT
-          lh.id,
-          lh.user_id,
+      FROM login_history lh
 
-          DATE_FORMAT(
-            lh.login_time,
-            '%Y-%m-%d %H:%i:%s'
-          ) AS login_time,
+      WHERE
+        lh.user_id IN (${placeholders})
+        AND lh.login_time >= ?
+        AND lh.login_time < ?
 
-          CASE
-            WHEN lh.logout_time IS NULL
-            THEN NULL
-            ELSE DATE_FORMAT(
-              lh.logout_time,
-              '%Y-%m-%d %H:%i:%s'
-            )
-          END AS logout_time,
+      ORDER BY
+        lh.user_id ASC,
+        lh.login_time ASC,
+        lh.id ASC
+      `,
+      [...employeeIds, `${queryFrom} 00:00:00`, `${queryTo} 00:00:00`]
+    );
 
-          lh.ip_address,
-          lh.user_agent
+    /* ---------- attendance users ---------- */
 
-        FROM login_history lh
+    const attendanceUserIds = new Set();
 
-        WHERE
-          lh.user_id IN (${placeholders})
+    for (const row of loginRows || []) {
+      const userId = Number(row.user_id);
+      const loginTime = normalizeLocalDateTime(row.login_time);
 
-          AND lh.login_time >= ?
+      if (Number.isInteger(userId) && userId > 0 && loginTime) {
+        const date = loginTime.slice(0, 10);
 
-          AND lh.login_time < ?
-
-        ORDER BY
-          lh.user_id ASC,
-          lh.login_time ASC,
-          lh.id ASC
-        `,
-        [
-          ...employeeIds,
-          `${queryFrom} 00:00:00`,
-          `${queryTo} 00:00:00`,
-        ]
-      );
-
-    /*
-    =======================================================
-    ATTENDANCE USERS
-    =======================================================
-    */
-
-    const attendanceUserIds =
-      new Set();
-
-    for (
-      const row of loginRows || []
-    ) {
-      const userId =
-        Number(row.user_id);
-
-      const loginTime =
-        normalizeLocalDateTime(
-          row.login_time
-        );
-
-      if (
-        Number.isInteger(userId) &&
-        userId > 0 &&
-        loginTime
-      ) {
-        const date =
-          loginTime.slice(0, 10);
-
-        if (
-          date >= from &&
-          date <= to
-        ) {
-          attendanceUserIds.add(
-            userId
-          );
+        if (date >= from && date <= to) {
+          attendanceUserIds.add(userId);
         }
       }
     }
 
-    const attendance_users =
-      employees.map(
-        (employee) => ({
-          id:
-            Number(employee.id),
+    const attendance_users = employees.map((employee) => ({
+      id: Number(employee.id),
+      name: employee.name || "",
+      email: employee.email || "",
+      phone: employee.phone || "",
+      role: employee.role || "",
+      team: employee.team || "",
+      status: employee.status || "",
 
-          name:
-            employee.name || "",
+      basic_salary: Number(employee.basic_salary || 0),
+      attendance_allowance: Number(employee.attendance_allowance || 0),
 
-          email:
-            employee.email || "",
+      has_attendance: attendanceUserIds.has(Number(employee.id)),
+    }));
 
-          phone:
-            employee.phone || "",
+    /* ---------- group login records (first login / last logout) ---------- */
 
-          role:
-            employee.role || "",
+    const attendanceMap = new Map();
 
-          team:
-            employee.team || "",
+    for (const row of loginRows || []) {
+      const loginTime = normalizeLocalDateTime(row.login_time);
+      if (!loginTime) continue;
 
-          status:
-            employee.status || "",
+      const attendanceDate = loginTime.slice(0, 10);
 
-          has_attendance:
-            attendanceUserIds.has(
-              Number(employee.id)
-            ),
-        })
-      );
+      if (attendanceDate < from || attendanceDate > to) continue;
 
-    /*
-    =======================================================
-    GROUP LOGIN RECORDS
-    =======================================================
-    */
+      const dayInfo = getDayInfo(attendanceDate);
 
-    const attendanceMap =
-      new Map();
+      /* weekends are OFF */
+      if (dayInfo.isWeekend) continue;
 
-    for (
-      const row of loginRows || []
-    ) {
-      const loginTime =
-        normalizeLocalDateTime(
-          row.login_time
-        );
+      const logoutTime = row.logout_time
+        ? normalizeLocalDateTime(row.logout_time)
+        : null;
 
-      if (!loginTime) {
-        continue;
-      }
+      const userId = Number(row.user_id);
+      const key = `${userId}_${attendanceDate}`;
 
-      const attendanceDate =
-        loginTime.slice(0, 10);
-
-      if (
-        attendanceDate < from ||
-        attendanceDate > to
-      ) {
-        continue;
-      }
-
-      const dayInfo =
-        getDayInfo(
-          attendanceDate
-        );
-
-      /*
-      WEEKENDS ARE OFF
-      */
-
-      if (dayInfo.isWeekend) {
-        continue;
-      }
-
-      const logoutTime =
-        row.logout_time
-          ? normalizeLocalDateTime(
-              row.logout_time
-            )
-          : null;
-
-      const userId =
-        Number(row.user_id);
-
-      const key =
-        `${userId}_${attendanceDate}`;
-
-      /*
-      FIRST LOGIN
-      */
-
-      if (
-        !attendanceMap.has(key)
-      ) {
-        attendanceMap.set(
-          key,
-          {
-            id:
-              Number(row.id),
-
-            user_id:
-              userId,
-
-            login_time:
-              loginTime,
-
-            logout_time:
-              logoutTime,
-
-            ip_address:
-              row.ip_address ||
-              null,
-
-            user_agent:
-              row.user_agent ||
-              null,
-          }
-        );
+      if (!attendanceMap.has(key)) {
+        attendanceMap.set(key, {
+          id: Number(row.id),
+          user_id: userId,
+          login_time: loginTime,
+          logout_time: logoutTime,
+          ip_address: row.ip_address || null,
+          user_agent: row.user_agent || null,
+        });
 
         continue;
       }
 
-      const existing =
-        attendanceMap.get(key);
+      const existing = attendanceMap.get(key);
 
-      /*
-      EARLIEST LOGIN
-      */
-
-      if (
-        loginTime <
-        existing.login_time
-      ) {
-        existing.login_time =
-          loginTime;
-
-        existing.id =
-          Number(row.id);
-
-        existing.ip_address =
-          row.ip_address || null;
-
-        existing.user_agent =
-          row.user_agent || null;
+      /* earliest login */
+      if (loginTime < existing.login_time) {
+        existing.login_time = loginTime;
+        existing.id = Number(row.id);
+        existing.ip_address = row.ip_address || null;
+        existing.user_agent = row.user_agent || null;
       }
 
-      /*
-      LATEST LOGOUT
-      */
-
+      /* latest logout */
       if (
         logoutTime &&
-        (
-          !existing.logout_time ||
-          logoutTime >
-            existing.logout_time
-        )
+        (!existing.logout_time || logoutTime > existing.logout_time)
       ) {
-        existing.logout_time =
-          logoutTime;
+        existing.logout_time = logoutTime;
       }
     }
 
-    /*
-    =======================================================
-    BUILD HISTORY
-    =======================================================
-    */
+    /* ---------- build history ---------- */
 
     const history = [];
     const offDays = [];
 
     let currentDate = from;
 
-    while (
-      currentDate <= to
-    ) {
-      const dayInfo =
-        getDayInfo(
-          currentDate
-        );
+    while (currentDate <= to) {
+      const dayInfo = getDayInfo(currentDate);
 
-      /*
-      =====================================================
-      WEEKEND = OFF
-      =====================================================
-      */
-
+      /* weekend = OFF */
       if (dayInfo.isWeekend) {
         offDays.push({
-          date:
-            currentDate,
-
-          day:
-            dayInfo.dayName,
-
-          status:
-            "OFF",
+          date: currentDate,
+          day: dayInfo.dayName,
+          status: "OFF",
         });
 
-        currentDate =
-          getNextDate(
-            currentDate
-          );
-
+        currentDate = getNextDate(currentDate);
         continue;
       }
 
-      /*
-      =====================================================
-      WEEKDAY
-      EVERY USER GETS A ROW
-      EVEN IF ABSENT
-      =====================================================
-      */
+      /* weekday: every user gets a row, even if absent */
+      for (const employee of employees) {
+        const employeeId = Number(employee.id);
+        const key = `${employeeId}_${currentDate}`;
+        const record = attendanceMap.get(key);
 
-      for (
-        const employee of employees
-      ) {
-        const employeeId =
-          Number(employee.id);
+        const base = {
+          user_id: employeeId,
+          name: employee.name || "",
+          email: employee.email || "",
+          phone: employee.phone || "",
+          role: employee.role || "",
+          team: employee.team || "",
 
-        const key =
-          `${employeeId}_${currentDate}`;
+          basic_salary: Number(employee.basic_salary || 0),
+          attendance_allowance: Number(employee.attendance_allowance || 0),
 
-        const record =
-          attendanceMap.get(key);
+          attendance_date: currentDate,
+          day_name: dayInfo.dayName,
+        };
 
-        /*
-        ===================================================
-        ABSENT
-
-        IMPORTANT:
-        id = null because database record does not exist.
-        Admin PUT can now create it.
-        ===================================================
-        */
-
+        /* ABSENT: id = null because no DB record exists */
         if (!record) {
           history.push({
+            ...base,
             id: null,
-
-            user_id:
-              employeeId,
-
-            name:
-              employee.name || "",
-
-            email:
-              employee.email || "",
-
-            phone:
-              employee.phone || "",
-
-            role:
-              employee.role || "",
-
-            team:
-              employee.team || "",
-
-            attendance_date:
-              currentDate,
-
-            day_name:
-              dayInfo.dayName,
-
-            login_time:
-              null,
-
-            logout_time:
-              null,
-
-            ip_address:
-              null,
-
-            user_agent:
-              null,
-
-            duration_seconds:
-              null,
-
-            attendance_status:
-              "Absent",
+            login_time: null,
+            logout_time: null,
+            ip_address: null,
+            user_agent: null,
+            duration_seconds: null,
+            attendance_status: "Absent",
           });
 
           continue;
         }
 
-        /*
-        ===================================================
-        PRESENT
-        ===================================================
-        */
-
-        const attendanceStatus =
-          getAttendanceStatus(
-            record.login_time
-          );
-
-        const durationSeconds =
-          getDurationSeconds(
+        /* PRESENT */
+        history.push({
+          ...base,
+          id: record.id,
+          login_time: record.login_time,
+          logout_time: record.logout_time,
+          ip_address: record.ip_address,
+          user_agent: record.user_agent,
+          duration_seconds: getDurationSeconds(
             record.login_time,
             record.logout_time
-          );
-
-        history.push({
-          id:
-            record.id,
-
-          user_id:
-            employeeId,
-
-          name:
-            employee.name || "",
-
-          email:
-            employee.email || "",
-
-          phone:
-            employee.phone || "",
-
-          role:
-            employee.role || "",
-
-          team:
-            employee.team || "",
-
-          attendance_date:
-            currentDate,
-
-          day_name:
-            dayInfo.dayName,
-
-          login_time:
-            record.login_time,
-
-          logout_time:
-            record.logout_time,
-
-          ip_address:
-            record.ip_address,
-
-          user_agent:
-            record.user_agent,
-
-          duration_seconds:
-            durationSeconds,
-
-          attendance_status:
-            attendanceStatus,
+          ),
+          attendance_status: getAttendanceStatus(record.login_time),
         });
       }
 
-      currentDate =
-        getNextDate(
-          currentDate
-        );
+      currentDate = getNextDate(currentDate);
     }
 
-    /*
-    =======================================================
-    SORT
-    DATE DESC
-    USER ID ASC
+    /* ---------- sort: date DESC, user id ASC ---------- */
 
-    Example:
-    2026-09-29
-    11
-    12
-    13
-    14
-    15
-    =======================================================
-    */
-
-    history.sort(
-      (a, b) => {
-        if (
-          a.attendance_date !==
-          b.attendance_date
-        ) {
-          return a.attendance_date <
-            b.attendance_date
-            ? 1
-            : -1;
-        }
-
-        return (
-          Number(a.user_id) -
-          Number(b.user_id)
-        );
+    history.sort((a, b) => {
+      if (a.attendance_date !== b.attendance_date) {
+        return a.attendance_date < b.attendance_date ? 1 : -1;
       }
-    );
 
-    /*
-    =======================================================
-    COUNTS
-    =======================================================
-    */
+      return Number(a.user_id) - Number(b.user_id);
+    });
+
+    /* ---------- counts ---------- */
 
     const counts = {
-      total:
-        history.length,
-
+      total: history.length,
       present: 0,
-
       on_time: 0,
-
       late: 0,
-
       absent: 0,
-
-      off:
-        offDays.length,
+      off: offDays.length,
     };
-
-    for (
-      const row of history
-    ) {
-      if (
-        row.attendance_status ===
-        "On Time"
-      ) {
-        counts.present++;
-        counts.on_time++;
-      } else if (
-        row.attendance_status ===
-        "Late"
-      ) {
-        counts.present++;
-        counts.late++;
-      } else if (
-        row.attendance_status ===
-        "Absent"
-      ) {
-        counts.absent++;
-      }
-    }
-
-    /*
-    =======================================================
-    DATE COUNTS
-    =======================================================
-    */
 
     const dateCounts = {};
 
-    for (
-      const row of history
-    ) {
-      if (
-        !dateCounts[
-          row.attendance_date
-        ]
-      ) {
-        dateCounts[
-          row.attendance_date
-        ] = {
-          date:
-            row.attendance_date,
-
-          day:
-            row.day_name,
-
+    for (const row of history) {
+      if (!dateCounts[row.attendance_date]) {
+        dateCounts[row.attendance_date] = {
+          date: row.attendance_date,
+          day: row.day_name,
           total: 0,
-
           present: 0,
-
           on_time: 0,
-
           late: 0,
-
           absent: 0,
-
           off: false,
         };
       }
 
-      const current =
-        dateCounts[
-          row.attendance_date
-        ];
+      const current = dateCounts[row.attendance_date];
 
       current.total++;
 
-      if (
-        row.attendance_status ===
-        "On Time"
-      ) {
+      if (row.attendance_status === "On Time") {
+        counts.present++;
+        counts.on_time++;
         current.present++;
         current.on_time++;
-      } else if (
-        row.attendance_status ===
-        "Late"
-      ) {
+      } else if (row.attendance_status === "Late") {
+        counts.present++;
+        counts.late++;
         current.present++;
         current.late++;
-      } else if (
-        row.attendance_status ===
-        "Absent"
-      ) {
+      } else if (row.attendance_status === "Absent") {
+        counts.absent++;
         current.absent++;
       }
     }
 
-    /*
-    =======================================================
-    WEEKEND DATE COUNTS
-    =======================================================
-    */
-
-    for (
-      const offDay of offDays
-    ) {
-      dateCounts[
-        offDay.date
-      ] = {
-        date:
-          offDay.date,
-
-        day:
-          offDay.day,
-
+    for (const offDay of offDays) {
+      dateCounts[offDay.date] = {
+        date: offDay.date,
+        day: offDay.day,
         total: 0,
-
         present: 0,
-
         on_time: 0,
-
         late: 0,
-
         absent: 0,
-
         off: true,
       };
     }
 
-    /*
-    =======================================================
-    RESPONSE
-    =======================================================
-    */
+    /* ---------- response ---------- */
 
     return NextResponse.json({
       success: true,
@@ -1396,364 +684,182 @@ export async function GET(request) {
       from,
       to,
 
-      timezone:
-        CALIFORNIA_TIMEZONE,
-
-      cutoff:
-        ATTENDANCE_CUTOFF,
+      timezone: CALIFORNIA_TIMEZONE,
+      cutoff: ATTENDANCE_CUTOFF,
 
       current_user: {
-        id:
-          Number(user.id),
-
-        name:
-          user.name || "",
-
-        role:
-          user.role || "",
+        id: Number(user.id),
+        name: user.name || "",
+        role: user.role || "",
       },
 
-      admin_view:
-        admin,
+      admin_view: admin,
 
-      selected_user_id:
-        selectedUserId,
+      selected_user_id: selectedUserId,
+      selected_team: selectedTeam,
 
-      selected_team:
-        selectedTeam,
-
-      selected_user:
-        selectedEmployee
-          ? {
-              id:
-                Number(
-                  selectedEmployee.id
-                ),
-
-              name:
-                selectedEmployee.name ||
-                "",
-
-              email:
-                selectedEmployee.email ||
-                "",
-
-              phone:
-                selectedEmployee.phone ||
-                "",
-
-              role:
-                selectedEmployee.role ||
-                "",
-
-              team:
-                selectedEmployee.team ||
-                "",
-
-              status:
-                selectedEmployee.status ||
-                "",
-            }
-          : null,
-
-      /*
-      ALL FILTERED USERS
-      INCLUDING USERS WHO ARE ABSENT
-      */
+      selected_user: selectedEmployee
+        ? {
+            id: Number(selectedEmployee.id),
+            name: selectedEmployee.name || "",
+            email: selectedEmployee.email || "",
+            phone: selectedEmployee.phone || "",
+            role: selectedEmployee.role || "",
+            team: selectedEmployee.team || "",
+            status: selectedEmployee.status || "",
+            basic_salary: Number(selectedEmployee.basic_salary || 0),
+            attendance_allowance: Number(
+              selectedEmployee.attendance_allowance || 0
+            ),
+          }
+        : null,
 
       attendance_users,
 
-      weekends_off:
-        true,
-
-      off_days:
-        offDays,
+      weekends_off: true,
+      off_days: offDays,
 
       counts,
-
-      date_counts:
-        dateCounts,
+      date_counts: dateCounts,
 
       history,
     });
   } catch (error) {
-    console.error(
-      "LOGIN HISTORY GET ERROR:",
-      error
-    );
+    console.error("LOGIN HISTORY GET ERROR:", error);
 
     return NextResponse.json(
       {
         success: false,
-        message:
-          error?.message ||
-          "Failed to load attendance",
+        message: error?.message || "Failed to load attendance",
       },
       { status: 500 }
     );
   }
 }
 
-/*
-=========================================================
-POST - ADMIN ADD ATTENDANCE
-=========================================================
+/* =========================================================
+   SHARED: validate times + employee for POST / PUT
+========================================================= */
 
-Used for adding a completely new attendance record.
-=========================================================
-*/
+async function findActiveEmployee(employeeId) {
+  const [rows] = await db.query(
+    `
+    SELECT id, name, status
+    FROM users
+    WHERE id = ?
+    AND (
+      status IS NULL
+      OR LOWER(TRIM(status)) <> 'deleted'
+    )
+    LIMIT 1
+    `,
+    [employeeId]
+  );
+
+  return rows && rows.length ? rows[0] : null;
+}
+
+function badRequest(message, status = 400) {
+  return NextResponse.json({ success: false, message }, { status });
+}
+
+/* =========================================================
+   POST - ADMIN ADD ATTENDANCE
+========================================================= */
 
 export async function POST(request) {
   try {
-    const user =
-      await getCurrentUser();
+    const user = await getCurrentUser();
 
-    if (!user) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Unauthorized",
-        },
-        { status: 401 }
-      );
-    }
+    if (!user) return badRequest("Unauthorized", 401);
 
     if (!isAdmin(user)) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Only admin can add attendance",
-        },
-        { status: 403 }
-      );
+      return badRequest("Only admin can add attendance", 403);
     }
 
-    const body =
-      await request.json();
+    const body = await request.json();
 
-    const {
-      user_id,
-      login_time,
-      logout_time,
-      ip_address,
-      user_agent,
-    } = body;
+    const { user_id, login_time, logout_time, ip_address, user_agent } = body;
 
-    const employeeId =
-      Number(user_id);
+    const employeeId = Number(user_id);
 
-    if (
-      !Number.isInteger(employeeId) ||
-      employeeId <= 0
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Valid employee is required",
-        },
-        { status: 400 }
-      );
+    if (!Number.isInteger(employeeId) || employeeId <= 0) {
+      return badRequest("Valid employee is required");
     }
 
-    const californiaLoginTime =
-      normalizeLocalDateTime(
-        login_time
-      );
+    const californiaLoginTime = normalizeLocalDateTime(login_time);
 
-    const californiaLogoutTime =
-      logout_time
-        ? normalizeLocalDateTime(
-            logout_time
-          )
-        : null;
+    const californiaLogoutTime = logout_time
+      ? normalizeLocalDateTime(logout_time)
+      : null;
 
-    if (
-      !californiaLoginTime ||
-      !isValidDateTime(
-        californiaLoginTime
-      )
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Invalid login time",
-        },
-        { status: 400 }
-      );
+    if (!californiaLoginTime || !isValidDateTime(californiaLoginTime)) {
+      return badRequest("Invalid login time");
     }
 
-    if (
-      californiaLogoutTime &&
-      !isValidDateTime(
-        californiaLogoutTime
-      )
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Invalid logout time",
-        },
-        { status: 400 }
-      );
+    if (californiaLogoutTime && !isValidDateTime(californiaLogoutTime)) {
+      return badRequest("Invalid logout time");
     }
 
-    if (
-      californiaLogoutTime &&
-      californiaLogoutTime <
-        californiaLoginTime
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Logout time cannot be before login time",
-        },
-        { status: 400 }
-      );
+    if (californiaLogoutTime && californiaLogoutTime < californiaLoginTime) {
+      return badRequest("Logout time cannot be before login time");
     }
 
-    /*
-    =======================================================
-    EMPLOYEE EXISTS
-    =======================================================
-    */
+    const employee = await findActiveEmployee(employeeId);
 
-    const [employeeRows] =
-      await db.query(
-        `
-        SELECT
-          id,
-          status
-        FROM users
-        WHERE id = ?
-        AND (
-          status IS NULL
-          OR LOWER(TRIM(status)) <> 'deleted'
-        )
-        LIMIT 1
-        `,
-        [employeeId]
-      );
+    if (!employee) return badRequest("Employee not found", 404);
 
-    if (
-      !employeeRows ||
-      !employeeRows.length
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Employee not found",
-        },
-        { status: 404 }
-      );
-    }
-
-    /*
-    =======================================================
-    INSERT
-    =======================================================
-    */
-
-    const [result] =
-      await db.query(
-        `
-        INSERT INTO login_history
-        (
-          user_id,
-          login_time,
-          logout_time,
-          ip_address,
-          user_agent
-        )
-        VALUES (?, ?, ?, ?, ?)
-        `,
-        [
-          employeeId,
-          californiaLoginTime,
-          californiaLogoutTime,
-          ip_address || null,
-          user_agent || null,
-        ]
-      );
+    const [result] = await db.query(
+      `
+      INSERT INTO login_history
+      (user_id, login_time, logout_time, ip_address, user_agent)
+      VALUES (?, ?, ?, ?, ?)
+      `,
+      [
+        employeeId,
+        californiaLoginTime,
+        californiaLogoutTime,
+        ip_address || null,
+        user_agent || null,
+      ]
+    );
 
     return NextResponse.json({
       success: true,
-
-      message:
-        "Attendance added successfully",
-
-      id:
-        result.insertId,
+      message: "Attendance added successfully",
+      id: result.insertId,
     });
   } catch (error) {
-    console.error(
-      "LOGIN HISTORY POST ERROR:",
-      error
-    );
+    console.error("LOGIN HISTORY POST ERROR:", error);
 
     return NextResponse.json(
       {
         success: false,
-        message:
-          error?.message ||
-          "Failed to add attendance",
+        message: error?.message || "Failed to add attendance",
       },
       { status: 500 }
     );
   }
 }
 
-/*
-=========================================================
-PUT - ADMIN EDIT / CONVERT ABSENT TO PRESENT
-=========================================================
+/* =========================================================
+   PUT - ADMIN EDIT / CONVERT ABSENT TO PRESENT
 
-CASE 1:
-Existing ID
--> UPDATE existing record
-
-CASE 2:
-id = null
--> Absent row
--> INSERT new login_history record
-
-This allows Admin to edit an Absent row.
-=========================================================
-*/
+   CASE 1: existing id  -> UPDATE
+   CASE 2: id = null    -> Absent row -> INSERT (or update same-day record)
+========================================================= */
 
 export async function PUT(request) {
   try {
-    const user =
-      await getCurrentUser();
+    const user = await getCurrentUser();
 
-    if (!user) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Unauthorized",
-        },
-        { status: 401 }
-      );
-    }
+    if (!user) return badRequest("Unauthorized", 401);
 
     if (!isAdmin(user)) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Only admin can edit attendance",
-        },
-        { status: 403 }
-      );
+      return badRequest("Only admin can edit attendance", 403);
     }
 
-    const body =
-      await request.json();
+    const body = await request.json();
 
     const {
       id,
@@ -1765,179 +871,52 @@ export async function PUT(request) {
       user_agent,
     } = body;
 
-    /*
-    =======================================================
-    USER ID
-    =======================================================
-    */
+    const employeeId = Number(user_id);
 
-    const employeeId =
-      Number(user_id);
-
-    if (
-      !Number.isInteger(employeeId) ||
-      employeeId <= 0
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Valid employee is required",
-        },
-        { status: 400 }
-      );
+    if (!Number.isInteger(employeeId) || employeeId <= 0) {
+      return badRequest("Valid employee is required");
     }
 
-    /*
-    =======================================================
-    LOGIN TIME
-    =======================================================
-    */
+    const californiaLoginTime = normalizeLocalDateTime(login_time);
 
-    const californiaLoginTime =
-      normalizeLocalDateTime(
-        login_time
-      );
+    const californiaLogoutTime = logout_time
+      ? normalizeLocalDateTime(logout_time)
+      : null;
 
-    const californiaLogoutTime =
-      logout_time
-        ? normalizeLocalDateTime(
-            logout_time
-          )
-        : null;
-
-    if (
-      !californiaLoginTime ||
-      !isValidDateTime(
-        californiaLoginTime
-      )
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Valid login time is required",
-        },
-        { status: 400 }
-      );
+    if (!californiaLoginTime || !isValidDateTime(californiaLoginTime)) {
+      return badRequest("Valid login time is required");
     }
 
-    if (
-      californiaLogoutTime &&
-      !isValidDateTime(
-        californiaLogoutTime
-      )
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Invalid logout time",
-        },
-        { status: 400 }
-      );
+    if (californiaLogoutTime && !isValidDateTime(californiaLogoutTime)) {
+      return badRequest("Invalid logout time");
     }
 
-    if (
-      californiaLogoutTime &&
-      californiaLogoutTime <
-        californiaLoginTime
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Logout time cannot be before login time",
-        },
-        { status: 400 }
-      );
+    if (californiaLogoutTime && californiaLogoutTime < californiaLoginTime) {
+      return badRequest("Logout time cannot be before login time");
     }
 
-    /*
-    =======================================================
-    EMPLOYEE EXISTS
-    =======================================================
-    */
+    const employee = await findActiveEmployee(employeeId);
 
-    const [employeeRows] =
-      await db.query(
+    if (!employee) return badRequest("Employee not found", 404);
+
+    /* ---------- CASE 1: existing attendance -> UPDATE ---------- */
+
+    const attendanceId = Number(id);
+
+    if (Number.isInteger(attendanceId) && attendanceId > 0) {
+      const [existingRows] = await db.query(
         `
-        SELECT
-          id,
-          name,
-          status
-        FROM users
+        SELECT id, user_id, login_time
+        FROM login_history
         WHERE id = ?
-        AND (
-          status IS NULL
-          OR LOWER(TRIM(status)) <> 'deleted'
-        )
         LIMIT 1
         `,
-        [employeeId]
+        [attendanceId]
       );
 
-    if (
-      !employeeRows ||
-      !employeeRows.length
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Employee not found",
-        },
-        { status: 404 }
-      );
-    }
-
-    /*
-    =======================================================
-    CASE 1
-    EXISTING ATTENDANCE -> UPDATE
-    =======================================================
-    */
-
-    const attendanceId =
-      Number(id);
-
-    if (
-      Number.isInteger(attendanceId) &&
-      attendanceId > 0
-    ) {
-      const [existingRows] =
-        await db.query(
-          `
-          SELECT
-            id,
-            user_id,
-            login_time
-          FROM login_history
-          WHERE id = ?
-          LIMIT 1
-          `,
-          [attendanceId]
-        );
-
-      if (
-        !existingRows ||
-        !existingRows.length
-      ) {
-        return NextResponse.json(
-          {
-            success: false,
-            message:
-              "Attendance record not found",
-          },
-          { status: 404 }
-        );
+      if (!existingRows || !existingRows.length) {
+        return badRequest("Attendance record not found", 404);
       }
-
-      /*
-      =====================================================
-      UPDATE
-      =====================================================
-      */
 
       await db.query(
         `
@@ -1962,147 +941,50 @@ export async function PUT(request) {
 
       return NextResponse.json({
         success: true,
-
         action: "updated",
-
-        message:
-          "Attendance updated successfully",
-
-        id:
-          attendanceId,
+        message: "Attendance updated successfully",
+        id: attendanceId,
       });
     }
 
-    /*
-    =======================================================
-    CASE 2
-    ABSENT ROW -> CREATE ATTENDANCE
-    =======================================================
+    /* ---------- CASE 2: absent row -> CREATE ---------- */
 
-    Frontend sends:
-
-    {
-      id: null,
-      user_id: 11,
-      attendance_date: "2026-09-29",
-      login_time: "2026-09-29 08:00:00",
-      logout_time: "2026-09-29 17:00:00"
-    }
-
-    =======================================================
-    */
-
-    if (
-      !attendance_date ||
-      !isValidDate(attendance_date)
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Valid attendance_date is required when editing an Absent record",
-        },
-        { status: 400 }
+    if (!attendance_date || !isValidDate(attendance_date)) {
+      return badRequest(
+        "Valid attendance_date is required when editing an Absent record"
       );
     }
 
-    /*
-    =======================================================
-    PREVENT WEEKEND ATTENDANCE
-    =======================================================
-    */
-
-    const dayInfo =
-      getDayInfo(
-        attendance_date
-      );
-
-    if (dayInfo.isWeekend) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Saturday and Sunday are OFF days. Attendance cannot be added.",
-        },
-        { status: 400 }
+    if (getDayInfo(attendance_date).isWeekend) {
+      return badRequest(
+        "Saturday and Sunday are OFF days. Attendance cannot be added."
       );
     }
 
-    /*
-    =======================================================
-    IMPORTANT DATE CHECK
-
-    Login date must equal selected attendance date.
-    =======================================================
-    */
-
-    if (
-      californiaLoginTime.slice(0, 10) !==
-      attendance_date
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Login date must match attendance date.",
-        },
-        { status: 400 }
-      );
+    if (californiaLoginTime.slice(0, 10) !== attendance_date) {
+      return badRequest("Login date must match attendance date.");
     }
 
-    /*
-    =======================================================
-    CHECK EXISTING ATTENDANCE FOR SAME USER + DATE
-    =======================================================
-    */
+    const nextDate = getNextDate(attendance_date);
 
-    const nextDate =
-      getNextDate(
-        attendance_date
-      );
+    const [existingDateRows] = await db.query(
+      `
+      SELECT id
+      FROM login_history
+      WHERE
+        user_id = ?
+        AND login_time >= ?
+        AND login_time < ?
+      ORDER BY login_time ASC, id ASC
+      LIMIT 1
+      `,
+      [employeeId, `${attendance_date} 00:00:00`, `${nextDate} 00:00:00`]
+    );
 
-    const [existingDateRows] =
-      await db.query(
-        `
-        SELECT
-          id
-        FROM login_history
-        WHERE
-          user_id = ?
+    /* record already exists for that day -> update, never duplicate */
 
-          AND login_time >= ?
-
-          AND login_time < ?
-
-        ORDER BY
-          login_time ASC,
-          id ASC
-
-        LIMIT 1
-        `,
-        [
-          employeeId,
-          `${attendance_date} 00:00:00`,
-          `${nextDate} 00:00:00`,
-        ]
-      );
-
-    /*
-    =======================================================
-    IF RECORD ALREADY EXISTS
-
-    Update it instead of creating duplicate.
-    =======================================================
-    */
-
-    if (
-      existingDateRows &&
-      existingDateRows.length
-    ) {
-      const existingId =
-        Number(
-          existingDateRows[0].id
-        );
+    if (existingDateRows && existingDateRows.length) {
+      const existingId = Number(existingDateRows[0].id);
 
       await db.query(
         `
@@ -2125,250 +1007,121 @@ export async function PUT(request) {
 
       return NextResponse.json({
         success: true,
-
-        action:
-          "updated_absent_existing",
-
-        message:
-          "Absent attendance updated successfully",
-
-        id:
-          existingId,
+        action: "updated_absent_existing",
+        message: "Absent attendance updated successfully",
+        id: existingId,
       });
     }
 
-    /*
-    =======================================================
-    INSERT NEW RECORD
-    =======================================================
-    */
-
-    const [result] =
-      await db.query(
-        `
-        INSERT INTO login_history
-        (
-          user_id,
-          login_time,
-          logout_time,
-          ip_address,
-          user_agent
-        )
-        VALUES (?, ?, ?, ?, ?)
-        `,
-        [
-          employeeId,
-          californiaLoginTime,
-          californiaLogoutTime,
-          ip_address || null,
-          user_agent || null,
-        ]
-      );
+    const [result] = await db.query(
+      `
+      INSERT INTO login_history
+      (user_id, login_time, logout_time, ip_address, user_agent)
+      VALUES (?, ?, ?, ?, ?)
+      `,
+      [
+        employeeId,
+        californiaLoginTime,
+        californiaLogoutTime,
+        ip_address || null,
+        user_agent || null,
+      ]
+    );
 
     return NextResponse.json({
       success: true,
-
-      action:
-        "created_from_absent",
-
-      message:
-        "Absent attendance added successfully",
-
-      id:
-        result.insertId,
+      action: "created_from_absent",
+      message: "Absent attendance added successfully",
+      id: result.insertId,
     });
   } catch (error) {
-    console.error(
-      "LOGIN HISTORY PUT ERROR:",
-      error
-    );
+    console.error("LOGIN HISTORY PUT ERROR:", error);
 
     return NextResponse.json(
       {
         success: false,
-
-        message:
-          error?.message ||
-          "Failed to update attendance",
+        message: error?.message || "Failed to update attendance",
       },
       { status: 500 }
     );
   }
 }
 
-/*
-=========================================================
-DELETE - ADMIN ONLY
-=========================================================
-*/
+/* =========================================================
+   DELETE - ADMIN ONLY
+========================================================= */
 
 export async function DELETE(request) {
   try {
-    const user =
-      await getCurrentUser();
+    const user = await getCurrentUser();
 
-    if (!user) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Unauthorized",
-        },
-        { status: 401 }
-      );
-    }
+    if (!user) return badRequest("Unauthorized", 401);
 
     if (!isAdmin(user)) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Only admin can delete attendance",
-        },
-        { status: 403 }
-      );
+      return badRequest("Only admin can delete attendance", 403);
     }
 
-    const { searchParams } =
-      new URL(request.url);
+    const { searchParams } = new URL(request.url);
 
-    const id =
-      searchParams.get("id");
+    const attendanceId = Number(searchParams.get("id"));
 
-    const attendanceId =
-      Number(id);
-
-    if (
-      !Number.isInteger(
-        attendanceId
-      ) ||
-      attendanceId <= 0
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Valid attendance ID is required",
-        },
-        { status: 400 }
-      );
+    if (!Number.isInteger(attendanceId) || attendanceId <= 0) {
+      return badRequest("Valid attendance ID is required");
     }
 
-    /*
-    =======================================================
-    CHECK RECORD
-    =======================================================
-    */
+    const [beforeDelete] = await db.query(
+      `
+      SELECT id, user_id, login_time
+      FROM login_history
+      WHERE id = ?
+      LIMIT 1
+      `,
+      [attendanceId]
+    );
 
-    const [beforeDelete] =
-      await db.query(
-        `
-        SELECT
-          id,
-          user_id,
-          login_time
-        FROM login_history
-        WHERE id = ?
-        LIMIT 1
-        `,
-        [attendanceId]
-      );
-
-    if (
-      !beforeDelete ||
-      !beforeDelete.length
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Attendance record not found",
-        },
-        { status: 404 }
-      );
+    if (!beforeDelete || !beforeDelete.length) {
+      return badRequest("Attendance record not found", 404);
     }
 
-    /*
-    =======================================================
-    DELETE
-    =======================================================
-    */
+    const [result] = await db.query(
+      `
+      DELETE FROM login_history
+      WHERE id = ?
+      LIMIT 1
+      `,
+      [attendanceId]
+    );
 
-    const [result] =
-      await db.query(
-        `
-        DELETE FROM login_history
-        WHERE id = ?
-        LIMIT 1
-        `,
-        [attendanceId]
-      );
-
-    if (
-      result.affectedRows !== 1
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Attendance was not deleted",
-        },
-        { status: 500 }
-      );
+    if (result.affectedRows !== 1) {
+      return badRequest("Attendance was not deleted", 500);
     }
 
-    /*
-    =======================================================
-    VERIFY DELETE
-    =======================================================
-    */
+    const [afterDelete] = await db.query(
+      `
+      SELECT id
+      FROM login_history
+      WHERE id = ?
+      LIMIT 1
+      `,
+      [attendanceId]
+    );
 
-    const [afterDelete] =
-      await db.query(
-        `
-        SELECT id
-        FROM login_history
-        WHERE id = ?
-        LIMIT 1
-        `,
-        [attendanceId]
-      );
-
-    if (
-      afterDelete &&
-      afterDelete.length
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Delete verification failed",
-        },
-        { status: 500 }
-      );
+    if (afterDelete && afterDelete.length) {
+      return badRequest("Delete verification failed", 500);
     }
 
     return NextResponse.json({
       success: true,
-
-      message:
-        "Attendance deleted permanently",
-
-      deletedId:
-        attendanceId,
+      message: "Attendance deleted permanently",
+      deletedId: attendanceId,
     });
   } catch (error) {
-    console.error(
-      "LOGIN HISTORY DELETE ERROR:",
-      error
-    );
+    console.error("LOGIN HISTORY DELETE ERROR:", error);
 
     return NextResponse.json(
       {
         success: false,
-
-        message:
-          error?.message ||
-          "Failed to delete attendance",
+        message: error?.message || "Failed to delete attendance",
       },
       { status: 500 }
     );
