@@ -3,6 +3,188 @@ import db from "../../../lib/db";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
 
+
+const ALLOWED_STATUSES = [
+  "ACTIVE",
+  "COMPLETED",
+  "ARCHIVED",
+];
+
+
+
+// GET: List task pools with search and date filters.
+export async function GET(request) {
+  let connection;
+
+  try {
+    connection = await db.getConnection();
+    const { searchParams } = new URL(request.url);
+
+    const search = (
+      searchParams.get("search") || ""
+    ).trim();
+
+    const startDate = searchParams.get("startDate") || "";
+    const endDate = searchParams.get("endDate") || "";
+    const status = searchParams.get("status") || "";
+
+    if (
+      status &&
+      !ALLOWED_STATUSES.includes(status)
+    ) {
+      return NextResponse.json(
+        { success: false, message: "Invalid status." },
+        { status: 400 }
+      );
+    }
+
+    const conditions = [];
+    const values = [];
+
+    if (search) {
+      conditions.push(
+        "(title LIKE ? OR CAST(id AS CHAR) LIKE ?)"
+      );
+      values.push(`%${search}%`, `%${search}%`);
+    }
+
+    if (startDate) {
+      conditions.push("created_at >= ?");
+      values.push(`${startDate} 00:00:00`);
+    }
+
+    if (endDate) {
+      conditions.push(
+        "created_at < DATE_ADD(?, INTERVAL 1 DAY)"
+      );
+      values.push(endDate);
+    }
+
+    if (status) {
+      conditions.push("status = ?");
+      values.push(status);
+    }
+
+    const where = conditions.length
+      ? `WHERE ${conditions.join(" AND ")}`
+      : "";
+
+    const [taskPools] = await connection.execute(
+      `SELECT
+        id,
+        title,
+        total_records,
+        status,
+        created_by,
+        created_at
+       FROM task_pools
+       ${where}
+       ORDER BY created_at DESC, id DESC
+       LIMIT 500`,
+      values
+    );
+
+    return NextResponse.json(
+      {
+        success: true,
+        taskPools,
+      }
+    );
+  } catch (error) {
+    console.error("GET task pools error:", error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Failed to load task history.",
+      },
+      { status: 500 }
+    );
+  } finally {
+    if (connection) connection.release();
+  }
+}
+
+// PATCH: Update an individual task pool's status.
+export async function PATCH(request) {
+  let connection;
+
+  try {
+    connection = await db.getConnection();
+    const body = await request.json();
+
+    const id = Number(body.id);
+    const status = body.status;
+
+    if (!Number.isSafeInteger(id) || id < 1) {
+      return NextResponse.json(
+        { success: false, message: "Invalid task ID." },
+        { status: 400 }
+      );
+    }
+
+    if (!ALLOWED_STATUSES.includes(status)) {
+      return NextResponse.json(
+        { success: false, message: "Invalid status." },
+        { status: 400 }
+      );
+    }
+
+    const [result] = await connection.execute(
+      `UPDATE task_pools
+       SET status = ?
+       WHERE id = ?`,
+      [status, id]
+    );
+
+    if (result.affectedRows === 0) {
+      const [existing] = await connection.execute(
+        "SELECT id FROM task_pools WHERE id = ? LIMIT 1",
+        [id]
+      );
+
+      if (!existing.length) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "Task pool not found.",
+          },
+          { status: 404 }
+        );
+      }
+    }
+
+    const [rows] = await connection.execute(
+      `SELECT id, title, total_records, status,
+              created_by, created_at
+       FROM task_pools
+       WHERE id = ?
+       LIMIT 1`,
+      [id]
+    );
+
+    return NextResponse.json({
+      success: true,
+      message: "Task status updated successfully.",
+      taskPool: rows[0],
+    });
+  } catch (error) {
+    console.error("PATCH task pools error:", error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Failed to update task status.",
+      },
+      { status: 500 }
+    );
+  } finally {
+    if (connection) connection.release();
+  }
+}
+
+
+
 export async function POST(req) {
     let connection;
 

@@ -8,7 +8,12 @@ import React, {
   useState,
 } from "react";
 
+
 import {
+  Archive,
+  CalendarDays,
+  History,
+  RotateCcw,
   Upload,
   Users,
   Phone,
@@ -39,6 +44,7 @@ import Sidebar from "@/components/Sidebar";
 import LogoutModal from "@/components/LogoutModal";
 import { useRouter } from "next/navigation";
 import Loader from "@/components/Loader";
+import toast from "react-hot-toast";
 
 /* =========================================================
    CONFIG
@@ -281,7 +287,7 @@ function excelDateToYMD(value) {
 
     const date = new Date(
       excelEpoch.getTime() +
-        value * 24 * 60 * 60 * 1000
+      value * 24 * 60 * 60 * 1000
     );
 
     if (!Number.isNaN(date.getTime())) {
@@ -756,8 +762,8 @@ async function migrateLegacyStorageIfNeeded() {
         )
           ? legacy.selectedSheets
           : migratedSheets.map(
-              (sheet) => sheet.id
-            ),
+            (sheet) => sheet.id
+          ),
 
       selectedStaff:
         Array.isArray(
@@ -973,8 +979,8 @@ function processSheetRows(rawRows) {
     const comment =
       commentColumn
         ? safeString(
-            row[commentColumn]
-          )
+          row[commentColumn]
+        )
         : "";
 
     if (
@@ -1043,6 +1049,120 @@ function processSheetRows(rawRows) {
 
 export default function DailyDeskPage() {
   const router = useRouter();
+
+  const [showTaskHistory, setShowTaskHistory] = useState(false);
+  const [taskPools, setTaskPools] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [updatingTaskId, setUpdatingTaskId] = useState(null);
+
+  const [historySearch, setHistorySearch] = useState("");
+  const [historyStartDate, setHistoryStartDate] = useState("");
+  const [historyEndDate, setHistoryEndDate] = useState("");
+  const [historyStatus, setHistoryStatus] = useState("");
+
+
+  const [taskPoolTitle, setTaskPoolTitle] = useState("");
+
+
+
+
+  const loadTaskHistory = useCallback(async () => {
+    setHistoryLoading(true);
+
+    try {
+      const params = new URLSearchParams();
+
+      if (historySearch.trim()) {
+        params.set("search", historySearch.trim());
+      }
+
+      if (historyStartDate) {
+        params.set("startDate", historyStartDate);
+      }
+
+      if (historyEndDate) {
+        params.set("endDate", historyEndDate);
+      }
+
+      if (historyStatus) {
+        params.set("status", historyStatus);
+      }
+
+      const response = await fetch(
+        `/api/admin/create-task-pools?${params.toString()}`);
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(
+          data.message || "Unable to load task history."
+        );
+      }
+
+      setTaskPools(data.taskPools || []);
+    } catch (error) {
+      toast.error(
+        error.message || "Failed to load task history."
+      );
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [
+    historySearch,
+    historyStartDate,
+    historyEndDate,
+    historyStatus,
+  ]);
+
+  const updateTaskPoolStatus = async (task) => {
+    const nextStatus =
+      task.status === "ACTIVE" ? "ARCHIVED" : "ACTIVE";
+
+    const confirmed = window.confirm(
+      `Change "${task.title}" from ${task.status} to ${nextStatus}?`
+    );
+
+    if (!confirmed) return;
+
+    setUpdatingTaskId(task.id);
+
+    try {
+      const response = await fetch(
+        "/api/admin/create-task-pools",
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            id: task.id,
+            status: nextStatus,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(
+          data.message || "Could not update task status."
+        );
+      }
+
+
+      toast.success(`"${task.title}" is now ${nextStatus}.`);
+
+
+      await loadTaskHistory();
+    } catch (error) {
+      toast.error(
+        error.message || "Failed to update task status."
+      );
+    } finally {
+      setUpdatingTaskId(null);
+    }
+  };
+
 
   const fileInputRef =
     useRef(null);
@@ -1249,11 +1369,11 @@ export default function DailyDeskPage() {
 
         if (
           normalizedSheets.length !==
-            dbSheets.length ||
+          dbSheets.length ||
           normalizedSheets.some(
             (sheet, index) =>
               sheet.name !==
-                `Sheet ${index + 1}` ||
+              `Sheet ${index + 1}` ||
               sheet.order !== index
           )
         ) {
@@ -1277,16 +1397,16 @@ export default function DailyDeskPage() {
             meta?.selectedSheets
           )
             ? [
-                ...new Set(
-                  meta.selectedSheets.filter(
-                    (id) =>
-                      validIds.has(id)
-                  )
-                ),
-              ]
+              ...new Set(
+                meta.selectedSheets.filter(
+                  (id) =>
+                    validIds.has(id)
+                )
+              ),
+            ]
             : normalizedSheets.map(
-                (sheet) => sheet.id
-              );
+              (sheet) => sheet.id
+            );
 
         setSelectedSheets(
           restoredSelectedSheets
@@ -1440,7 +1560,7 @@ export default function DailyDeskPage() {
           if (!response.ok) {
             throw new Error(
               data?.message ||
-                "Failed to load staff."
+              "Failed to load staff."
             );
           }
 
@@ -1448,14 +1568,14 @@ export default function DailyDeskPage() {
             Array.isArray(data)
               ? data
               : Array.isArray(
-                  data?.users
-                )
-              ? data.users
-              : Array.isArray(
+                data?.users
+              )
+                ? data.users
+                : Array.isArray(
                   data?.data
                 )
-              ? data.data
-              : [];
+                  ? data.data
+                  : [];
 
           const staffUsers =
             users.filter(
@@ -1484,7 +1604,7 @@ export default function DailyDeskPage() {
           showAlert(
             "error",
             error.message ||
-              "Unable to load staff."
+            "Unable to load staff."
           );
         }
       },
@@ -1541,7 +1661,7 @@ export default function DailyDeskPage() {
             const digits =
               phoneDigits(
                 row.phoneNumber ||
-                  row.phone
+                row.phone
               );
 
             if (!digits) return;
@@ -1649,9 +1769,9 @@ export default function DailyDeskPage() {
             getStatusKey(
               normalizedActualStatus
             ) !==
-              getStatusKey(
-                statusFilter
-              )
+            getStatusKey(
+              statusFilter
+            )
           ) {
             return false;
           }
@@ -1712,7 +1832,7 @@ export default function DailyDeskPage() {
       1,
       Math.ceil(
         filteredHistory.length /
-          PAGE_SIZE
+        PAGE_SIZE
       )
     );
 
@@ -1870,7 +1990,7 @@ export default function DailyDeskPage() {
           if (
             !workbook.SheetNames ||
             workbook.SheetNames.length ===
-              0
+            0
           ) {
             throw new Error(
               "No worksheet was found in this file."
@@ -1889,7 +2009,7 @@ export default function DailyDeskPage() {
             ) => {
               const worksheet =
                 workbook.Sheets[
-                  originalSheetName
+                originalSheetName
                 ];
 
               const rows =
@@ -1909,11 +2029,10 @@ export default function DailyDeskPage() {
               newSheets.push({
                 id: createSheetId(),
 
-                name: `Sheet ${
-                  baseCount +
+                name: `Sheet ${baseCount +
                   index +
                   1
-                }`,
+                  }`,
 
                 order:
                   baseCount +
@@ -1965,7 +2084,7 @@ export default function DailyDeskPage() {
           if (
             combined.length !==
             excelSheets.length +
-              newSheets.length
+            newSheets.length
           ) {
             await replaceAllSheetsInDB(
               combined
@@ -2022,7 +2141,7 @@ export default function DailyDeskPage() {
                 sum +
                 Number(
                   sheet.invalidRows ||
-                    0
+                  0
                 ),
               0
             );
@@ -2038,20 +2157,18 @@ export default function DailyDeskPage() {
 
           showAlert(
             "success",
-            `${newSheets.length} sheet${
-              newSheets.length ===
+            `${newSheets.length} sheet${newSheets.length ===
               1
-                ? ""
-                : "s"
+              ? ""
+              : "s"
             } added successfully. Existing sheets were preserved.`
           );
 
           setMessage(
-            `${newSheets.length} sheet${
-              newSheets.length ===
+            `${newSheets.length} sheet${newSheets.length ===
               1
-                ? ""
-                : "s"
+              ? ""
+              : "s"
             } added • ${totalNewRows.toLocaleString()} valid rows • ${totalDuplicateRows.toLocaleString()} duplicate rows skipped • ${totalInvalidRows.toLocaleString()} invalid rows`
           );
         } catch (error) {
@@ -2063,7 +2180,7 @@ export default function DailyDeskPage() {
           showAlert(
             "error",
             error.message ||
-              "Unable to process the uploaded file."
+            "Unable to process the uploaded file."
           );
         } finally {
           setIsSubmitting(false);
@@ -2441,8 +2558,8 @@ export default function DailyDeskPage() {
           if (!response.ok) {
             throw new Error(
               data?.message ||
-                data?.error ||
-                "Unable to create task pools."
+              data?.error ||
+              "Unable to create task pools."
             );
           }
 
@@ -2461,7 +2578,7 @@ export default function DailyDeskPage() {
             "error",
             "Task Assignment Failed",
             error.message ||
-              "Unable to assign tasks. Please try again."
+            "Unable to assign tasks. Please try again."
           );
         } finally {
           setIsSubmitting(false);
@@ -2852,7 +2969,8 @@ export default function DailyDeskPage() {
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3">
-              <div className="bg-white border border-slate-200 rounded-2xl px-4 py-3 flex items-center gap-3 shadow-sm">
+
+              {/* <div className="bg-white border border-slate-200 rounded-2xl px-4 py-3 flex items-center gap-3 shadow-sm">
                 <Calendar
                   size={18}
                   className="text-slate-500"
@@ -2877,7 +2995,20 @@ export default function DailyDeskPage() {
                     className="text-sm font-semibold bg-transparent outline-none"
                   />
                 </div>
-              </div>
+              </div> */}
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowTaskHistory(true);
+                  loadTaskHistory();
+                }}
+                className="flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-white border border-slate-200 font-semibold text-sm text-slate-700 shadow-sm hover:bg-slate-50 transition"
+              >
+                <History size={17} />
+                Task History
+                <Search size={15} className="text-slate-400" />
+              </button>
 
               <button
                 type="button"
@@ -2892,6 +3023,7 @@ export default function DailyDeskPage() {
                 Refresh
               </button>
             </div>
+
           </div>
 
           {/* =================================================
@@ -2900,15 +3032,14 @@ export default function DailyDeskPage() {
 
           {alert.show && (
             <div
-              className={`mb-6 rounded-2xl border px-4 py-3 flex items-start gap-3 ${
-                alert.type ===
+              className={`mb-6 rounded-2xl border px-4 py-3 flex items-start gap-3 ${alert.type ===
                 "error"
-                  ? "bg-red-50 border-red-200 text-red-800"
-                  : "bg-emerald-50 border-emerald-200 text-emerald-800"
-              }`}
+                ? "bg-red-50 border-red-200 text-red-800"
+                : "bg-emerald-50 border-emerald-200 text-emerald-800"
+                }`}
             >
               {alert.type ===
-              "error" ? (
+                "error" ? (
                 <XCircle
                   size={19}
                   className="mt-0.5 shrink-0"
@@ -2947,7 +3078,7 @@ export default function DailyDeskPage() {
               STORAGE STATUS
           ================================================= */}
 
-          <div
+          {/* <div
             className={`mb-6 rounded-2xl border px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3 ${
               storageError
                 ? "bg-amber-50 border-amber-200"
@@ -2993,13 +3124,13 @@ export default function DailyDeskPage() {
                 IndexedDB
               </div>
             )}
-          </div>
+          </div> */}
 
           {/* =================================================
               STATS
           ================================================= */}
 
-          <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-7">
+          {/* <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-7">
             <StatCard
               icon={
                 <FileSpreadsheet
@@ -3049,14 +3180,42 @@ export default function DailyDeskPage() {
               }
               description="Current table results"
             />
-          </div>
+          </div> */}
 
           {/* =================================================
               UPLOAD SECTION
           ================================================= */}
 
           <section className="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden mb-7">
+            {/* Task Pool Title */}
+            <div className="mb-6 px-5 sm:px-6 pt-5 border-b border-slate-100">
+              <label
+                htmlFor="task-pool-title"
+                className="mb-2 block text-sm font-bold text-slate-700"
+              >
+                Task Pool Title
+                <span className="ml-1 text-red-500">*</span>
+              </label>
+
+              <input
+                id="task-pool-title"
+                type="text"
+                value={taskPoolTitle}
+                onChange={(e) => setTaskPoolTitle(e.target.value)}
+                placeholder="Enter title, e.g. October Daily Tasks"
+                maxLength={150}
+                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-red-400 focus:ring-4 focus:ring-red-100"
+              />
+
+              <p className="mt-2 text-xs text-slate-500">
+                Enter a title to identify this task assignment.
+              </p>
+            </div>
+
             <div className="px-5 sm:px-6 py-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+
+
+
               <div>
                 <h2 className="font-bold text-lg">
                   Upload Daily Sheets
@@ -3142,38 +3301,38 @@ export default function DailyDeskPage() {
 
               {(file ||
                 savedFileName) && (
-                <div className="mt-4 rounded-2xl bg-slate-50 border border-slate-200 px-4 py-3 flex items-center gap-3">
-                  <div
-                    className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0"
-                    style={{
-                      backgroundColor:
-                        "#fff1f1",
-                      color: ACCENT,
-                    }}
-                  >
-                    <FileText
+                  <div className="mt-4 rounded-2xl bg-slate-50 border border-slate-200 px-4 py-3 flex items-center gap-3">
+                    <div
+                      className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0"
+                      style={{
+                        backgroundColor:
+                          "#fff1f1",
+                        color: ACCENT,
+                      }}
+                    >
+                      <FileText
+                        size={18}
+                      />
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-semibold truncate">
+                        {file?.name ||
+                          savedFileName}
+                      </div>
+
+                      <div className="text-xs text-slate-500 mt-0.5">
+                        Saved in browser
+                        storage
+                      </div>
+                    </div>
+
+                    <Check
                       size={18}
+                      className="text-emerald-600"
                     />
                   </div>
-
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-semibold truncate">
-                      {file?.name ||
-                        savedFileName}
-                    </div>
-
-                    <div className="text-xs text-slate-500 mt-0.5">
-                      Saved in browser
-                      storage
-                    </div>
-                  </div>
-
-                  <Check
-                    size={18}
-                    className="text-emerald-600"
-                  />
-                </div>
-              )}
+                )}
 
               {message && (
                 <div className="mt-4 text-sm font-medium text-slate-600">
@@ -3187,7 +3346,7 @@ export default function DailyDeskPage() {
               SHEETS
           ================================================= */}
 
-          <section className="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden mb-7">
+          {/* <section className="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden mb-7">
             <div className="px-5 sm:px-6 py-5 border-b border-slate-100">
               <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
                 <div>
@@ -3484,7 +3643,7 @@ export default function DailyDeskPage() {
                 </div>
               )}
             </div>
-          </section>
+          </section> */}
 
           {/* =================================================
               STAFF
@@ -3546,7 +3705,7 @@ export default function DailyDeskPage() {
 
             <div className="p-5 sm:p-6">
               {staff.length ===
-              0 ? (
+                0 ? (
                 <EmptyState
                   icon={
                     <Users
@@ -3578,11 +3737,10 @@ export default function DailyDeskPage() {
                               user.id
                             )
                           }
-                          className={`text-left rounded-2xl border p-4 transition ${
-                            selected
-                              ? "border-red-200 bg-red-50/40"
-                              : "border-slate-200 bg-white hover:border-slate-300"
-                          }`}
+                          className={`text-left rounded-2xl border p-4 transition ${selected
+                            ? "border-red-200 bg-red-50/40"
+                            : "border-slate-200 bg-white hover:border-slate-300"
+                            }`}
                         >
                           <div className="flex items-center gap-3">
                             <div
@@ -3624,17 +3782,16 @@ export default function DailyDeskPage() {
                             </div>
 
                             <div
-                              className={`h-6 w-6 rounded-lg flex items-center justify-center border ${
-                                selected
-                                  ? "border-transparent text-white"
-                                  : "border-slate-300 text-transparent"
-                              }`}
+                              className={`h-6 w-6 rounded-lg flex items-center justify-center border ${selected
+                                ? "border-transparent text-white"
+                                : "border-slate-300 text-transparent"
+                                }`}
                               style={
                                 selected
                                   ? {
-                                      backgroundColor:
-                                        ACCENT,
-                                    }
+                                    backgroundColor:
+                                      ACCENT,
+                                  }
                                   : undefined
                               }
                             >
@@ -3688,7 +3845,7 @@ export default function DailyDeskPage() {
                     <ReadyPill
                       label="Sheets"
                       value={
-                          selectedSheetObjects.length
+                        selectedSheetObjects.length
                       }
                     />
 
@@ -3716,9 +3873,9 @@ export default function DailyDeskPage() {
                   disabled={
                     isSubmitting ||
                     selectedSheetRecords.length ===
-                      0 ||
+                    0 ||
                     selectedStaff.length ===
-                      0
+                    0
                   }
                   className="w-full xl:w-auto px-6 py-3.5 rounded-2xl bg-white text-red-700 font-bold text-sm shadow-sm hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
@@ -3749,689 +3906,689 @@ export default function DailyDeskPage() {
           ================================================= */}
 
 
-<section className="bg-white border border-slate-200 rounded-3xl shadow-[0_8px_30px_rgba(15,23,42,0.05)] overflow-hidden">
-  {/* =========================================================
+          <section className="bg-white border border-slate-200 rounded-3xl shadow-[0_8px_30px_rgba(15,23,42,0.05)] overflow-hidden">
+            {/* =========================================================
       HEADER
   ========================================================= */}
 
-  <div className="px-5 sm:px-6 py-5 border-b border-slate-100">
-    <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
-      <div>
-        <div className="flex items-center gap-2">
-          <div
-            className="h-9 w-9 rounded-xl flex items-center justify-center"
-            style={{
-              backgroundColor: "#fff1f1",
-              color: ACCENT,
-            }}
-          >
-            <Clock3 size={18} />
-          </div>
+            <div className="px-5 sm:px-6 py-5 border-b border-slate-100">
+              <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="h-9 w-9 rounded-xl flex items-center justify-center"
+                      style={{
+                        backgroundColor: "#fff1f1",
+                        color: ACCENT,
+                      }}
+                    >
+                      <Clock3 size={18} />
+                    </div>
 
-          <div className="flex items-center gap-2">
-            <h2 className="font-bold text-lg text-slate-900">
-              Daily Task History
-            </h2>
+                    <div className="flex items-center gap-2">
+                      <h2 className="font-bold text-lg text-slate-900">
+                        Daily Task History
+                      </h2>
 
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-100 text-[10px] font-bold text-emerald-700 uppercase tracking-wide">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              Live Data
-            </span>
-          </div>
-        </div>
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-100 text-[10px] font-bold text-emerald-700 uppercase tracking-wide">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                        Live Data
+                      </span>
+                    </div>
+                  </div>
 
-        <p className="text-sm text-slate-500 mt-2">
-          Showing records from your{" "}
-          <span className="font-semibold text-slate-700">
-            selected sheets
-          </span>
-          . Review the latest status and comments updated by users.
-        </p>
-      </div>
+                  <p className="text-sm text-slate-500 mt-2">
+                    Showing records from your{" "}
+                    <span className="font-semibold text-slate-700">
+                      selected sheets
+                    </span>
+                    . Review the latest status and comments updated by users.
+                  </p>
+                </div>
 
-      <div className="flex items-center gap-2">
-        {/* SHEETS */}
-        <div className="px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200">
-          <div className="text-[10px] uppercase tracking-wider font-bold text-slate-400">
-            Sheets
-          </div>
+                <div className="flex items-center gap-2">
+                  {/* SHEETS */}
+                  <div className="px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200">
+                    <div className="text-[10px] uppercase tracking-wider font-bold text-slate-400">
+                      Sheets
+                    </div>
 
-          <div className="text-sm font-bold text-slate-800 mt-0.5">
-            {selectedSheetObjects.length}
-          </div>
-        </div>
+                    <div className="text-sm font-bold text-slate-800 mt-0.5">
+                      {selectedSheetObjects.length}
+                    </div>
+                  </div>
 
-        {/* RECORDS */}
-        <div className="px-3.5 py-2 rounded-xl bg-red-50 border border-red-100">
-          <div className="text-[10px] uppercase tracking-wider font-bold text-red-400">
-            Records
-          </div>
+                  {/* RECORDS */}
+                  <div className="px-3.5 py-2 rounded-xl bg-red-50 border border-red-100">
+                    <div className="text-[10px] uppercase tracking-wider font-bold text-red-400">
+                      Records
+                    </div>
 
-          <div
-            className="text-sm font-bold mt-0.5"
-            style={{
-              color: ACCENT,
-            }}
-          >
-            {historyStats.total.toLocaleString()}
-          </div>
-        </div>
-      </div>
-    </div>
+                    <div
+                      className="text-sm font-bold mt-0.5"
+                      style={{
+                        color: ACCENT,
+                      }}
+                    >
+                      {historyStats.total.toLocaleString()}
+                    </div>
+                  </div>
+                </div>
+              </div>
 
-    {/* =========================================================
+              {/* =========================================================
         STAT CARDS
     ========================================================= */}
 
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5">
-      <HistoryStat
-        label="Total Records"
-        value={historyStats.total}
-      />
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5">
+                <HistoryStat
+                  label="Total Records"
+                  value={historyStats.total}
+                />
 
-      <HistoryStat
-        label="Completed"
-        value={historyStats.completed}
-        type="success"
-      />
+                <HistoryStat
+                  label="Completed"
+                  value={historyStats.completed}
+                  type="success"
+                />
 
-      <HistoryStat
-        label="Pending"
-        value={historyStats.pending}
-        type="warning"
-      />
+                <HistoryStat
+                  label="Pending"
+                  value={historyStats.pending}
+                  type="warning"
+                />
 
-      <HistoryStat
-        label="In Progress"
-        value={historyStats.inProgress}
-        type="info"
-      />
-    </div>
-  </div>
+                <HistoryStat
+                  label="In Progress"
+                  value={historyStats.inProgress}
+                  type="info"
+                />
+              </div>
+            </div>
 
-  {/* =========================================================
+            {/* =========================================================
       FILTER BAR
   ========================================================= */}
 
-  <div className="px-5 sm:px-6 py-5 border-b border-slate-100 bg-slate-50/60">
-    <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_220px_auto] gap-3">
-      {/* SEARCH */}
-      <div className="relative">
-        <Search
-          size={18}
-          className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
-        />
+            <div className="px-5 sm:px-6 py-5 border-b border-slate-100 bg-slate-50/60">
+              <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_220px_auto] gap-3">
+                {/* SEARCH */}
+                <div className="relative">
+                  <Search
+                    size={18}
+                    className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+                  />
 
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(event) => {
-            setSearchQuery(event.target.value);
-            setCurrentPage(1);
-          }}
-          placeholder="Search business, name, phone, status, sheet, comment..."
-          className="w-full h-12 rounded-2xl border border-slate-200 bg-white pl-11 pr-10 text-sm text-slate-700 placeholder:text-slate-400 outline-none transition focus:border-red-300 focus:ring-4 focus:ring-red-50"
-        />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(event) => {
+                      setSearchQuery(event.target.value);
+                      setCurrentPage(1);
+                    }}
+                    placeholder="Search business, name, phone, status, sheet, comment..."
+                    className="w-full h-12 rounded-2xl border border-slate-200 bg-white pl-11 pr-10 text-sm text-slate-700 placeholder:text-slate-400 outline-none transition focus:border-red-300 focus:ring-4 focus:ring-red-50"
+                  />
 
-        {searchQuery && (
-          <button
-            type="button"
-            onClick={() => {
-              setSearchQuery("");
-              setCurrentPage(1);
-            }}
-            className="absolute right-3 top-1/2 -translate-y-1/2 h-7 w-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100"
-          >
-            <X size={15} />
-          </button>
-        )}
-      </div>
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchQuery("");
+                        setCurrentPage(1);
+                      }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 h-7 w-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+                    >
+                      <X size={15} />
+                    </button>
+                  )}
+                </div>
 
-      {/* STATUS FILTER */}
-      <div className="relative">
-        <Filter
-          size={16}
-          className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
-        />
+                {/* STATUS FILTER */}
+                <div className="relative">
+                  <Filter
+                    size={16}
+                    className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+                  />
 
-        <select
-          value={statusFilter}
-          onChange={(event) => {
-            setStatusFilter(event.target.value);
-            setCurrentPage(1);
-          }}
-          className="w-full h-12 rounded-2xl border border-slate-200 bg-white pl-10 pr-4 text-sm font-medium text-slate-700 outline-none appearance-none focus:border-red-300 focus:ring-4 focus:ring-red-50"
-        >
-          <option value="all">
-            All Statuses
-          </option>
+                  <select
+                    value={statusFilter}
+                    onChange={(event) => {
+                      setStatusFilter(event.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="w-full h-12 rounded-2xl border border-slate-200 bg-white pl-10 pr-4 text-sm font-medium text-slate-700 outline-none appearance-none focus:border-red-300 focus:ring-4 focus:ring-red-50"
+                  >
+                    <option value="all">
+                      All Statuses
+                    </option>
 
-          {availableStatuses.map((status) => (
-            <option
-              key={status}
-              value={status}
-            >
-              {status}
-            </option>
-          ))}
-        </select>
-      </div>
+                    {availableStatuses.map((status) => (
+                      <option
+                        key={status}
+                        value={status}
+                      >
+                        {status}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-      {/* CLEAR FILTERS */}
-      <button
-        type="button"
-        onClick={clearFilters}
-        disabled={
-          !searchQuery &&
-          statusFilter === "all"
-        }
-        className="h-12 px-5 rounded-2xl border border-slate-200 bg-white text-sm font-bold text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition"
-      >
-        Clear Filters
-      </button>
-    </div>
+                {/* CLEAR FILTERS */}
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  disabled={
+                    !searchQuery &&
+                    statusFilter === "all"
+                  }
+                  className="h-12 px-5 rounded-2xl border border-slate-200 bg-white text-sm font-bold text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                >
+                  Clear Filters
+                </button>
+              </div>
 
-    {/* ACTIVE FILTERS */}
-    {(searchQuery || statusFilter !== "all") && (
-      <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-        <span className="font-semibold text-slate-500">
-          Active filters:
-        </span>
+              {/* ACTIVE FILTERS */}
+              {(searchQuery || statusFilter !== "all") && (
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+                  <span className="font-semibold text-slate-500">
+                    Active filters:
+                  </span>
 
-        {searchQuery && (
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-slate-600">
-            Search:
-            <span className="font-bold text-slate-800">
-              “{searchQuery}”
-            </span>
-          </span>
-        )}
+                  {searchQuery && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-slate-600">
+                      Search:
+                      <span className="font-bold text-slate-800">
+                        “{searchQuery}”
+                      </span>
+                    </span>
+                  )}
 
-        {statusFilter !== "all" && (
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-slate-600">
-            Status:
-            <span className="font-bold text-slate-800">
-              {statusFilter}
-            </span>
-          </span>
-        )}
-      </div>
-    )}
+                  {statusFilter !== "all" && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-slate-600">
+                      Status:
+                      <span className="font-bold text-slate-800">
+                        {statusFilter}
+                      </span>
+                    </span>
+                  )}
+                </div>
+              )}
 
-    {/* =========================================================
+              {/* =========================================================
         SELECTED SHEETS
     ========================================================= */}
 
-    {selectedSheetObjects.length > 0 && (
-      <div className="mt-4">
-        <div className="text-[10px] uppercase tracking-wider font-bold text-slate-400 mb-2">
-          Selected Sheets
-        </div>
+              {selectedSheetObjects.length > 0 && (
+                <div className="mt-4">
+                  <div className="text-[10px] uppercase tracking-wider font-bold text-slate-400 mb-2">
+                    Selected Sheets
+                  </div>
 
-        <div className="flex flex-wrap gap-2">
-          {selectedSheetObjects.map((sheet) => (
-            <div
-              key={sheet.id}
-              className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-slate-200 shadow-sm"
-            >
-              <div
-                className="h-6 w-6 rounded-lg flex items-center justify-center"
-                style={{
-                  backgroundColor: "#fff1f1",
-                  color: ACCENT,
-                }}
-              >
-                <FileSpreadsheet size={13} />
-              </div>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedSheetObjects.map((sheet) => (
+                      <div
+                        key={sheet.id}
+                        className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-slate-200 shadow-sm"
+                      >
+                        <div
+                          className="h-6 w-6 rounded-lg flex items-center justify-center"
+                          style={{
+                            backgroundColor: "#fff1f1",
+                            color: ACCENT,
+                          }}
+                        >
+                          <FileSpreadsheet size={13} />
+                        </div>
 
-              <div className="min-w-0">
-                <div className="text-xs font-bold text-slate-700">
-                  {sheet.name}
+                        <div className="min-w-0">
+                          <div className="text-xs font-bold text-slate-700">
+                            {sheet.name}
+                          </div>
+
+                          <div className="text-[10px] text-slate-400">
+                            {(sheet.records || []).length.toLocaleString()} records
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-
-                <div className="text-[10px] text-slate-400">
-                  {(sheet.records || []).length.toLocaleString()} records
-                </div>
-              </div>
+              )}
             </div>
-          ))}
-        </div>
-      </div>
-    )}
-  </div>
 
-  {/* =========================================================
+            {/* =========================================================
       TABLE
   ========================================================= */}
 
 
 
-<div className="overflow-x-auto">
-  {selectedSheetObjects.length === 0 ? (
-    <div className="p-8 sm:p-14">
-      <EmptyState
-        icon={<Layers3 size={27} />}
-        title="No sheet selected"
-        description="Select one or more sheets above and their records will appear here automatically."
-      />
-    </div>
-  ) : filteredHistory.length === 0 ? (
-    <div className="p-8 sm:p-14">
-      <EmptyState
-        icon={<Search size={27} />}
-        title="No matching records"
-        description={
-          searchQuery || statusFilter !== "all"
-            ? "Try changing your search text or status filter."
-            : "The selected sheets do not contain any displayable records."
-        }
-        action={
-          searchQuery || statusFilter !== "all"
-            ? clearFilters
-            : undefined
-        }
-        actionLabel="Clear Filters"
-      />
-    </div>
-  ) : (
-    <table className="w-full min-w-[1200px] text-left">
-      <thead>
-        <tr className="border-b border-slate-200 bg-slate-50">
-          <th className="px-5 py-4 text-[10px] uppercase tracking-wider font-bold text-slate-500">
-            #
-          </th>
+            <div className="overflow-x-auto">
+              {selectedSheetObjects.length === 0 ? (
+                <div className="p-8 sm:p-14">
+                  <EmptyState
+                    icon={<Layers3 size={27} />}
+                    title="No sheet selected"
+                    description="Select one or more sheets above and their records will appear here automatically."
+                  />
+                </div>
+              ) : filteredHistory.length === 0 ? (
+                <div className="p-8 sm:p-14">
+                  <EmptyState
+                    icon={<Search size={27} />}
+                    title="No matching records"
+                    description={
+                      searchQuery || statusFilter !== "all"
+                        ? "Try changing your search text or status filter."
+                        : "The selected sheets do not contain any displayable records."
+                    }
+                    action={
+                      searchQuery || statusFilter !== "all"
+                        ? clearFilters
+                        : undefined
+                    }
+                    actionLabel="Clear Filters"
+                  />
+                </div>
+              ) : (
+                <table className="w-full min-w-[1200px] text-left">
+                  <thead>
+                    <tr className="border-b border-slate-200 bg-slate-50">
+                      <th className="px-5 py-4 text-[10px] uppercase tracking-wider font-bold text-slate-500">
+                        #
+                      </th>
 
-          <th className="px-5 py-4 text-[10px] uppercase tracking-wider font-bold text-slate-500">
-            Business
-          </th>
+                      <th className="px-5 py-4 text-[10px] uppercase tracking-wider font-bold text-slate-500">
+                        Business
+                      </th>
 
-          <th className="px-5 py-4 text-[10px] uppercase tracking-wider font-bold text-slate-500">
-            Contact
-          </th>
+                      <th className="px-5 py-4 text-[10px] uppercase tracking-wider font-bold text-slate-500">
+                        Contact
+                      </th>
 
-          <th className="px-5 py-4 text-[10px] uppercase tracking-wider font-bold text-slate-500">
-            Phone
-          </th>
+                      <th className="px-5 py-4 text-[10px] uppercase tracking-wider font-bold text-slate-500">
+                        Phone
+                      </th>
 
-          <th className="px-5 py-4 text-[10px] uppercase tracking-wider font-bold text-slate-500">
-            Task Date
-          </th>
+                      <th className="px-5 py-4 text-[10px] uppercase tracking-wider font-bold text-slate-500">
+                        Task Date
+                      </th>
 
-          <th className="px-5 py-4 text-[10px] uppercase tracking-wider font-bold text-slate-500">
-            Status
-          </th>
+                      <th className="px-5 py-4 text-[10px] uppercase tracking-wider font-bold text-slate-500">
+                        Status
+                      </th>
 
-          <th className="px-5 py-4 text-[10px] uppercase tracking-wider font-bold text-slate-500">
-            Source
-          </th>
+                      <th className="px-5 py-4 text-[10px] uppercase tracking-wider font-bold text-slate-500">
+                        Source
+                      </th>
 
-          <th className="px-5 py-4 text-[10px] uppercase tracking-wider font-bold text-slate-500">
-            Notes
-          </th>
-        </tr>
-      </thead>
+                      <th className="px-5 py-4 text-[10px] uppercase tracking-wider font-bold text-slate-500">
+                        Notes
+                      </th>
+                    </tr>
+                  </thead>
 
-      <tbody className="divide-y divide-slate-100">
-        {paginatedHistory.map((record, index) => {
-          const globalIndex =
-            (safeCurrentPage - 1) * PAGE_SIZE + index + 1;
+                  <tbody className="divide-y divide-slate-100">
+                    {paginatedHistory.map((record, index) => {
+                      const globalIndex =
+                        (safeCurrentPage - 1) * PAGE_SIZE + index + 1;
 
-          /* ==========================================================
-             CONTACT
-          ========================================================== */
+                      /* ==========================================================
+                         CONTACT
+                      ========================================================== */
 
-          const contactName =
-            safeString(record?.name) ||
-            safeString(record?.contactName) ||
-            safeString(record?.contact_name) ||
-            safeString(record?.customerName) ||
-            safeString(record?.customer_name) ||
-            "Unknown";
+                      const contactName =
+                        safeString(record?.name) ||
+                        safeString(record?.contactName) ||
+                        safeString(record?.contact_name) ||
+                        safeString(record?.customerName) ||
+                        safeString(record?.customer_name) ||
+                        "Unknown";
 
-          const initials =
-            contactName
-              .split(" ")
-              .filter(Boolean)
-              .slice(0, 2)
-              .map((part) =>
-                part.charAt(0).toUpperCase()
-              )
-              .join("") || "—";
+                      const initials =
+                        contactName
+                          .split(" ")
+                          .filter(Boolean)
+                          .slice(0, 2)
+                          .map((part) =>
+                            part.charAt(0).toUpperCase()
+                          )
+                          .join("") || "—";
 
-          /* ==========================================================
-             EXACT USER SAVED STATUS
-             
-             Priority:
-             1. selected_status
-             2. selectedStatus
-             3. assignment_status
-             4. status
-             5. result
-             6. task_status
-             7. call_status
-             8. disposition
-          ========================================================== */
+                      /* ==========================================================
+                         EXACT USER SAVED STATUS
+                         
+                         Priority:
+                         1. selected_status
+                         2. selectedStatus
+                         3. assignment_status
+                         4. status
+                         5. result
+                         6. task_status
+                         7. call_status
+                         8. disposition
+                      ========================================================== */
 
-          const displayStatus =
-            getActualStatus(record) || "Pending";
+                      const displayStatus =
+                        getActualStatus(record) || "Pending";
 
-          /* ==========================================================
-             PHONE
-          ========================================================== */
+                      /* ==========================================================
+                         PHONE
+                      ========================================================== */
 
-          const phoneValue =
-            safeString(record?.phoneNumber) ||
-            safeString(record?.phone_number) ||
-            safeString(record?.phone) ||
-            safeString(record?.mobile) ||
-            "";
+                      const phoneValue =
+                        safeString(record?.phoneNumber) ||
+                        safeString(record?.phone_number) ||
+                        safeString(record?.phone) ||
+                        safeString(record?.mobile) ||
+                        "";
 
-          /* ==========================================================
-             BUSINESS
-          ========================================================== */
+                      /* ==========================================================
+                         BUSINESS
+                      ========================================================== */
 
-          const businessName =
-            safeString(record?.businessName) ||
-            safeString(record?.business_name) ||
-            safeString(record?.companyName) ||
-            safeString(record?.company_name) ||
-            "—";
+                      const businessName =
+                        safeString(record?.businessName) ||
+                        safeString(record?.business_name) ||
+                        safeString(record?.companyName) ||
+                        safeString(record?.company_name) ||
+                        "—";
 
-          /* ==========================================================
-             TASK DATE
-          ========================================================== */
+                      /* ==========================================================
+                         TASK DATE
+                      ========================================================== */
 
-          const taskDate =
-            record?.assignment_date ||
-            record?.taskDate ||
-            record?.task_date ||
-            record?.date ||
-            record?.created_at ||
-            "";
+                      const taskDate =
+                        record?.assignment_date ||
+                        record?.taskDate ||
+                        record?.task_date ||
+                        record?.date ||
+                        record?.created_at ||
+                        "";
 
-          /* ==========================================================
-             USER SAVED COMMENT
-          ========================================================== */
+                      /* ==========================================================
+                         USER SAVED COMMENT
+                      ========================================================== */
 
-          const notes =
-            safeString(record?.comment) ||
-            safeString(record?.comments) ||
-            safeString(record?.assignment_comment) ||
-            safeString(record?.task_comment) ||
-            safeString(record?.notes) ||
-            safeString(record?.remarks) ||
-            safeString(record?.description) ||
-            "";
+                      const notes =
+                        safeString(record?.comment) ||
+                        safeString(record?.comments) ||
+                        safeString(record?.assignment_comment) ||
+                        safeString(record?.task_comment) ||
+                        safeString(record?.notes) ||
+                        safeString(record?.remarks) ||
+                        safeString(record?.description) ||
+                        "";
 
-          /* ==========================================================
-             SOURCE
-          ========================================================== */
+                      /* ==========================================================
+                         SOURCE
+                      ========================================================== */
 
-          const sourceSheet =
-            safeString(record?.sourceSheet) ||
-            safeString(record?.source_sheet) ||
-            safeString(record?.sheetName) ||
-            safeString(record?.sheet_name) ||
-            "—";
+                      const sourceSheet =
+                        safeString(record?.sourceSheet) ||
+                        safeString(record?.source_sheet) ||
+                        safeString(record?.sheetName) ||
+                        safeString(record?.sheet_name) ||
+                        "—";
 
-          const sourceFile =
-            safeString(record?.sourceFile) ||
-            safeString(record?.source_file) ||
-            safeString(record?.fileName) ||
-            safeString(record?.file_name) ||
-            "";
+                      const sourceFile =
+                        safeString(record?.sourceFile) ||
+                        safeString(record?.source_file) ||
+                        safeString(record?.fileName) ||
+                        safeString(record?.file_name) ||
+                        "";
 
-          /* ==========================================================
-             TASK ID
-          ========================================================== */
+                      /* ==========================================================
+                         TASK ID
+                      ========================================================== */
 
-          const taskId =
-            record?.taskId ??
-            record?.task_id ??
-            record?.master_task_id ??
-            record?.id ??
-            globalIndex;
+                      const taskId =
+                        record?.taskId ??
+                        record?.task_id ??
+                        record?.master_task_id ??
+                        record?.id ??
+                        globalIndex;
 
-          /* ==========================================================
-             UNIQUE ROW KEY
-          ========================================================== */
+                      /* ==========================================================
+                         UNIQUE ROW KEY
+                      ========================================================== */
 
-          const rowKey = [
-            record?.sourceSheetId ??
-              record?.source_sheet_id ??
-              "sheet",
+                      const rowKey = [
+                        record?.sourceSheetId ??
+                        record?.source_sheet_id ??
+                        "sheet",
 
-            record?.assignment_id ??
-              record?.daily_assignment_id ??
-              taskId,
+                        record?.assignment_id ??
+                        record?.daily_assignment_id ??
+                        taskId,
 
-            phoneValue || "phone",
+                        phoneValue || "phone",
 
-            taskId,
-          ].join("-");
+                        taskId,
+                      ].join("-");
 
-          return (
-            <tr
-              key={rowKey}
-              className="hover:bg-slate-50/80 transition-colors"
-            >
-              {/* ======================================================
+                      return (
+                        <tr
+                          key={rowKey}
+                          className="hover:bg-slate-50/80 transition-colors"
+                        >
+                          {/* ======================================================
                   #
               ======================================================= */}
 
-              <td className="px-5 py-4">
-                <span className="text-xs font-bold text-slate-400">
-                  {globalIndex}
-                </span>
-              </td>
+                          <td className="px-5 py-4">
+                            <span className="text-xs font-bold text-slate-400">
+                              {globalIndex}
+                            </span>
+                          </td>
 
-              {/* ======================================================
+                          {/* ======================================================
                   BUSINESS
               ======================================================= */}
 
-              <td className="px-5 py-4">
-                <div className="max-w-[240px]">
-                  <div
-                    className="text-sm font-bold text-slate-800 truncate"
-                    title={businessName}
-                  >
-                    {businessName}
-                  </div>
+                          <td className="px-5 py-4">
+                            <div className="max-w-[240px]">
+                              <div
+                                className="text-sm font-bold text-slate-800 truncate"
+                                title={businessName}
+                              >
+                                {businessName}
+                              </div>
 
-                  {sourceFile && (
-                    <div
-                      className="text-[11px] text-slate-400 mt-1 truncate"
-                      title={sourceFile}
-                    >
-                      {sourceFile}
-                    </div>
-                  )}
-                </div>
-              </td>
+                              {sourceFile && (
+                                <div
+                                  className="text-[11px] text-slate-400 mt-1 truncate"
+                                  title={sourceFile}
+                                >
+                                  {sourceFile}
+                                </div>
+                              )}
+                            </div>
+                          </td>
 
-              {/* ======================================================
+                          {/* ======================================================
                   CONTACT
               ======================================================= */}
 
-              <td className="px-5 py-4">
-                <div className="flex items-center gap-2.5">
-                  <div
-                    className="h-9 w-9 rounded-xl flex items-center justify-center text-xs font-bold shrink-0"
-                    style={{
-                      backgroundColor: "#fff1f1",
-                      color: ACCENT,
-                    }}
-                  >
-                    {initials}
-                  </div>
+                          <td className="px-5 py-4">
+                            <div className="flex items-center gap-2.5">
+                              <div
+                                className="h-9 w-9 rounded-xl flex items-center justify-center text-xs font-bold shrink-0"
+                                style={{
+                                  backgroundColor: "#fff1f1",
+                                  color: ACCENT,
+                                }}
+                              >
+                                {initials}
+                              </div>
 
-                  <div
-                    className="text-sm font-semibold text-slate-700 max-w-[180px] truncate"
-                    title={contactName}
-                  >
-                    {contactName}
-                  </div>
-                </div>
-              </td>
+                              <div
+                                className="text-sm font-semibold text-slate-700 max-w-[180px] truncate"
+                                title={contactName}
+                              >
+                                {contactName}
+                              </div>
+                            </div>
+                          </td>
 
-              {/* ======================================================
+                          {/* ======================================================
                   PHONE
               ======================================================= */}
 
-              <td className="px-5 py-4">
-                <div className="flex items-center gap-2">
-                  <div className="h-8 w-8 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
-                    <Phone
-                      size={14}
-                      className="text-slate-500"
-                    />
-                  </div>
+                          <td className="px-5 py-4">
+                            <div className="flex items-center gap-2">
+                              <div className="h-8 w-8 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
+                                <Phone
+                                  size={14}
+                                  className="text-slate-500"
+                                />
+                              </div>
 
-                  <span className="text-sm font-semibold text-slate-700 whitespace-nowrap">
-                    {formatPhone(phoneValue)}
-                  </span>
-                </div>
-              </td>
+                              <span className="text-sm font-semibold text-slate-700 whitespace-nowrap">
+                                {formatPhone(phoneValue)}
+                              </span>
+                            </div>
+                          </td>
 
-              {/* ======================================================
+                          {/* ======================================================
                   TASK DATE
               ======================================================= */}
 
-              <td className="px-5 py-4">
-                <div className="flex items-center gap-2">
-                  <Calendar
-                    size={14}
-                    className="text-slate-400"
-                  />
+                          <td className="px-5 py-4">
+                            <div className="flex items-center gap-2">
+                              <Calendar
+                                size={14}
+                                className="text-slate-400"
+                              />
 
-                  <span className="text-sm font-medium text-slate-700 whitespace-nowrap">
-                    {formatDate(taskDate)}
-                  </span>
-                </div>
-              </td>
+                              <span className="text-sm font-medium text-slate-700 whitespace-nowrap">
+                                {formatDate(taskDate)}
+                              </span>
+                            </div>
+                          </td>
 
-              {/* ======================================================
+                          {/* ======================================================
                   EXACT USER SAVED STATUS
               ======================================================= */}
 
-              <td className="px-5 py-4">
-                <span
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border text-[11px] font-bold whitespace-nowrap ${statusClasses(
-                    displayStatus
-                  )}`}
-                >
-                  <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                          <td className="px-5 py-4">
+                            <span
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border text-[11px] font-bold whitespace-nowrap ${statusClasses(
+                                displayStatus
+                              )}`}
+                            >
+                              <span className="h-1.5 w-1.5 rounded-full bg-current" />
 
-                  {displayStatus}
-                </span>
-              </td>
+                              {displayStatus}
+                            </span>
+                          </td>
 
-              {/* ======================================================
+                          {/* ======================================================
                   SOURCE
               ======================================================= */}
 
-              <td className="px-5 py-4">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-100 border border-slate-200 text-xs font-bold text-slate-600 whitespace-nowrap">
-                  <Layers3 size={13} />
+                          <td className="px-5 py-4">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-100 border border-slate-200 text-xs font-bold text-slate-600 whitespace-nowrap">
+                              <Layers3 size={13} />
 
-                  {sourceSheet}
-                </span>
-              </td>
+                              {sourceSheet}
+                            </span>
+                          </td>
 
-              {/* ======================================================
+                          {/* ======================================================
                   EXACT USER SAVED COMMENT
               ======================================================= */}
 
-              <td className="px-5 py-4">
-                <div
-                  className="max-w-[280px] truncate text-sm text-slate-500"
-                  title={notes || ""}
-                >
-                  {notes || "—"}
-                </div>
-              </td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
-  )}
-</div>
+                          <td className="px-5 py-4">
+                            <div
+                              className="max-w-[280px] truncate text-sm text-slate-500"
+                              title={notes || ""}
+                            >
+                              {notes || "—"}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
 
 
 
 
 
-  {/* =========================================================
+            {/* =========================================================
       PAGINATION
   ========================================================= */}
 
-  {filteredHistory.length > 0 && (
-    <div className="px-5 sm:px-6 py-4 border-t border-slate-100 bg-white flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-      <div className="text-xs text-slate-500">
-        Showing{" "}
-        <span className="font-bold text-slate-700">
-          {(safeCurrentPage - 1) *
-              PAGE_SIZE +
-            1}
-        </span>{" "}
-        to{" "}
-        <span className="font-bold text-slate-700">
-          {Math.min(
-            safeCurrentPage * PAGE_SIZE,
-            filteredHistory.length
-          )}
-        </span>{" "}
-        of{" "}
-        <span className="font-bold text-slate-700">
-          {filteredHistory.length}
-        </span>{" "}
-        records
-      </div>
+            {filteredHistory.length > 0 && (
+              <div className="px-5 sm:px-6 py-4 border-t border-slate-100 bg-white flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="text-xs text-slate-500">
+                  Showing{" "}
+                  <span className="font-bold text-slate-700">
+                    {(safeCurrentPage - 1) *
+                      PAGE_SIZE +
+                      1}
+                  </span>{" "}
+                  to{" "}
+                  <span className="font-bold text-slate-700">
+                    {Math.min(
+                      safeCurrentPage * PAGE_SIZE,
+                      filteredHistory.length
+                    )}
+                  </span>{" "}
+                  of{" "}
+                  <span className="font-bold text-slate-700">
+                    {filteredHistory.length}
+                  </span>{" "}
+                  records
+                </div>
 
-      <div className="flex items-center gap-2">
-        {/* PREVIOUS */}
-        <button
-          type="button"
-          onClick={() =>
-            setCurrentPage((page) =>
-              Math.max(1, page - 1)
-            )
-          }
-          disabled={safeCurrentPage <= 1}
-          className="h-9 w-9 rounded-xl border border-slate-200 bg-white flex items-center justify-center text-slate-500 hover:bg-slate-50 hover:border-slate-300 disabled:opacity-40 disabled:cursor-not-allowed transition"
-        >
-          <ChevronLeft size={17} />
-        </button>
+                <div className="flex items-center gap-2">
+                  {/* PREVIOUS */}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCurrentPage((page) =>
+                        Math.max(1, page - 1)
+                      )
+                    }
+                    disabled={safeCurrentPage <= 1}
+                    className="h-9 w-9 rounded-xl border border-slate-200 bg-white flex items-center justify-center text-slate-500 hover:bg-slate-50 hover:border-slate-300 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                  >
+                    <ChevronLeft size={17} />
+                  </button>
 
-        {/* PAGE */}
-        <div className="min-w-[110px] h-9 px-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center text-xs font-bold text-slate-600">
-          Page {safeCurrentPage} of{" "}
-          {totalPages}
-        </div>
+                  {/* PAGE */}
+                  <div className="min-w-[110px] h-9 px-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center text-xs font-bold text-slate-600">
+                    Page {safeCurrentPage} of{" "}
+                    {totalPages}
+                  </div>
 
-        {/* NEXT */}
-        <button
-          type="button"
-          onClick={() =>
-            setCurrentPage((page) =>
-              Math.min(
-                totalPages,
-                page + 1
-              )
-            )
-          }
-          disabled={
-            safeCurrentPage >= totalPages
-          }
-          className="h-9 w-9 rounded-xl border border-slate-200 bg-white flex items-center justify-center text-slate-500 hover:bg-slate-50 hover:border-slate-300 disabled:opacity-40 disabled:cursor-not-allowed transition"
-        >
-          <ChevronRight size={17} />
-        </button>
-      </div>
-    </div>
-  )}
-</section>
+                  {/* NEXT */}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCurrentPage((page) =>
+                        Math.min(
+                          totalPages,
+                          page + 1
+                        )
+                      )
+                    }
+                    disabled={
+                      safeCurrentPage >= totalPages
+                    }
+                    className="h-9 w-9 rounded-xl border border-slate-200 bg-white flex items-center justify-center text-slate-500 hover:bg-slate-50 hover:border-slate-300 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                  >
+                    <ChevronRight size={17} />
+                  </button>
+                </div>
+              </div>
+            )}
+          </section>
 
         </main>
       </div>
@@ -4469,7 +4626,7 @@ export default function DailyDeskPage() {
               style={{
                 backgroundColor:
                   assignmentModal.type ===
-                  "error"
+                    "error"
                     ? "#dc2626"
                     : "#10b981",
               }}
@@ -4492,15 +4649,14 @@ export default function DailyDeskPage() {
               {/* ICON */}
 
               <div
-                className={`mx-auto h-[76px] w-[76px] rounded-[24px] flex items-center justify-center ${
-                  assignmentModal.type ===
+                className={`mx-auto h-[76px] w-[76px] rounded-[24px] flex items-center justify-center ${assignmentModal.type ===
                   "error"
-                    ? "bg-red-50 text-red-600"
-                    : "bg-emerald-50 text-emerald-600"
-                }`}
+                  ? "bg-red-50 text-red-600"
+                  : "bg-emerald-50 text-emerald-600"
+                  }`}
               >
                 {assignmentModal.type ===
-                "error" ? (
+                  "error" ? (
                   <XCircle
                     size={38}
                     strokeWidth={2}
@@ -4536,61 +4692,61 @@ export default function DailyDeskPage() {
 
               {assignmentModal.type ===
                 "success" && (
-                <div className="mt-5 rounded-2xl border border-emerald-100 bg-emerald-50/70 px-4 py-3">
-                  <div className="flex items-start gap-3">
-                    <div className="mt-0.5 h-7 w-7 rounded-lg bg-white flex items-center justify-center text-emerald-600 shrink-0 shadow-sm">
-                      <Check
-                        size={15}
-                        strokeWidth={
-                          3
-                        }
-                      />
-                    </div>
-
-                    <div className="text-left">
-                      <div className="text-xs font-bold text-emerald-800">
-                        Assignment
-                        completed
+                  <div className="mt-5 rounded-2xl border border-emerald-100 bg-emerald-50/70 px-4 py-3">
+                    <div className="flex items-start gap-3">
+                      <div className="mt-0.5 h-7 w-7 rounded-lg bg-white flex items-center justify-center text-emerald-600 shrink-0 shadow-sm">
+                        <Check
+                          size={15}
+                          strokeWidth={
+                            3
+                          }
+                        />
                       </div>
 
-                      <div className="text-[11px] text-emerald-700 mt-0.5">
-                        The selected records
-                        have been sent to the
-                        selected staff members.
+                      <div className="text-left">
+                        <div className="text-xs font-bold text-emerald-800">
+                          Assignment
+                          completed
+                        </div>
+
+                        <div className="text-[11px] text-emerald-700 mt-0.5">
+                          The selected records
+                          have been sent to the
+                          selected staff members.
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
 
               {/* ERROR DETAILS */}
 
               {assignmentModal.type ===
                 "error" && (
-                <div className="mt-5 rounded-2xl border border-red-100 bg-red-50/70 px-4 py-3">
-                  <div className="flex items-start gap-3">
-                    <div className="mt-0.5 h-7 w-7 rounded-lg bg-white flex items-center justify-center text-red-600 shrink-0 shadow-sm">
-                      <AlertCircle
-                        size={16}
-                      />
-                    </div>
-
-                    <div className="text-left">
-                      <div className="text-xs font-bold text-red-800">
-                        Please review
-                        the error
+                  <div className="mt-5 rounded-2xl border border-red-100 bg-red-50/70 px-4 py-3">
+                    <div className="flex items-start gap-3">
+                      <div className="mt-0.5 h-7 w-7 rounded-lg bg-white flex items-center justify-center text-red-600 shrink-0 shadow-sm">
+                        <AlertCircle
+                          size={16}
+                        />
                       </div>
 
-                      <div className="text-[11px] text-red-700 mt-0.5 leading-5 break-words">
-                        The task assignment
-                        could not be completed.
-                        You can close this
-                        message and try again.
+                      <div className="text-left">
+                        <div className="text-xs font-bold text-red-800">
+                          Please review
+                          the error
+                        </div>
+
+                        <div className="text-[11px] text-red-700 mt-0.5 leading-5 break-words">
+                          The task assignment
+                          could not be completed.
+                          You can close this
+                          message and try again.
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
 
               {/* BUTTON */}
 
@@ -4599,15 +4755,14 @@ export default function DailyDeskPage() {
                 onClick={
                   closeAssignmentModal
                 }
-                className={`w-full mt-6 h-12 rounded-2xl text-sm font-bold text-white shadow-sm transition ${
-                  assignmentModal.type ===
+                className={`w-full mt-6 h-12 rounded-2xl text-sm font-bold text-white shadow-sm transition ${assignmentModal.type ===
                   "error"
-                    ? "bg-red-600 hover:bg-red-700"
-                    : "bg-emerald-600 hover:bg-emerald-700"
-                }`}
+                  ? "bg-red-600 hover:bg-red-700"
+                  : "bg-emerald-600 hover:bg-emerald-700"
+                  }`}
               >
                 {assignmentModal.type ===
-                "error"
+                  "error"
                   ? "Close"
                   : "Done"}
               </button>
@@ -4619,6 +4774,382 @@ export default function DailyDeskPage() {
       {/* =====================================================
           LOGOUT
       ===================================================== */}
+
+
+
+
+
+
+      {showTaskHistory && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 p-3 sm:p-6 backdrop-blur-sm"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setShowTaskHistory(false);
+            }
+          }}
+        >
+          <section className="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
+
+            {/* Header */}
+            <div className="flex items-center justify-between gap-4 border-b border-slate-100 px-5 py-5 sm:px-7">
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-red-50 text-red-600">
+                  <History size={23} />
+                </div>
+
+                <div>
+                  <h2 className="text-xl font-bold text-slate-900">
+                    Task Pool History
+                  </h2>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Search, review and manage saved task pools.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowTaskHistory(false)}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-100"
+                aria-label="Close history"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Search and Filters */}
+            <div className="border-b border-slate-100 bg-slate-50/70 p-4 sm:p-6">
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+
+                  if (
+                    historyStartDate &&
+                    historyEndDate &&
+                    historyStartDate > historyEndDate
+                  ) {
+                    toast.error(
+                      "Start date cannot be after end date."
+                    );
+                    return;
+                  }
+
+                  loadTaskHistory();
+                }}
+                className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
+              >
+                <div className="sm:col-span-2">
+                  <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-500">
+                    Search by title or ID
+                  </label>
+
+                  <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3">
+                    <Search size={18} className="shrink-0 text-slate-400" />
+
+                    <input
+                      type="text"
+                      value={historySearch}
+                      onChange={(event) =>
+                        setHistorySearch(event.target.value)
+                      }
+                      placeholder="Enter task title or ID..."
+                      className="w-full bg-transparent py-3 text-sm outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-500">
+                    From Date
+                  </label>
+
+                  <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3">
+                    <CalendarDays size={17} className="text-slate-400" />
+
+                    <input
+                      type="date"
+                      value={historyStartDate}
+                      onChange={(event) =>
+                        setHistoryStartDate(event.target.value)
+                      }
+                      className="w-full min-w-0 bg-transparent py-3 text-sm outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-500">
+                    To Date
+                  </label>
+
+                  <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3">
+                    <CalendarDays size={17} className="text-slate-400" />
+
+                    <input
+                      type="date"
+                      value={historyEndDate}
+                      onChange={(event) =>
+                        setHistoryEndDate(event.target.value)
+                      }
+                      className="w-full min-w-0 bg-transparent py-3 text-sm outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-500">
+                    Status
+                  </label>
+
+                  <select
+                    value={historyStatus}
+                    onChange={(event) =>
+                      setHistoryStatus(event.target.value)
+                    }
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none focus:border-red-400"
+                  >
+                    <option value="">All statuses</option>
+                    <option value="ACTIVE">Active</option>
+                    <option value="COMPLETED">Completed</option>
+                    <option value="ARCHIVED">Archived</option>
+                  </select>
+                </div>
+
+                <div className="flex flex-wrap items-end gap-2 sm:col-span-2 lg:col-span-3">
+                  <button
+                    type="submit"
+                    disabled={historyLoading}
+                    className="flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+                  >
+                    <Search size={16} />
+                    Search History
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setHistorySearch("");
+                      setHistoryStartDate("");
+                      setHistoryEndDate("");
+                      setHistoryStatus("");
+
+                      // Fetch all task pools without filters.
+                      setHistoryLoading(true);
+
+                      fetch("/api/admin/create-task-pools")
+                        .then(async (response) => {
+                          const data = await response.json();
+
+                          if (!response.ok || !data.success) {
+                            throw new Error(
+                              data.message || "Could not reset filters."
+                            );
+                          }
+
+                          setTaskPools(data.taskPools || []);
+                        })
+                        .catch((error) => {
+                          toast.error(error.message || "Could not reset filters.");
+                        })
+                        .finally(() => {
+                          setHistoryLoading(false);
+                        });
+                    }}
+                    className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-600 hover:bg-slate-100"
+                  >
+                    <RotateCcw size={15} />
+                    Clear Filters
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={loadTaskHistory}
+                    disabled={historyLoading}
+                    className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-600 hover:bg-slate-100 disabled:opacity-50"
+                  >
+                    <RefreshCw
+                      size={15}
+                      className={historyLoading ? "animate-spin" : ""}
+                    />
+                    Refresh
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            {/* Feedback */}
+            {/* {(historyError || historyMessage) && (
+              <div className="px-5 pt-4 sm:px-6">
+                {historyError && (
+                  <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {historyError}
+                  </div>
+                )}
+
+                {historyMessage && (
+                  <div className="mt-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                    {historyMessage}
+                  </div>
+                )}
+              </div>
+            )} */}
+
+            {/* Task List */}
+            <div className="min-h-0 flex-1 overflow-auto p-4 sm:p-6">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <p className="text-sm text-slate-500">
+                  Records loaded
+                </p>
+
+                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">
+                  {taskPools.length} tasks
+                </span>
+              </div>
+
+              {historyLoading ? (
+                <div className="flex min-h-48 items-center justify-center gap-3 text-sm text-slate-500">
+                  <Loader2 size={22} className="animate-spin" />
+                  Loading task history...
+                </div>
+              ) : taskPools.length === 0 ? (
+                <div className="flex min-h-48 flex-col items-center justify-center text-center">
+                  <History size={35} className="text-slate-300" />
+
+                  <h3 className="mt-4 font-bold text-slate-800">
+                    No task pools found
+                  </h3>
+
+                  <p className="mt-1 text-sm text-slate-500">
+                    Try changing the search, dates or status.
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-hidden rounded-2xl border border-slate-200">
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[850px] text-left text-sm">
+                      <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                        <tr>
+                          <th className="px-5 py-4">Task Pool</th>
+                          <th className="px-5 py-4">Records</th>
+                          <th className="px-5 py-4">Created Date</th>
+                          <th className="px-5 py-4">Status</th>
+                          <th className="px-5 py-4 text-right">Action</th>
+                        </tr>
+                      </thead>
+
+                      <tbody className="divide-y divide-slate-100">
+                        {taskPools.map((task) => {
+                          const isActive = task.status === "ACTIVE";
+                          const isCompleted =
+                            task.status === "COMPLETED";
+
+                          return (
+                            <tr
+                              key={task.id}
+                              className="transition hover:bg-slate-50/80"
+                            >
+                              <td className="px-5 py-4">
+                                <p className="font-bold text-slate-800">
+                                  {task.title || "Untitled task"}
+                                </p>
+
+                                <p className="mt-1 text-xs text-slate-400">
+                                  ID: #{task.id}
+                                </p>
+                              </td>
+
+                              <td className="px-5 py-4 font-semibold text-slate-700">
+                                {Number(task.total_records || 0).toLocaleString()}
+                              </td>
+
+                              <td className="px-5 py-4 text-slate-500">
+                                {task.created_at
+                                  ? new Date(task.created_at).toLocaleString()
+                                  : "—"}
+                              </td>
+
+                              <td className="px-5 py-4">
+                                <span
+                                  className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${isActive
+                                      ? "bg-emerald-50 text-emerald-700"
+                                      : isCompleted
+                                        ? "bg-blue-50 text-blue-700"
+                                        : "bg-amber-50 text-amber-700"
+                                    }`}
+                                >
+                                  {task.status}
+                                </span>
+                              </td>
+
+                              <td className="px-5 py-4 text-right">
+                                {task.status === "COMPLETED" ? (
+                                  <span className="text-xs text-slate-400">
+                                    Completed
+                                  </span>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      updateTaskPoolStatus(task)
+                                    }
+                                    disabled={
+                                      updatingTaskId === task.id
+                                    }
+                                    className={`inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-bold transition disabled:opacity-50 ${isActive
+                                        ? "bg-amber-50 text-amber-700 hover:bg-amber-100"
+                                        : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                                      }`}
+                                  >
+                                    {updatingTaskId === task.id ? (
+                                      <Loader2
+                                        size={14}
+                                        className="animate-spin"
+                                      />
+                                    ) : isActive ? (
+                                      <Archive size={14} />
+                                    ) : (
+                                      <CheckCircle2 size={14} />
+                                    )}
+
+                                    {updatingTaskId === task.id
+                                      ? "Saving..."
+                                      : isActive
+                                        ? "Archive"
+                                        : "Activate"}
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 bg-slate-50 px-5 py-4 sm:px-6">
+              <p className="text-xs text-slate-500">
+                Maximum 500 records per query.
+              </p>
+
+              <button
+                type="button"
+                onClick={() => setShowTaskHistory(false)}
+                className="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-slate-800"
+              >
+                Close History
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+
+
 
       {showLogoutModal && (
         <LogoutModal
@@ -4714,26 +5245,24 @@ function SheetMetric({
 }) {
   return (
     <div
-      className={`rounded-xl px-3 py-2 border ${
-        success
-          ? "bg-emerald-50 border-emerald-100"
-          : danger
+      className={`rounded-xl px-3 py-2 border ${success
+        ? "bg-emerald-50 border-emerald-100"
+        : danger
           ? "bg-red-50 border-red-100"
           : "bg-slate-50 border-slate-100"
-      }`}
+        }`}
     >
       <div className="text-[10px] uppercase tracking-wide font-bold text-slate-400">
         {label}
       </div>
 
       <div
-        className={`text-sm font-bold mt-0.5 ${
-          success
-            ? "text-emerald-700"
-            : danger
+        className={`text-sm font-bold mt-0.5 ${success
+          ? "text-emerald-700"
+          : danger
             ? "text-red-700"
             : "text-slate-700"
-        }`}
+          }`}
       >
         {Number(
           value || 0

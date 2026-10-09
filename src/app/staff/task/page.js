@@ -231,7 +231,7 @@ function getSearchableDate(value) {
           year: "numeric",
         }).format(localDate)
       );
-    } catch {}
+    } catch { }
 
     return values
       .filter(Boolean)
@@ -290,7 +290,7 @@ function getSearchableDate(value) {
           year: "numeric",
         }).format(date)
       );
-    } catch {}
+    } catch { }
   }
 
   return values
@@ -817,61 +817,61 @@ export default function StaffDashboardPage() {
         if (!res.ok) {
           throw new Error(
             data?.message ||
-              data?.error ||
-              "Failed to load daily tasks."
+            data?.error ||
+            "Failed to load daily tasks."
           );
         }
 
-       const incomingTasks =
-  Array.isArray(data?.tasks)
-    ? data.tasks
-    : [];
+        const incomingTasks =
+          Array.isArray(data?.tasks)
+            ? data.tasks
+            : [];
 
-const normalizePhone = (value) => {
-  const digits = String(value ?? "").replace(/\D/g, "");
+        const normalizePhone = (value) => {
+          const digits = String(value ?? "").replace(/\D/g, "");
 
-  // US country code 1 remove
-  if (digits.length === 11 && digits.startsWith("1")) {
-    return digits.slice(1);
-  }
+          // US country code 1 remove
+          if (digits.length === 11 && digits.startsWith("1")) {
+            return digits.slice(1);
+          }
 
-  return digits;
-};
+          return digits;
+        };
 
-const uniqueTasks = [];
-const seenPhones = new Set();
+        const uniqueTasks = [];
+        const seenPhones = new Set();
 
-for (const task of incomingTasks) {
-  // Completed tasks skip
-  if (isTaskCompleted(task)) continue;
+        for (const task of incomingTasks) {
+          // Completed tasks skip
+          if (isTaskCompleted(task)) continue;
 
-  const phone = normalizePhone(
-    task?.phone_number ??
-      task?.phone ??
-      task?.number ??
-      task?.phoneNumber ??
-      ""
-  );
+          const phone = normalizePhone(
+            task?.phone_number ??
+            task?.phone ??
+            task?.number ??
+            task?.phoneNumber ??
+            ""
+          );
 
-  // Agar phone nahi hai to row show karo
-  if (!phone) {
-    uniqueTasks.push(task);
-    continue;
-  }
+          // Agar phone nahi hai to row show karo
+          if (!phone) {
+            uniqueTasks.push(task);
+            continue;
+          }
 
-  // Same phone already aa chuka hai
-  if (seenPhones.has(phone)) {
-    continue;
-  }
+          // Same phone already aa chuka hai
+          if (seenPhones.has(phone)) {
+            continue;
+          }
 
-  seenPhones.add(phone);
-  uniqueTasks.push(task);
-}
+          seenPhones.add(phone);
+          uniqueTasks.push(task);
+        }
 
-// Maximum 500 UNIQUE phone numbers
-const activeTasks = uniqueTasks.slice(0, DAILY_TASK_LIMIT);
+        // Maximum 500 UNIQUE phone numbers
+        const activeTasks = uniqueTasks.slice(0, DAILY_TASK_LIMIT);
 
-setTasks(activeTasks);
+        setTasks(activeTasks);
 
         /* =================================================
            COUNTERS
@@ -943,7 +943,7 @@ setTasks(activeTasks);
               Math.max(
                 0,
                 DAILY_TASK_LIMIT -
-                  activeTasks.length
+                activeTasks.length
               )
             );
           }
@@ -951,8 +951,8 @@ setTasks(activeTasks);
 
         setApiDate(
           data?.california_date ||
-            data?.date ||
-            getCaliforniaDate()
+          data?.date ||
+          getCaliforniaDate()
         );
 
         setPage(1);
@@ -964,12 +964,12 @@ setTasks(activeTasks);
 
         setError(
           err?.message ||
-            "Something went wrong while loading Daily Desk."
+          "Something went wrong while loading Daily Desk."
         );
 
         toast.error(
           err?.message ||
-            "Failed to load daily tasks."
+          "Failed to load daily tasks."
         );
       } finally {
         setLoading(false);
@@ -1006,8 +1006,8 @@ setTasks(activeTasks);
         if (!res.ok) {
           throw new Error(
             data?.message ||
-              data?.error ||
-              "Failed to load statuses."
+            data?.error ||
+            "Failed to load statuses."
           );
         }
 
@@ -1015,10 +1015,10 @@ setTasks(activeTasks);
           Array.isArray(data?.data)
             ? data.data
             : Array.isArray(
-                data?.statuses
-              )
-            ? data.statuses
-            : [];
+              data?.statuses
+            )
+              ? data.statuses
+              : [];
 
         const normalized =
           dbStatuses
@@ -1048,7 +1048,7 @@ setTasks(activeTasks);
               status_name:
                 String(
                   item?.status_name ||
-                    ""
+                  ""
                 ).trim(),
             }))
             .filter(
@@ -1080,7 +1080,7 @@ setTasks(activeTasks);
 
         toast.error(
           err?.message ||
-            "Failed to load statuses."
+          "Failed to load statuses."
         );
 
         setStatus([]);
@@ -1247,7 +1247,7 @@ setTasks(activeTasks);
             fromDate &&
             (!taskDate ||
               taskDate <
-                fromDate)
+              fromDate)
           ) {
             return false;
           }
@@ -1256,7 +1256,7 @@ setTasks(activeTasks);
             toDate &&
             (!taskDate ||
               taskDate >
-                toDate)
+              toDate)
           ) {
             return false;
           }
@@ -1296,7 +1296,7 @@ setTasks(activeTasks);
       1,
       Math.ceil(
         filteredTasks.length /
-          PAGE_SIZE
+        PAGE_SIZE
       )
     );
 
@@ -1495,10 +1495,13 @@ setTasks(activeTasks);
         return;
       }
 
-      if (!commentValue) {
-        toast.error(
-          "Please add a comment."
-        );
+      // Comment sirf DNS ya Followup status par required hai
+      const commentRequired = ["dnc", "follow up"].includes(
+        statusValue.toLowerCase()
+      );
+
+      if (commentRequired && !commentValue) {
+        toast.error("Please add a comment for DNC or Follow Up status.");
         return;
       }
 
@@ -1530,8 +1533,8 @@ setTasks(activeTasks);
         if (!response.ok) {
           throw new Error(
             result?.error ||
-              result?.message ||
-              "Failed to update task."
+            result?.message ||
+            "Failed to update task."
           );
         }
 
@@ -1577,7 +1580,7 @@ setTasks(activeTasks);
 
         if (
           result?.completed_today !==
-            undefined &&
+          undefined &&
           Number.isFinite(
             Number(
               result.completed_today
@@ -1593,7 +1596,7 @@ setTasks(activeTasks);
 
         if (
           result?.remaining !==
-            undefined &&
+          undefined &&
           Number.isFinite(
             Number(
               result.remaining
@@ -1612,7 +1615,7 @@ setTasks(activeTasks);
 
         if (
           result?.total !==
-            undefined &&
+          undefined &&
           Number.isFinite(
             Number(result.total)
           )
@@ -1644,7 +1647,7 @@ setTasks(activeTasks);
               Math.max(
                 0,
                 filteredTasks.length -
-                  1
+                1
               );
 
             const newTotalPages =
@@ -1652,7 +1655,7 @@ setTasks(activeTasks);
                 1,
                 Math.ceil(
                   newLength /
-                    PAGE_SIZE
+                  PAGE_SIZE
                 )
               );
 
@@ -1672,7 +1675,7 @@ setTasks(activeTasks);
 
         toast.error(
           error?.message ||
-            "Failed to update task."
+          "Failed to update task."
         );
 
         return null;
@@ -1712,7 +1715,7 @@ setTasks(activeTasks);
         localStorage.removeItem(
           "crm_status_timer"
         );
-      } catch {}
+      } catch { }
 
       router.replace(
         "/login"
@@ -1726,7 +1729,7 @@ setTasks(activeTasks);
   const getRowNumber =
     (index) =>
       (safePage - 1) *
-        PAGE_SIZE +
+      PAGE_SIZE +
       index +
       1;
 
@@ -1852,11 +1855,10 @@ setTasks(activeTasks);
                 className="inline-flex items-center justify-center gap-2 h-10 px-4 rounded-lg bg-[#741C29] text-white text-sm font-medium hover:bg-[#5f1722] transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <RefreshCw
-                  className={`w-4 h-4 ${
-                    refreshing
-                      ? "animate-spin"
-                      : ""
-                  }`}
+                  className={`w-4 h-4 ${refreshing
+                    ? "animate-spin"
+                    : ""
+                    }`}
                 />
 
                 {refreshing
@@ -2038,16 +2040,16 @@ setTasks(activeTasks);
 
                 {(fromDate ||
                   toDate) && (
-                  <button
-                    type="button"
-                    onClick={
-                      clearDateFilters
-                    }
-                    className="h-10 px-3 rounded-lg border border-gray-300 bg-white text-xs font-medium text-gray-600 hover:bg-gray-50"
-                  >
-                    Clear Dates
-                  </button>
-                )}
+                    <button
+                      type="button"
+                      onClick={
+                        clearDateFilters
+                      }
+                      className="h-10 px-3 rounded-lg border border-gray-300 bg-white text-xs font-medium text-gray-600 hover:bg-gray-50"
+                    >
+                      Clear Dates
+                    </button>
+                  )}
               </div>
 
               {/* STATUS FILTER */}
@@ -2076,12 +2078,11 @@ setTasks(activeTasks);
                           item.value
                         )
                       }
-                      className={`px-3 py-2 rounded-md text-xs font-medium transition ${
-                        filter ===
+                      className={`px-3 py-2 rounded-md text-xs font-medium transition ${filter ===
                         item.value
-                          ? "bg-white text-[#741C29] shadow-sm"
-                          : "text-gray-500 hover:text-gray-800"
-                      }`}
+                        ? "bg-white text-[#741C29] shadow-sm"
+                        : "text-gray-500 hover:text-gray-800"
+                        }`}
                     >
                       {item.label}
                     </button>
@@ -2113,15 +2114,15 @@ setTasks(activeTasks);
 
                 {(fromDate ||
                   toDate) && (
-                  <p className="text-[11px] text-blue-600 font-medium">
-                    Date:{" "}
-                    {fromDate ||
-                      "Any"}{" "}
-                    →{" "}
-                    {toDate ||
-                      "Any"}
-                  </p>
-                )}
+                    <p className="text-[11px] text-blue-600 font-medium">
+                      Date:{" "}
+                      {fromDate ||
+                        "Any"}{" "}
+                      →{" "}
+                      {toDate ||
+                        "Any"}
+                    </p>
+                  )}
 
                 {search && (
                   <p className="text-[11px] text-[#741C29] font-medium">
@@ -2229,7 +2230,7 @@ setTasks(activeTasks);
               ) : (
                 <tbody>
                   {paginatedTasks.length ===
-                  0 ? (
+                    0 ? (
                     <tr>
                       <td
                         colSpan={9}
@@ -2269,10 +2270,10 @@ setTasks(activeTasks);
                         const phone =
                           cleanPhone(
                             row?.phone_number ??
-                              row?.phone ??
-                              row?.number ??
-                              row?.phoneNumber ??
-                              ""
+                            row?.phone ??
+                            row?.number ??
+                            row?.phoneNumber ??
+                            ""
                           );
 
                         const taskId =
@@ -2399,7 +2400,7 @@ setTasks(activeTasks);
                                     const statusName =
                                       String(
                                         statusOption?.status_name ||
-                                          ""
+                                        ""
                                       ).trim();
 
                                     if (
@@ -2504,17 +2505,17 @@ setTasks(activeTasks);
               Showing{" "}
               <span className="font-semibold text-gray-800">
                 {filteredTasks.length ===
-                0
+                  0
                   ? 0
                   : (safePage - 1) *
-                      PAGE_SIZE +
-                    1}
+                  PAGE_SIZE +
+                  1}
               </span>{" "}
               to{" "}
               <span className="font-semibold text-gray-800">
                 {Math.min(
                   safePage *
-                    PAGE_SIZE,
+                  PAGE_SIZE,
                   filteredTasks.length
                 )}
               </span>{" "}

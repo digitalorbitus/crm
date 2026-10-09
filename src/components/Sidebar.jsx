@@ -137,6 +137,12 @@ const menuItems = [
     href: "/daily-task",
     roles: ["designer","smm","developer",],
   },
+    {
+    name: "Daily task",
+    icon: Users,
+    href: "/users-task-daily",
+    roles: ["designer","smm","developer",],
+  },
 
   {
     name: "Daily leads",
