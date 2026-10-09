@@ -1,1004 +1,450 @@
+// app/api/admin/break-history/route.js
 import { NextResponse } from "next/server";
-import jwt from "jsonwebtoken";
 import pool from "../../../lib/db";
+import {
+  CALIFORNIA_TIMEZONE,
+  ALL_BREAK_STATUSES,
+  LIMITED_KEYS,
+  getAuthenticatedUser,
+  isAdmin,
+  getBreakWindowInfo,
+  getWindowResets,
+  effectiveStartMs,
+  getUsageForUser,
+  californiaDBToDate,
+  mysqlUtcToDate,
+  dateToCaliforniaDB,
+  dateToMySQLUtc,
+  normalizeBreakStatus,
+  normalizeDuration,
+  resolveTimes,
+  NO_CACHE,
+} from "../../../lib/breakTime";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 // ======================================================
-// CONFIG
+// DISPLAY HELPERS
 // ======================================================
 
-const CALIFORNIA_TIMEZONE = "America/Los_Angeles";
+function fmt(date, options) {
+  if (!date) return null;
 
-const BREAK_STATUSES = [
-  "Namaz Break",
-  "Lunch Break",
-  "Short Break",
-  "Washroom Break",
-  "Other",
-];
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: CALIFORNIA_TIMEZONE,
+    ...options,
+  }).format(date);
+}
 
-// ======================================================
-// GET CALIFORNIA TIMEZONE OFFSET
-// ======================================================
-
-function getTimezoneOffsetMinutes(date, timeZone) {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    timeZoneName: "shortOffset",
+const longDateTime = (d) =>
+  fmt(d, {
+    weekday: "long",
+    month: "long",
+    day: "2-digit",
+    year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
-    hourCycle: "h23",
-  }).formatToParts(date);
+    hour12: true,
+    timeZoneName: "short",
+  });
 
-  const timezonePart = parts.find(
-    (part) => part.type === "timeZoneName"
-  );
+const shortDateTime = (d) =>
+  fmt(d, {
+    month: "2-digit",
+    day: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+    timeZoneName: "short",
+  });
 
-  const value = timezonePart?.value || "GMT";
+const longDate = (d) =>
+  fmt(d, { weekday: "long", month: "long", day: "2-digit", year: "numeric" });
 
-  if (value === "GMT") {
-    return 0;
-  }
+const timeOnly = (d) =>
+  fmt(d, {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+    timeZoneName: "short",
+  });
 
-  const match = value.match(
-    /^GMT([+-])(\d{1,2})(?::?(\d{2}))?$/
-  );
+const SELECT_COLUMNS = `
+  h.id,
+  h.user_id,
+  u.name,
+  u.email,
+  u.team,
+  u.role,
+  h.status AS break_type,
+  h.status,
+  DATE_FORMAT(h.started_at, '%Y-%m-%d %H:%i:%s.%f') AS started_at_raw,
+  DATE_FORMAT(h.ended_at,   '%Y-%m-%d %H:%i:%s.%f') AS ended_at_raw,
+  h.duration_seconds,
+  DATE_FORMAT(h.created_at, '%Y-%m-%d %H:%i:%s.%f') AS created_at_raw
+`;
 
-  if (!match) {
-    return 0;
-  }
-
-  const sign = match[1] === "+" ? 1 : -1;
-
-  const hours = Number(match[2]);
-
-  const minutes = Number(
-    match[3] || 0
-  );
-
-  return sign * (hours * 60 + minutes);
-}
-
-// ======================================================
-// PARSE MYSQL DATETIME
-// ======================================================
-
-function parseMySQLDateTime(value) {
-  if (!value) {
-    return null;
-  }
-
-  const raw = String(value).trim();
-
-  const match = raw.match(
-    /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?$/
-  );
-
-  if (!match) {
-    return null;
-  }
-
-  return {
-    year: Number(match[1]),
-    month: Number(match[2]),
-    day: Number(match[3]),
-    hour: Number(match[4]),
-    minute: Number(match[5]),
-    second: Number(match[6]),
-    millisecond: match[7]
-      ? Number(
-          match[7]
-            .padEnd(3, "0")
-            .slice(0, 3)
-        )
-      : 0,
-  };
-}
+const BREAK_IN = `h.status IN ('Namaz Break','Lunch Break','Short Break','Washroom Break','Other')`;
 
 // ======================================================
-// CALIFORNIA WALL CLOCK -> REAL DATE
-// ======================================================
-
-function californiaWallClockToDate(parts) {
-  if (!parts) {
-    return null;
-  }
-
-  const wallClockAsUTC = Date.UTC(
-    parts.year,
-    parts.month - 1,
-    parts.day,
-    parts.hour,
-    parts.minute,
-    parts.second,
-    parts.millisecond
-  );
-
-  let guess = new Date(
-    wallClockAsUTC
-  );
-
-  for (let i = 0; i < 5; i++) {
-    const offsetMinutes =
-      getTimezoneOffsetMinutes(
-        guess,
-        CALIFORNIA_TIMEZONE
-      );
-
-    const corrected = new Date(
-      wallClockAsUTC -
-        offsetMinutes * 60 * 1000
-    );
-
-    if (
-      corrected.getTime() ===
-      guess.getTime()
-    ) {
-      break;
-    }
-
-    guess = corrected;
-  }
-
-  if (Number.isNaN(guess.getTime())) {
-    return null;
-  }
-
-  return guess;
-}
-
-// ======================================================
-// MYSQL VALUE -> UTC ISO
-// ======================================================
-
-function mysqlToUtcDate(value) {
-  if (!value) {
-    return null;
-  }
-
-  if (value instanceof Date) {
-    if (Number.isNaN(value.getTime())) {
-      return null;
-    }
-
-    return value;
-  }
-
-  const raw = String(value).trim();
-
-  if (!raw) {
-    return null;
-  }
-
-  // ----------------------------------------------------
-  // ISO WITH EXPLICIT TIMEZONE
-  // ----------------------------------------------------
-
-  if (
-    raw.includes("T") &&
-    (
-      raw.endsWith("Z") ||
-      /[+-]\d{2}:\d{2}$/.test(raw)
-    )
-  ) {
-    const date = new Date(raw);
-
-    if (Number.isNaN(date.getTime())) {
-      return null;
-    }
-
-    return date;
-  }
-
-  // ----------------------------------------------------
-  // MYSQL DATETIME
-  // ----------------------------------------------------
-
-  const parts =
-    parseMySQLDateTime(raw);
-
-  if (parts) {
-    return californiaWallClockToDate(
-      parts
-    );
-  }
-
-  // ----------------------------------------------------
-  // FALLBACK
-  // ----------------------------------------------------
-
-  const fallback = new Date(raw);
-
-  if (Number.isNaN(fallback.getTime())) {
-    return null;
-  }
-
-  return fallback;
-}
-
-// ======================================================
-// FORMAT CALIFORNIA FULL DATETIME
-// ======================================================
-
-function formatCaliforniaDateTime(date) {
-  if (!date) {
-    return null;
-  }
-
-  return new Intl.DateTimeFormat(
-    "en-US",
-    {
-      timeZone: CALIFORNIA_TIMEZONE,
-      weekday: "long",
-      month: "long",
-      day: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: true,
-      timeZoneName: "short",
-    }
-  ).format(date);
-}
-
-// ======================================================
-// FORMAT CALIFORNIA SHORT
-// ======================================================
-
-function formatCaliforniaShort(date) {
-  if (!date) {
-    return null;
-  }
-
-  return new Intl.DateTimeFormat(
-    "en-US",
-    {
-      timeZone: CALIFORNIA_TIMEZONE,
-      month: "2-digit",
-      day: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: true,
-      timeZoneName: "short",
-    }
-  ).format(date);
-}
-
-// ======================================================
-// FORMAT CALIFORNIA DATE ONLY
-// ======================================================
-
-function formatCaliforniaDate(date) {
-  if (!date) {
-    return null;
-  }
-
-  return new Intl.DateTimeFormat(
-    "en-US",
-    {
-      timeZone: CALIFORNIA_TIMEZONE,
-      weekday: "long",
-      month: "long",
-      day: "2-digit",
-      year: "numeric",
-    }
-  ).format(date);
-}
-
-// ======================================================
-// FORMAT CALIFORNIA TIME ONLY
-// ======================================================
-
-function formatCaliforniaTimeOnly(date) {
-  if (!date) {
-    return null;
-  }
-
-  return new Intl.DateTimeFormat(
-    "en-US",
-    {
-      timeZone: CALIFORNIA_TIMEZONE,
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: true,
-      timeZoneName: "short",
-    }
-  ).format(date);
-}
-
-// ======================================================
-// CURRENT CALIFORNIA DATE
-// ======================================================
-
-function getCaliforniaDate() {
-  return new Intl.DateTimeFormat(
-    "en-CA",
-    {
-      timeZone: CALIFORNIA_TIMEZONE,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }
-  ).format(new Date());
-}
-
-// ======================================================
-// CURRENT CALIFORNIA TIME
-// ======================================================
-
-function getCaliforniaTime() {
-  return new Intl.DateTimeFormat(
-    "en-US",
-    {
-      timeZone: CALIFORNIA_TIMEZONE,
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: true,
-    }
-  ).format(new Date());
-}
-
-// ======================================================
-// GET BREAK HISTORY
+// GET
 // ======================================================
 
 export async function GET(request) {
   try {
-    // ==================================================
-    // TOKEN
-    // ==================================================
+    const auth = await getAuthenticatedUser(request);
 
-    const token =
-      request.cookies.get("token")?.value;
+    if (auth.error) return auth.error;
 
-    if (!token) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Login required",
-        },
-        {
-          status: 401,
-        }
-      );
-    }
-
-    // ==================================================
-    // VERIFY TOKEN
-    // ==================================================
-
-    let decoded;
-
-    try {
-      decoded = jwt.verify(
-        token,
-        process.env.JWT_SECRET
-      );
-    } catch (error) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Invalid or expired token",
-        },
-        {
-          status: 401,
-        }
-      );
-    }
-
-    // ==================================================
-    // USER ID
-    // ==================================================
-
-    const currentUserId =
-      decoded?.id ||
-      decoded?._id ||
-      decoded?.userId ||
-      null;
-
-    if (!currentUserId) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "User ID not found",
-        },
-        {
-          status: 401,
-        }
-      );
-    }
-
-    // ==================================================
-    // GET CURRENT USER
-    // ==================================================
-
-    const [currentUserRows] =
-      await pool.query(
-        `
-          SELECT
-            id,
-            name,
-            email,
-            role,
-            team
-          FROM users
-          WHERE id = ?
-          LIMIT 1
-        `,
-        [currentUserId]
-      );
-
-    if (
-      !currentUserRows ||
-      currentUserRows.length === 0
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "User not found",
-        },
-        {
-          status: 404,
-        }
-      );
-    }
-
-    const currentUser =
-      currentUserRows[0];
-
-    const currentRole = String(
-      currentUser.role || ""
-    ).toLowerCase();
-
-    // ==================================================
-    // QUERY
-    // ==================================================
+    const currentUser = auth.user;
 
     let rows;
 
-    if (currentRole === "admin") {
-      // ================================================
-      // ADMIN
-      // ================================================
-
+    if (isAdmin(currentUser)) {
       [rows] = await pool.query(
         `
-          SELECT
-            h.id,
-            h.user_id,
-            u.name,
-            u.email,
-            u.team,
-            u.role,
-            h.status AS break_type,
-            h.status,
-            h.started_at,
-            h.ended_at,
-            h.duration_seconds,
-            h.created_at
+          SELECT ${SELECT_COLUMNS}
           FROM user_status_history h
-          LEFT JOIN users u
-            ON u.id = h.user_id
-          WHERE h.status IN (
-            'Namaz Break',
-            'Lunch Break',
-            'Short Break',
-            'Washroom Break',
-            'Other'
-          )
-          ORDER BY h.started_at DESC
+          LEFT JOIN users u ON u.id = h.user_id
+          WHERE ${BREAK_IN}
+          ORDER BY h.started_at DESC, h.id DESC
         `
       );
     } else {
-      // ================================================
-      // NORMAL USER
-      // ================================================
-
       [rows] = await pool.query(
         `
-          SELECT
-            h.id,
-            h.user_id,
-            u.name,
-            u.email,
-            u.team,
-            u.role,
-            h.status AS break_type,
-            h.status,
-            h.started_at,
-            h.ended_at,
-            h.duration_seconds,
-            h.created_at
+          SELECT ${SELECT_COLUMNS}
           FROM user_status_history h
-          LEFT JOIN users u
-            ON u.id = h.user_id
+          LEFT JOIN users u ON u.id = h.user_id
           WHERE h.user_id = ?
-            AND h.status IN (
-              'Namaz Break',
-              'Lunch Break',
-              'Short Break',
-              'Washroom Break',
-              'Other'
-            )
-          ORDER BY h.started_at DESC
+            AND ${BREAK_IN}
+          ORDER BY h.started_at DESC, h.id DESC
         `,
-        [currentUserId]
+        [currentUser.id]
       );
     }
 
     // ==================================================
-    // FORMAT BREAKS
-    // ==================================================
-
-    const breaks = rows.map(
-      (row) => {
-        // ==============================================
-        // DURATION
-        // ==============================================
-
-        let durationSeconds = null;
-
-        if (
-          row.duration_seconds !==
-            null &&
-          row.duration_seconds !==
-            undefined
-        ) {
-          const number =
-            Number(
-              row.duration_seconds
-            );
-
-          if (
-            Number.isFinite(number) &&
-            number >= 0
-          ) {
-            durationSeconds =
-              Math.floor(number);
-          }
-        }
-
-        // ==============================================
-        // IMPORTANT FIX
-        // ==============================================
-        //
-        // Your response proved:
-        //
-        // started_at:
-        // 08:21 UTC
-        //
-        // created_at:
-        // 20:21 UTC
-        //
-        // Both are same break.
-        //
-        // created_at is the correct break-start
-        // timestamp.
-        //
-        // Therefore we use created_at as the
-        // authoritative start time.
-        // ==============================================
-
-        let startedDate =
-          mysqlToUtcDate(
-            row.created_at
-          );
-
-        // ==============================================
-        // FALLBACK
-        // ==============================================
-
-        if (!startedDate) {
-          startedDate =
-            mysqlToUtcDate(
-              row.started_at
-            );
-        }
-
-        // ==============================================
-        // END TIME
-        // ==============================================
-        //
-        // Existing ended_at is also 12 hours wrong.
-        //
-        // Example:
-        //
-        // Start = 20:21:34 UTC
-        // Duration = 11 seconds
-        //
-        // Correct End =
-        // 20:21:45 UTC
-        //
-        // So calculate end from start + duration.
-        // ==============================================
-
-        let endedDate = null;
-
-        if (
-          startedDate &&
-          durationSeconds !== null
-        ) {
-          endedDate = new Date(
-            startedDate.getTime() +
-              durationSeconds * 1000
-          );
-        } else {
-          endedDate =
-            mysqlToUtcDate(
-              row.ended_at
-            );
-        }
-
-        // ==============================================
-        // CREATED
-        // ==============================================
-
-        const createdDate =
-          mysqlToUtcDate(
-            row.created_at
-          );
-
-        // ==============================================
-        // ACTIVE
-        // ==============================================
-
-        const isActive =
-          !row.ended_at;
-
-        // ==============================================
-        // ISO
-        // ==============================================
-
-        const startedIso =
-          startedDate
-            ? startedDate.toISOString()
-            : null;
-
-        const endedIso =
-          endedDate
-            ? endedDate.toISOString()
-            : null;
-
-        const createdIso =
-          createdDate
-            ? createdDate.toISOString()
-            : null;
-
-        // ==============================================
-        // RETURN
-        // ==============================================
-
-        return {
-          // --------------------------------------------
-          // BASIC
-          // --------------------------------------------
-
-          id: row.id,
-
-          user_id:
-            row.user_id,
-
-          name:
-            row.name ||
-            "Unknown User",
-
-          email:
-            row.email ||
-            "",
-
-          team:
-            row.team ||
-            "",
-
-          role:
-            row.role ||
-            "user",
-
-          // --------------------------------------------
-          // BREAK
-          // --------------------------------------------
-
-          break_type:
-            row.break_type ||
-            "Other",
-
-          status:
-            row.status ||
-            row.break_type ||
-            "Other",
-
-          // --------------------------------------------
-          // CORRECTED ISO
-          // --------------------------------------------
-
-          started_at:
-            startedIso,
-
-          ended_at:
-            endedIso,
-
-          created_at:
-            createdIso,
-
-          // --------------------------------------------
-          // CALIFORNIA FULL
-          // --------------------------------------------
-
-          started_at_california:
-            formatCaliforniaDateTime(
-              startedDate
-            ),
-
-          ended_at_california:
-            formatCaliforniaDateTime(
-              endedDate
-            ),
-
-          created_at_california:
-            formatCaliforniaDateTime(
-              createdDate
-            ),
-
-          // --------------------------------------------
-          // DATE
-          // --------------------------------------------
-
-          started_date_california:
-            formatCaliforniaDate(
-              startedDate
-            ),
-
-          ended_date_california:
-            formatCaliforniaDate(
-              endedDate
-            ),
-
-          created_date_california:
-            formatCaliforniaDate(
-              createdDate
-            ),
-
-          // --------------------------------------------
-          // TIME
-          // --------------------------------------------
-
-          started_time_california:
-            formatCaliforniaTimeOnly(
-              startedDate
-            ),
-
-          ended_time_california:
-            formatCaliforniaTimeOnly(
-              endedDate
-            ),
-
-          created_time_california:
-            formatCaliforniaTimeOnly(
-              createdDate
-            ),
-
-          // --------------------------------------------
-          // SHORT
-          // --------------------------------------------
-
-          started_short_california:
-            formatCaliforniaShort(
-              startedDate
-            ),
-
-          ended_short_california:
-            formatCaliforniaShort(
-              endedDate
-            ),
-
-          created_short_california:
-            formatCaliforniaShort(
-              createdDate
-            ),
-
-          // --------------------------------------------
-          // DURATION
-          // --------------------------------------------
-
-          duration_seconds:
-            durationSeconds,
-
-          // --------------------------------------------
-          // ACTIVE
-          // --------------------------------------------
-
-          is_active:
-            isActive,
-        };
-      }
-    );
-
-    // ==================================================
-    // STATS
-    // ==================================================
-
-    const stats = {
-      total: breaks.length,
-
-      namaz:
-        breaks.filter(
-          (item) =>
-            item.break_type ===
-            "Namaz Break"
-        ).length,
-
-      lunch:
-        breaks.filter(
-          (item) =>
-            item.break_type ===
-            "Lunch Break"
-        ).length,
-
-      shortBreak:
-        breaks.filter(
-          (item) =>
-            item.break_type ===
-            "Short Break"
-        ).length,
-
-      washroom:
-        breaks.filter(
-          (item) =>
-            item.break_type ===
-            "Washroom Break"
-        ).length,
-
-      other:
-        breaks.filter(
-          (item) =>
-            item.break_type ===
-            "Other"
-        ).length,
-
-      active:
-        breaks.filter(
-          (item) =>
-            item.is_active
-        ).length,
-    };
-
-    // ==================================================
-    // CURRENT CALIFORNIA TIME
+    // USAGE PER USER (current window + admin resets)
+    // Same rule as /api/users/status
     // ==================================================
 
     const now = new Date();
+    const window = getBreakWindowInfo(now);
+    const resets = await getWindowResets(pool, window);
 
-    const timezoneLabel =
-      new Intl.DateTimeFormat(
-        "en-US",
-        {
-          timeZone:
-            CALIFORNIA_TIMEZONE,
+    const usageByUser = {};
 
-          timeZoneName: "long",
-        }
-      )
-        .formatToParts(now)
-        .find(
-          (part) =>
-            part.type ===
-            "timeZoneName"
-        )?.value ||
-      "Pacific Time";
+    for (const row of rows || []) {
+      const key = LIMITED_KEYS[row.status];
 
-    const californiaNow = {
-      date:
-        getCaliforniaDate(),
+      if (!key) continue;
 
-      time:
-        getCaliforniaTime(),
+      // counted with started_at (California), exactly like the status API
+      const startedCa = californiaDBToDate(row.started_at_raw);
 
-      display:
-        formatCaliforniaDateTime(
-          now
-        ),
+      if (!startedCa) continue;
 
-      timestamp:
-        now.toISOString(),
+      const ms = startedCa.getTime();
 
-      timezone:
-        CALIFORNIA_TIMEZONE,
+      if (ms >= window.endMs) continue;
+      if (ms < effectiveStartMs(resets, row.user_id, window)) continue;
 
-      timezone_label:
-        timezoneLabel,
+      const bucket =
+        usageByUser[row.user_id] ||
+        (usageByUser[row.user_id] = { namaz: 0, lunch: 0, short: 0, total: 0 });
+
+      bucket[key] += 1;
+      bucket.total += 1;
+    }
+
+    // ==================================================
+    // FORMAT
+    // ==================================================
+
+    const breaks = (rows || []).map((row) => {
+      const durationSeconds = normalizeDuration(row.duration_seconds);
+
+      // created_at holds the UTC start time
+      let startedDate = mysqlUtcToDate(row.created_at_raw);
+
+      if (!startedDate) startedDate = mysqlUtcToDate(row.started_at_raw);
+
+      let endedDate = null;
+
+      if (startedDate && durationSeconds !== null) {
+        endedDate = new Date(startedDate.getTime() + durationSeconds * 1000);
+      } else {
+        // ended_at is stored as California time
+        endedDate = californiaDBToDate(row.ended_at_raw);
+      }
+
+      const createdDate = mysqlUtcToDate(row.created_at_raw);
+
+      const isActive = !row.ended_at_raw && !!startedDate;
+
+      return {
+        id: row.id,
+        user_id: row.user_id,
+        name: row.name || "Unknown User",
+        email: row.email || "",
+        team: row.team || "",
+        role: row.role || "user",
+        break_type: row.break_type || "Other",
+        status: row.status || row.break_type || "Other",
+
+        started_at: startedDate ? startedDate.toISOString() : null,
+        ended_at: endedDate ? endedDate.toISOString() : null,
+        created_at: createdDate ? createdDate.toISOString() : null,
+
+        // California wall-clock text for the Edit modal
+        // (YYYY-MM-DD HH:mm:ss)
+        started_at_ca: dateToCaliforniaDB(startedDate),
+        ended_at_ca: isActive ? null : dateToCaliforniaDB(endedDate),
+
+        started_at_california: longDateTime(startedDate),
+        ended_at_california: longDateTime(endedDate),
+        created_at_california: longDateTime(createdDate),
+
+        started_date_california: longDate(startedDate),
+        ended_date_california: longDate(endedDate),
+        created_date_california: longDate(createdDate),
+
+        started_time_california: timeOnly(startedDate),
+        ended_time_california: timeOnly(endedDate),
+        created_time_california: timeOnly(createdDate),
+
+        started_short_california: shortDateTime(startedDate),
+        ended_short_california: shortDateTime(endedDate),
+        created_short_california: shortDateTime(createdDate),
+
+        duration_seconds: durationSeconds,
+        is_active: isActive,
+      };
+    });
+
+    const count = (type) =>
+      breaks.filter((item) => item.break_type === type).length;
+
+    const stats = {
+      total: breaks.length,
+      namaz: count("Namaz Break"),
+      lunch: count("Lunch Break"),
+      shortBreak: count("Short Break"),
+      washroom: count("Washroom Break"),
+      other: count("Other"),
+      active: breaks.filter((item) => item.is_active === true).length,
     };
 
-    // ==================================================
-    // RESPONSE
-    // ==================================================
+    let myUsage = null;
+
+    try {
+      myUsage = await getUsageForUser(currentUser.id, pool, now);
+    } catch (error) {
+      console.error("BREAK USAGE ERROR:", error);
+    }
 
     return NextResponse.json(
       {
         success: true,
-
-        timezone:
-          CALIFORNIA_TIMEZONE,
-
-        timezone_name:
-          "America/Los_Angeles",
-
-        time_format:
-          "12-hour AM/PM",
-
-        date_format:
-          "Month DD, YYYY",
-
-        california_time:
-          californiaNow,
-
+        timezone: CALIFORNIA_TIMEZONE,
         breaks,
-
         stats,
 
+        // used by the Reset Limit modal
+        usage_by_user: usageByUser,
+        break_window: {
+          start: window.startDB,
+          end: window.endDB,
+          resets_at: "08:00 AM California",
+        },
+
+        my_usage: myUsage,
+
         current_user: {
-          id:
-            currentUser.id,
-
-          name:
-            currentUser.name,
-
-          email:
-            currentUser.email,
-
-          role:
-            currentUser.role,
-
-          team:
-            currentUser.team,
+          id: currentUser.id,
+          name: currentUser.name,
+          email: currentUser.email,
+          role: currentUser.role,
+          team: currentUser.team,
         },
       },
-      {
-        status: 200,
-
-        headers: {
-          "Cache-Control":
-            "no-store, no-cache, must-revalidate, proxy-revalidate",
-
-          Pragma:
-            "no-cache",
-
-          Expires:
-            "0",
-
-          "Surrogate-Control":
-            "no-store",
-        },
-      }
+      { status: 200, headers: NO_CACHE }
     );
   } catch (error) {
-    console.error(
-      "BREAK HISTORY API ERROR:",
-      error
-    );
+    console.error("BREAK HISTORY GET ERROR:", error);
 
     return NextResponse.json(
       {
         success: false,
-
-        message:
-          "Failed to fetch break history",
-
-        error:
-          error?.message ||
-          "Unknown error",
+        message: "Failed to fetch break history",
+        error: error?.message || "Unknown error",
       },
+      { status: 500 }
+    );
+  }
+}
+
+// ======================================================
+// POST  (admin adds a break)
+//
+// started_at / ended_at are saved as CALIFORNIA time, the same way
+// /api/users/status saves them, so limits and resets work correctly.
+// created_at keeps the UTC start time for the GET display.
+// ======================================================
+
+export async function POST(request) {
+  try {
+    const auth = await getAuthenticatedUser(request);
+
+    if (auth.error) return auth.error;
+
+    if (!isAdmin(auth.user)) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Only administrators can add break records.",
+        },
+        { status: 403 }
+      );
+    }
+
+    let body;
+
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        { success: false, message: "Invalid JSON request body." },
+        { status: 400 }
+      );
+    }
+
+    // USER
+    const targetUserId = Number(
+      body?.user_id ?? body?.userId ?? body?.employee_id ?? 0
+    );
+
+    if (!Number.isInteger(targetUserId) || targetUserId <= 0) {
+      return NextResponse.json(
+        { success: false, message: "user_id is required." },
+        { status: 400 }
+      );
+    }
+
+    const [targetUsers] = await pool.query(
+      `SELECT id, name, email, role, team FROM users WHERE id = ? LIMIT 1`,
+      [targetUserId]
+    );
+
+    if (!targetUsers || targetUsers.length === 0) {
+      return NextResponse.json(
+        { success: false, message: "Selected user was not found." },
+        { status: 404 }
+      );
+    }
+
+    const targetUser = targetUsers[0];
+
+    // STATUS
+    const status = normalizeBreakStatus(
+      body?.status ?? body?.break_type ?? body?.breakType
+    );
+
+    if (!status || !ALL_BREAK_STATUSES.includes(status)) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Invalid break type.",
+          allowed: ALL_BREAK_STATUSES,
+        },
+        { status: 400 }
+      );
+    }
+
+    // TIMES
+    const times = resolveTimes(body);
+
+    if (times.error) {
+      return NextResponse.json(
+        { success: false, message: times.error },
+        { status: 400 }
+      );
+    }
+
+    const { startedDate, endedDate, durationSeconds } = times;
+
+    // INSERT
+    const [result] = await pool.query(
+      `
+        INSERT INTO user_status_history
+        (
+          user_id,
+          status,
+          started_at,
+          ended_at,
+          duration_seconds,
+          created_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?)
+      `,
+      [
+        targetUserId,
+        status,
+        dateToCaliforniaDB(startedDate), // California
+        endedDate ? dateToCaliforniaDB(endedDate) : null, // California
+        durationSeconds,
+        dateToMySQLUtc(startedDate), // UTC
+      ]
+    );
+
+    let usage = null;
+
+    try {
+      usage = await getUsageForUser(targetUserId, pool);
+    } catch (error) {
+      console.error("POST USAGE ERROR:", error);
+    }
+
+    return NextResponse.json(
       {
-        status: 500,
-      }
+        success: true,
+        message: "Break added successfully.",
+        id: result.insertId,
+        break: {
+          id: result.insertId,
+          user_id: targetUserId,
+          name: targetUser.name,
+          email: targetUser.email,
+          team: targetUser.team,
+          role: targetUser.role,
+          break_type: status,
+          status,
+          started_at: startedDate.toISOString(),
+          ended_at: endedDate ? endedDate.toISOString() : null,
+          duration_seconds: durationSeconds,
+          is_active: !endedDate,
+        },
+        break_usage: usage?.usage || null,
+        usage,
+      },
+      { status: 201, headers: NO_CACHE }
+    );
+  } catch (error) {
+    console.error("BREAK HISTORY POST ERROR:", error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Failed to add break.",
+        error: error?.message || "Unknown error",
+      },
+      { status: 500 }
     );
   }
 }

@@ -167,6 +167,13 @@ const menuItems = [
     roles: ["admin"],
   },
 
+    {
+    name: "Daily Tasks other users",
+    icon: Link2,
+    href: "/other-users-task-daily",
+    roles: ["admin"],
+  },
+
   {
     name: "Break",
     icon: Users,
